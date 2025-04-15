@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -20,12 +19,13 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const [viewState, setViewState] = useState({
     longitude: -73.9712,
     latitude: 40.7831,
-    zoom: 12
+    zoom: 14
   });
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
-  const [loading, setLoading] = useState(true);
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
 
   const fetchEvents = async (latitude: number, longitude: number) => {
     try {
@@ -84,21 +84,23 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             container: mapContainer.current,
             style: 'mapbox://styles/mapbox/dark-v11',
             center: [viewState.longitude, viewState.latitude],
-            zoom: viewState.zoom
+            zoom: viewState.zoom,
+            pitch: 45,
+            bearing: -17.6,
           });
-
+          
+          map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+          
           try {
             const [longitude, latitude] = await getUserLocation();
             
             if (userMarker) userMarker.remove();
             
-            // Create a new marker for user location with green color
             const marker = new mapboxgl.Marker({ color: '#10b981' })
               .setLngLat([longitude, latitude])
               .addTo(map.current);
             setUserMarker(marker);
 
-            // Use easeTo instead of flyTo for compatibility
             map.current.easeTo({
               center: [longitude, latitude],
               zoom: 14,
@@ -117,30 +119,9 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             });
             fetchEvents(viewState.latitude, viewState.longitude);
           }
-          
-          map.current.on('load', () => {
-            fetchEvents(viewState.latitude, viewState.longitude);
-          });
-          
-          map.current.on('moveend', () => {
-            const center = map.current?.getCenter();
-            if (center) {
-              fetchEvents(center.lat, center.lng);
-              setViewState({
-                longitude: center.lng,
-                latitude: center.lat,
-                zoom: map.current?.getZoom() || viewState.zoom
-              });
-            }
-          });
         }
       } catch (error) {
         console.error('Error initializing map:', error);
-        toast({
-          title: "Map Error",
-          description: "Failed to initialize map. Please try again later.",
-          variant: "destructive",
-        });
       }
     };
 
@@ -152,11 +133,16 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     };
   }, []);
 
-  const handleEventSelect = (event: Event) => {
-    setSelectedEvent(event);
-    if (onEventSelect) {
-      onEventSelect(event);
-    }
+  const handleViewChange = (view: 'list' | 'grid') => {
+    setCurrentView(view);
+  };
+
+  const handleToggleFilters = () => {
+    // Implement filter toggle
+  };
+
+  const handleLocationSearch = (location: string) => {
+    // Implement location search
   };
 
   return (
@@ -166,23 +152,31 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50"
       />
       
-      {map.current && (
-        <>
-          <MapControls map={map.current} />
-          <MapMarkers 
-            map={map.current}
-            events={events}
-            onMarkerClick={handleEventSelect}
-          />
-          {selectedEvent && (
-            <MapPopup
-              map={map.current}
-              event={selectedEvent}
-              onClose={() => setSelectedEvent(null)}
-              onViewDetails={() => onEventSelect?.(selectedEvent)}
-            />
-          )}
-        </>
+      <MapControls 
+        currentView={currentView}
+        onViewChange={handleViewChange}
+        onToggleFilters={handleToggleFilters}
+        onLocationSearch={handleLocationSearch}
+      />
+
+      {events.length > 0 && map.current && (
+        <MapMarkers 
+          map={map.current}
+          events={events}
+          onMarkerClick={(event) => {
+            setSelectedEvent(event);
+            if (onEventSelect) onEventSelect(event);
+          }}
+        />
+      )}
+
+      {selectedEvent && map.current && (
+        <MapPopup
+          map={map.current}
+          event={selectedEvent}
+          onClose={() => setSelectedEvent(null)}
+          onViewDetails={() => onEventSelect?.(selectedEvent)}
+        />
       )}
       
       <CoordinatesDisplay
