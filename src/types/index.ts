@@ -2,6 +2,7 @@
 // Event types
 export interface Event {
   id: string;
+  source?: string;
   title: string;
   description?: string;
   date: string;
