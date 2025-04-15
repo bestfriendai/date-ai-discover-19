@@ -4,21 +4,24 @@ import { motion } from 'framer-motion';
 const pageVariants = {
   initial: { 
     opacity: 0,
-    y: 20
+    y: 20,
+    scale: 0.98
   },
   in: { 
     opacity: 1,
-    y: 0
+    y: 0,
+    scale: 1
   },
   out: { 
     opacity: 0,
-    y: -20
+    y: -20,
+    scale: 0.98
   }
 };
 
 const pageTransition = {
   type: "spring",
-  stiffness: 300,
+  stiffness: 350,
   damping: 30
 };
 
