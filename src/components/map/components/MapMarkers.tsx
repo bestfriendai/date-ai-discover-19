@@ -1,4 +1,5 @@
 
+import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
 import { EventMarker } from '../markers/EventMarker';
@@ -12,30 +13,68 @@ interface MapMarkersProps {
 }
 
 export const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMarkersProps) => {
-  events.forEach(event => {
-    if (!event.coordinates) return;
-    
-    const markerEl = document.createElement('div');
-    
-    // Create a React root and render the EventMarker component
-    const root = createRoot(markerEl);
-    root.render(
-      <EventMarker 
-        event={event} 
-        selected={selectedEvent?.id === event.id}
-      />
-    );
-    
-    // Create and add the marker to the map
-    const marker = new mapboxgl.Marker(markerEl)
-      .setLngLat([event.coordinates[0], event.coordinates[1]])
-      .addTo(map);
-    
-    // Add click handler
-    markerEl.addEventListener('click', () => {
-      onMarkerClick(event);
+  const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: any}}>({});
+  
+  useEffect(() => {
+    // Create markers for events that don't have one yet
+    events.forEach(event => {
+      if (!event.coordinates) return;
+      
+      // If marker already exists for this event, skip creation
+      if (markersRef.current[event.id]) {
+        // Just update the selected state
+        const markerRoot = markersRef.current[event.id].root;
+        markerRoot.render(
+          <EventMarker 
+            event={event} 
+            selected={selectedEvent?.id === event.id}
+          />
+        );
+        return;
+      }
+      
+      // Create marker element and React root
+      const markerEl = document.createElement('div');
+      const root = createRoot(markerEl);
+      
+      // Render EventMarker component
+      root.render(
+        <EventMarker 
+          event={event} 
+          selected={selectedEvent?.id === event.id}
+        />
+      );
+      
+      // Create and add Mapbox marker
+      const marker = new mapboxgl.Marker({ element: markerEl })
+        .setLngLat([event.coordinates[0], event.coordinates[1]])
+        .addTo(map);
+      
+      // Add click handler
+      markerEl.addEventListener('click', () => {
+        onMarkerClick(event);
+      });
+      
+      // Store marker reference for future updates
+      markersRef.current[event.id] = { marker, root };
     });
-  });
+    
+    // Clean up function - remove markers that are no longer in the events array
+    return () => {
+      // Get current event IDs
+      const currentEventIds = new Set(events.map(e => e.id));
+      
+      // Find and remove markers for events that are no longer present
+      Object.keys(markersRef.current).forEach(eventId => {
+        if (!currentEventIds.has(eventId)) {
+          // Remove marker from map
+          markersRef.current[eventId].marker.remove();
+          // Delete from our reference object
+          delete markersRef.current[eventId];
+        }
+      });
+    };
+  }, [map, events, selectedEvent, onMarkerClick]);
 
   return null;
 };

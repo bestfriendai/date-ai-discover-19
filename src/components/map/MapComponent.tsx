@@ -1,4 +1,5 @@
-import { useRef, useEffect, useState } from 'react';
+
+import { useRef, useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
@@ -8,6 +9,7 @@ import { MapMarkers } from './components/MapMarkers';
 import { MapPopup } from './components/MapPopup';
 import { CoordinatesDisplay } from './components/CoordinatesDisplay';
 import { toast } from '@/hooks/use-toast';
+import { Loader2 } from 'lucide-react';
 
 interface MapComponentProps {
   onEventSelect?: (event: Event) => void;
@@ -25,10 +27,12 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
   const [loading, setLoading] = useState(true);
+  const [mapLoaded, setMapLoaded] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
 
-  const fetchEvents = async (latitude: number, longitude: number) => {
+  const fetchEvents = useCallback(async (latitude: number, longitude: number) => {
     try {
+      setLoading(true);
       const { data, error } = await supabase.functions.invoke('fetch-events', {
         body: JSON.stringify({
           lat: latitude,
@@ -40,6 +44,10 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       if (error) throw error;
       if (data?.events) {
         setEvents(data.events);
+        toast({
+          title: "Events loaded",
+          description: `Found ${data.events.length} events near your location`,
+        });
       }
     } catch (error) {
       console.error('Error fetching events:', error);
@@ -51,11 +59,16 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const getUserLocation = async (): Promise<[number, number]> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
+        toast({
+          title: "Geolocation not supported",
+          description: "Your browser doesn't support geolocation. Using default location.",
+          variant: "destructive"
+        });
         reject(new Error('Geolocation is not supported by your browser.'));
         return;
       }
@@ -65,8 +78,14 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           resolve([position.coords.longitude, position.coords.latitude]);
         },
         (error) => {
+          toast({
+            title: "Location access denied",
+            description: "Using default location. Please enable location services for better results.",
+            variant: "destructive"
+          });
           reject(error);
-        }
+        },
+        { timeout: 10000, enableHighAccuracy: true }
       );
     });
   };
@@ -74,6 +93,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   useEffect(() => {
     const initializeMap = async () => {
       try {
+        setLoading(true);
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (error) throw error;
         
@@ -91,37 +111,54 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           
           map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
           
-          try {
-            const [longitude, latitude] = await getUserLocation();
+          map.current.on('load', async () => {
+            setMapLoaded(true);
             
-            if (userMarker) userMarker.remove();
-            
-            const marker = new mapboxgl.Marker({ color: '#10b981' })
-              .setLngLat([longitude, latitude])
-              .addTo(map.current);
-            setUserMarker(marker);
+            try {
+              const [longitude, latitude] = await getUserLocation();
+              
+              if (userMarker) userMarker.remove();
+              
+              // Create a custom element for the user marker
+              const el = document.createElement('div');
+              el.className = 'flex items-center justify-center';
+              el.innerHTML = `
+                <div class="relative">
+                  <div class="w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
+                  <div class="w-12 h-12 bg-green-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+                </div>
+              `;
+              
+              const marker = new mapboxgl.Marker({ element: el })
+                .setLngLat([longitude, latitude])
+                .addTo(map.current!);
+              setUserMarker(marker);
 
-            map.current.easeTo({
-              center: [longitude, latitude],
-              zoom: 14,
-              duration: 2000,
-              essential: true
-            });
+              map.current!.easeTo({
+                center: [longitude, latitude],
+                zoom: 14,
+                duration: 2000,
+                pitch: 50,
+                bearing: Math.random() * 60 - 30, // random bearing for visual interest
+                essential: true
+              });
 
-            setViewState({ longitude, latitude, zoom: 14 });
-            fetchEvents(latitude, longitude);
-          } catch (locationError) {
-            console.error('Location error:', locationError);
-            toast({
-              title: "Location Access Denied",
-              description: "Using default location. Please enable location access for a better experience.",
-              variant: "destructive",
-            });
-            fetchEvents(viewState.latitude, viewState.longitude);
-          }
+              setViewState({ longitude, latitude, zoom: 14 });
+              fetchEvents(latitude, longitude);
+            } catch (locationError) {
+              console.error('Location error:', locationError);
+              fetchEvents(viewState.latitude, viewState.longitude);
+            }
+          });
         }
       } catch (error) {
         console.error('Error initializing map:', error);
+        toast({
+          title: "Map initialization failed",
+          description: "Could not load the map. Please refresh the page.",
+          variant: "destructive"
+        });
+        setLoading(false);
       }
     };
 
@@ -131,18 +168,45 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       userMarker?.remove();
       map.current?.remove();
     };
-  }, []);
+  }, [fetchEvents, viewState.latitude, viewState.longitude]);
 
   const handleViewChange = (view: 'list' | 'grid') => {
     setCurrentView(view);
   };
 
   const handleToggleFilters = () => {
-    // Implement filter toggle functionality
+    toast({
+      title: "Filters",
+      description: "Filter functionality will be implemented soon.",
+    });
   };
 
   const handleLocationSearch = (location: string) => {
-    // Implement location search functionality
+    if (!location.trim()) return;
+    
+    toast({
+      title: "Searching",
+      description: `Searching for events near ${location}...`,
+    });
+    
+    // This would typically use a geocoding API to convert the location string to coordinates
+    // For now, we'll just use a mock implementation
+    setTimeout(() => {
+      const randomLat = 40.7 + (Math.random() * 0.2);
+      const randomLng = -74 + (Math.random() * 0.2);
+      
+      if (map.current) {
+        map.current.easeTo({
+          center: [randomLng, randomLat],
+          zoom: 13,
+          duration: 1500,
+          essential: true
+        });
+        
+        setViewState({ longitude: randomLng, latitude: randomLat, zoom: 13 });
+        fetchEvents(randomLat, randomLng);
+      }
+    }, 1000);
   };
 
   return (
@@ -152,6 +216,15 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50"
       />
       
+      {loading && !mapLoaded && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-xl">
+          <div className="flex flex-col items-center gap-2">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">Loading map...</p>
+          </div>
+        </div>
+      )}
+      
       <MapControls 
         currentView={currentView}
         onViewChange={handleViewChange}
@@ -159,7 +232,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         onLocationSearch={handleLocationSearch}
       />
 
-      {events.length > 0 && map.current && (
+      {events.length > 0 && map.current && mapLoaded && (
         <MapMarkers 
           map={map.current}
           events={events}
