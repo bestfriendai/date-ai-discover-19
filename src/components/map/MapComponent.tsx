@@ -73,6 +73,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const getUserLocation = async (): Promise<[number, number]> => {
     return new Promise((resolve, reject) => {
       if (!navigator.geolocation) {
+        console.error('Geolocation is not supported by your browser.');
         toast({
           title: "Geolocation not supported",
           description: "Your browser doesn't support geolocation. Using default location.",
@@ -82,19 +83,48 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         return;
       }
 
+      const successCallback = (position: GeolocationPosition) => {
+        console.log('Geolocation success:', position.coords);
+        resolve([position.coords.longitude, position.coords.latitude]);
+      };
+
+      const errorCallback = (error: GeolocationPositionError) => {
+        console.error('Geolocation error:', error.code, error.message);
+        let errorMessage = "";
+
+        switch(error.code) {
+          case error.PERMISSION_DENIED:
+            errorMessage = "Location permission denied. Please enable location services in your browser settings.";
+            break;
+          case error.POSITION_UNAVAILABLE:
+            errorMessage = "Location information is unavailable. Please try again later.";
+            break;
+          case error.TIMEOUT:
+            errorMessage = "Location request timed out. Please try again.";
+            break;
+          default:
+            errorMessage = "An unknown error occurred while getting your location.";
+        }
+
+        toast({
+          title: "Location error",
+          description: errorMessage,
+          variant: "destructive"
+        });
+        reject(error);
+      };
+
+      const options = {
+        enableHighAccuracy: true,  // Use GPS if available
+        timeout: 10000,           // Time to wait for a position
+        maximumAge: 0             // Don't use a cached position
+      };
+
+      // Request the user's position
       navigator.geolocation.getCurrentPosition(
-        (position) => {
-          resolve([position.coords.longitude, position.coords.latitude]);
-        },
-        (error) => {
-          toast({
-            title: "Location access denied",
-            description: "Using default location. Please enable location services for better results.",
-            variant: "destructive"
-          });
-          reject(error);
-        },
-        { timeout: 10000, enableHighAccuracy: true }
+        successCallback,
+        errorCallback,
+        options
       );
     });
   };
@@ -103,12 +133,20 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     const initializeMap = async () => {
       try {
         setLoading(true);
+        console.log('Initializing map...');
+
+        // Get Mapbox token from Supabase function
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (error) throw error;
+        if (error) {
+          console.error('Error getting Mapbox token:', error);
+          throw error;
+        }
 
         if (data?.MAPBOX_TOKEN && mapContainer.current) {
+          console.log('Mapbox token received, creating map');
           mapboxgl.accessToken = data.MAPBOX_TOKEN;
 
+          // Create the map instance
           map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: 'mapbox://styles/mapbox/dark-v11',
@@ -116,14 +154,30 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             zoom: viewState.zoom,
             pitch: 45,
             bearing: -17.6,
+            attributionControl: false,
+            preserveDrawingBuffer: true
           });
 
+          // Add navigation controls
           map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
 
-          map.current.on('load', () => {
-            setMapLoaded(true);
+          // Add geolocate control (this adds a built-in location button)
+          const geolocateControl = new mapboxgl.GeolocateControl({
+            positionOptions: {
+              enableHighAccuracy: true
+            },
+            trackUserLocation: true,
+            showUserHeading: true
+          });
+          map.current.addControl(geolocateControl, 'bottom-right');
 
-            // Instead of automatically requesting location, we'll fetch events for the default location
+          // Wait for the map to load
+          map.current.on('load', () => {
+            console.log('Map loaded successfully');
+            setMapLoaded(true);
+            setLoading(false);
+
+            // Fetch events for the default location
             fetchEvents(viewState.latitude, viewState.longitude);
 
             // Show a toast prompting the user to enable location for better results
@@ -132,6 +186,20 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
               description: "Click the location button for events near you",
             });
           });
+
+          // Handle map move events to update coordinates display
+          map.current.on('move', () => {
+            if (!map.current) return;
+            const center = map.current.getCenter();
+            setViewState({
+              longitude: parseFloat(center.lng.toFixed(4)),
+              latitude: parseFloat(center.lat.toFixed(4)),
+              zoom: parseFloat(map.current.getZoom().toFixed(2))
+            });
+          });
+        } else {
+          console.error('No Mapbox token or map container');
+          throw new Error('Could not initialize map: missing token or container');
         }
       } catch (error) {
         console.error('Error initializing map:', error);
@@ -146,11 +214,18 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
 
     initializeMap();
 
+    // Cleanup function
     return () => {
-      userMarker?.remove();
-      map.current?.remove();
+      if (userMarker) {
+        console.log('Cleaning up user marker');
+        userMarker.remove();
+      }
+      if (map.current) {
+        console.log('Cleaning up map');
+        map.current.remove();
+      }
     };
-  }, [fetchEvents, viewState.latitude, viewState.longitude]);
+  }, [fetchEvents]);
 
   const handleViewChange = (view: 'list' | 'grid') => {
     setCurrentView(view);
@@ -193,41 +268,72 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
 
   const handleGetUserLocation = async () => {
     setLocationRequested(true);
+    console.log('Getting user location...');
 
     try {
+      // Get user location
       const [longitude, latitude] = await getUserLocation();
+      console.log('User location obtained:', longitude, latitude);
 
-      if (userMarker) userMarker.remove();
+      // Remove existing marker if any
+      if (userMarker) {
+        console.log('Removing existing user marker');
+        userMarker.remove();
+      }
 
+      // Make sure the map is initialized
+      if (!map.current) {
+        console.error('Map is not initialized');
+        toast({
+          title: "Map error",
+          description: "Map is not ready. Please try again.",
+          variant: "destructive"
+        });
+        setLocationRequested(false);
+        return;
+      }
+
+      console.log('Creating user marker');
       // Create a custom element for the user marker
       const el = document.createElement('div');
       el.className = 'flex items-center justify-center';
       el.innerHTML = `
         <div class="relative">
-          <div class="w-6 h-6 bg-blue-500 rounded-full animate-pulse"></div>
-          <div class="w-12 h-12 bg-blue-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+          <div class="w-6 h-6 bg-blue-600 rounded-full animate-pulse"></div>
+          <div class="w-12 h-12 bg-blue-600/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
         </div>
       `;
 
       // Create and add the user marker to the map
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([longitude, latitude])
-        .addTo(map.current!);
+        .addTo(map.current);
       setUserMarker(marker);
 
-      // Immediately center the map on the user's location
-      map.current!.flyTo({
+      console.log('Moving map to user location');
+      // First update the view state
+      setViewState({ longitude, latitude, zoom: 14 });
+
+      // Then center the map on the user's location
+      map.current.jumpTo({
         center: [longitude, latitude],
-        zoom: 14,
-        duration: 1500,
-        essential: true
+        zoom: 14
       });
 
-      // Update the view state
-      setViewState({ longitude, latitude, zoom: 14 });
+      // Add a smooth animation after the jump
+      setTimeout(() => {
+        if (map.current) {
+          map.current.easeTo({
+            pitch: 50,
+            bearing: Math.random() * 60 - 30, // random bearing for visual interest
+            duration: 1500
+          });
+        }
+      }, 100);
 
       // Try to get the location name using reverse geocoding
       try {
+        console.log('Getting location name via reverse geocoding');
         const response = await fetch(
           `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
         );
@@ -240,14 +346,20 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             f.place_type.includes('neighborhood')
           );
           if (place) {
+            console.log('Location name found:', place.text);
             setCurrentLocation(place.text);
+          } else {
+            console.log('No suitable place name found in response');
           }
+        } else {
+          console.log('No features found in geocoding response');
         }
       } catch (error) {
         console.error('Error getting location name:', error);
       }
 
       // Fetch events near the user's location
+      console.log('Fetching events near user location');
       fetchEvents(latitude, longitude);
 
       toast({
@@ -256,11 +368,53 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       });
     } catch (error) {
       console.error('Error getting user location:', error);
+
+      // Fallback to a default location (New York) if geolocation fails
+      const fallbackLng = -73.9712;
+      const fallbackLat = 40.7831;
+
+      // Show error toast
       toast({
-        title: "Location access denied",
-        description: "Please enable location access in your browser settings.",
+        title: "Location access failed",
+        description: "Using default location. Please check your browser settings to enable location access.",
         variant: "destructive"
       });
+
+      // If we have a map, center it on the fallback location
+      if (map.current) {
+        console.log('Using fallback location:', fallbackLat, fallbackLng);
+
+        // Create a fallback marker
+        const el = document.createElement('div');
+        el.className = 'flex items-center justify-center';
+        el.innerHTML = `
+          <div class="relative">
+            <div class="w-6 h-6 bg-red-500 rounded-full animate-pulse"></div>
+            <div class="w-12 h-12 bg-red-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+          </div>
+        `;
+
+        // Remove existing marker if any
+        if (userMarker) userMarker.remove();
+
+        // Add the fallback marker
+        const marker = new mapboxgl.Marker({ element: el })
+          .setLngLat([fallbackLng, fallbackLat])
+          .addTo(map.current);
+        setUserMarker(marker);
+
+        // Center the map on the fallback location
+        map.current.jumpTo({
+          center: [fallbackLng, fallbackLat],
+          zoom: 14
+        });
+
+        // Update the view state
+        setViewState({ longitude: fallbackLng, latitude: fallbackLat, zoom: 14 });
+
+        // Fetch events for the fallback location
+        fetchEvents(fallbackLat, fallbackLng);
+      }
     } finally {
       setLocationRequested(false);
     }
@@ -317,20 +471,21 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       />
 
       {/* Bottom Controls */}
-      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
-        <div className="bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg rounded-full px-4 py-2 flex items-center gap-2">
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+        <div className="bg-background/90 backdrop-blur-sm border border-border/50 shadow-lg rounded-full px-4 py-2 flex items-center gap-3">
           <div className="text-sm font-medium">{currentLocation}</div>
           <Button
             variant="ghost"
             size="icon"
-            className="rounded-full h-8 w-8 bg-blue-600 text-white hover:bg-blue-700"
+            className="rounded-full h-10 w-10 bg-blue-600 text-white hover:bg-blue-700 shadow-md"
             onClick={handleGetUserLocation}
             disabled={locationRequested}
+            title="Use my current location"
           >
             {locationRequested ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-5 w-5 animate-spin" />
             ) : (
-              <MapPin className="h-4 w-4" />
+              <MapPin className="h-5 w-5" />
             )}
           </Button>
         </div>
