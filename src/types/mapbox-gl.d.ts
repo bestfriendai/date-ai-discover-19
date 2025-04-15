@@ -35,6 +35,17 @@ declare module 'mapbox-gl' {
     crossSourceCollisions?: boolean;
   }
 
+  export interface MarkerOptions {
+    element?: HTMLElement;
+    anchor?: string;
+    offset?: [number, number];
+    color?: string;
+    draggable?: boolean;
+    rotation?: number;
+    rotationAlignment?: string;
+    pitchAlignment?: string;
+  }
+
   export class Map {
     constructor(options: MapboxOptions);
     addControl(control: Control, position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'): this;
@@ -52,12 +63,13 @@ declare module 'mapbox-gl' {
     getZoom(): number;
     setZoom(zoom: number, options?: {duration?: number, easing?: (time: number) => number}): this;
     scrollZoom: {enable: () => void, disable: () => void};
-    easeTo(options: {center?: [number, number], zoom?: number, bearing?: number, pitch?: number, duration?: number, easing?: (time: number) => number}): this;
+    easeTo(options: {center?: [number, number], zoom?: number, bearing?: number, pitch?: number, duration?: number, easing?: (time: number) => number, essential?: boolean}): this;
+    flyTo(options: {center?: [number, number], zoom?: number, bearing?: number, pitch?: number, duration?: number, easing?: (time: number) => number, essential?: boolean}): this;
     getSource(id: string): any;
     addSource(id: string, source: any): this;
     queryRenderedFeatures(point: [number, number] | [number, number][], options?: {layers?: string[], filter?: any[]}): any[];
     setFog(fog: {color?: string, 'high-color'?: string, 'horizon-blend'?: number}): this;
-    remove(): void; // Add remove method
+    remove(): void;
   }
 
   export class NavigationControl implements Control {
@@ -67,7 +79,7 @@ declare module 'mapbox-gl' {
   }
 
   export class Marker {
-    constructor(element?: HTMLElement, options?: {offset?: [number, number], anchor?: string, color?: string, draggable?: boolean, rotation?: number, rotationAlignment?: string, pitchAlignment?: string});
+    constructor(options?: MarkerOptions);
     setLngLat(lngLat: [number, number]): this;
     addTo(map: Map): this;
     setPopup(popup: Popup): this;
@@ -80,10 +92,10 @@ declare module 'mapbox-gl' {
     setHTML(html: string): this;
     setMaxWidth(maxWidth: string): this;
     setText(text: string): this;
-    addTo(map: Map): this; // Add addTo method
+    addTo(map: Map): this;
     remove(): this;
-    getElement(): HTMLElement; // Add getElement method
-    on(type: string, listener: (ev: any) => void): this; // Add on method
+    getElement(): HTMLElement;
+    on(type: string, listener: (ev: any) => void): this;
   }
 
   export interface Control {

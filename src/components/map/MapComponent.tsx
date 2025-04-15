@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -90,12 +91,15 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             const [longitude, latitude] = await getUserLocation();
             
             if (userMarker) userMarker.remove();
+            
+            // Create a new marker for user location with green color
             const marker = new mapboxgl.Marker({ color: '#10b981' })
               .setLngLat([longitude, latitude])
               .addTo(map.current);
             setUserMarker(marker);
 
-            map.current.flyTo({
+            // Use easeTo instead of flyTo for compatibility
+            map.current.easeTo({
               center: [longitude, latitude],
               zoom: 14,
               duration: 2000,
