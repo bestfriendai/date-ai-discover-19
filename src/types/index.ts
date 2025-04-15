@@ -1,0 +1,54 @@
+
+// Event types
+export interface Event {
+  id: string;
+  title: string;
+  description?: string;
+  date: string;
+  time: string;
+  location: string;
+  venue?: string;
+  category: string;
+  image: string;
+  coordinates?: [number, number]; // [longitude, latitude]
+  url?: string;
+  price?: string;
+}
+
+// Itinerary types
+export interface ItineraryItem {
+  id: string;
+  eventId?: string;
+  title: string;
+  description?: string;
+  startTime: string;
+  endTime: string;
+  location?: string;
+  coordinates?: [number, number];
+  notes?: string;
+  type: 'EVENT' | 'CUSTOM';
+}
+
+export interface Itinerary {
+  id: string;
+  name: string;
+  description?: string;
+  date: string;
+  items: ItineraryItem[];
+  isPublic?: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// User types
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+  favorites: string[]; // Array of event IDs
+  itineraries: string[]; // Array of itinerary IDs
+  preferences?: {
+    defaultLocation?: string;
+    preferredCategories?: string[];
+  };
+}
