@@ -24,7 +24,7 @@ export const MapPopup = ({ map, event, onClose, onViewDetails }: MapPopupProps) 
     </button>
   `;
 
-  // Fix: Create a new popup with the HTML content
+  // Create a new popup with the HTML content
   const popup = new mapboxgl.Popup({ closeOnClick: false })
     .setLngLat([event.coordinates[0], event.coordinates[1]])
     .setHTML(popupEl.outerHTML)

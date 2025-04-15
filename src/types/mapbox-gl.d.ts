@@ -57,6 +57,7 @@ declare module 'mapbox-gl' {
     addSource(id: string, source: any): this;
     queryRenderedFeatures(point: [number, number] | [number, number][], options?: {layers?: string[], filter?: any[]}): any[];
     setFog(fog: {color?: string, 'high-color'?: string, 'horizon-blend'?: number}): this;
+    remove(): void; // Add remove method
   }
 
   export class NavigationControl implements Control {
@@ -70,6 +71,7 @@ declare module 'mapbox-gl' {
     setLngLat(lngLat: [number, number]): this;
     addTo(map: Map): this;
     setPopup(popup: Popup): this;
+    remove(): void;
   }
 
   export class Popup {
@@ -78,7 +80,10 @@ declare module 'mapbox-gl' {
     setHTML(html: string): this;
     setMaxWidth(maxWidth: string): this;
     setText(text: string): this;
+    addTo(map: Map): this; // Add addTo method
     remove(): this;
+    getElement(): HTMLElement; // Add getElement method
+    on(type: string, listener: (ev: any) => void): this; // Add on method
   }
 
   export interface Control {
