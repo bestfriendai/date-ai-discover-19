@@ -9,7 +9,9 @@ import { MapMarkers } from './components/MapMarkers';
 import { MapPopup } from './components/MapPopup';
 import { CoordinatesDisplay } from './components/CoordinatesDisplay';
 import { toast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, MapPin } from 'lucide-react';
+import { searchEvents } from '@/services/eventService';
+import { Button } from '@/components/ui/button';
 
 interface MapComponentProps {
   onEventSelect?: (event: Event) => void;
@@ -29,24 +31,30 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const [loading, setLoading] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
+  const [locationRequested, setLocationRequested] = useState(false);
 
-  const fetchEvents = useCallback(async (latitude: number, longitude: number) => {
+  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 10) => {
     try {
       setLoading(true);
-      const { data, error } = await supabase.functions.invoke('fetch-events', {
-        body: JSON.stringify({
-          lat: latitude,
-          lng: longitude,
-          radius: 10
-        })
+
+      // Use our new searchEvents service
+      const events = await searchEvents({
+        latitude,
+        longitude,
+        radius
       });
 
-      if (error) throw error;
-      if (data?.events) {
-        setEvents(data.events);
+      setEvents(events);
+
+      if (events.length > 0) {
         toast({
           title: "Events loaded",
-          description: `Found ${data.events.length} events near your location`,
+          description: `Found ${events.length} events near your location`,
+        });
+      } else {
+        toast({
+          title: "No events found",
+          description: "Try adjusting your search radius or location",
         });
       }
     } catch (error) {
@@ -96,10 +104,10 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         setLoading(true);
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (error) throw error;
-        
+
         if (data?.MAPBOX_TOKEN && mapContainer.current) {
           mapboxgl.accessToken = data.MAPBOX_TOKEN;
-          
+
           map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: 'mapbox://styles/mapbox/dark-v11',
@@ -108,47 +116,20 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             pitch: 45,
             bearing: -17.6,
           });
-          
+
           map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-          
-          map.current.on('load', async () => {
+
+          map.current.on('load', () => {
             setMapLoaded(true);
-            
-            try {
-              const [longitude, latitude] = await getUserLocation();
-              
-              if (userMarker) userMarker.remove();
-              
-              // Create a custom element for the user marker
-              const el = document.createElement('div');
-              el.className = 'flex items-center justify-center';
-              el.innerHTML = `
-                <div class="relative">
-                  <div class="w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
-                  <div class="w-12 h-12 bg-green-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
-                </div>
-              `;
-              
-              const marker = new mapboxgl.Marker({ element: el })
-                .setLngLat([longitude, latitude])
-                .addTo(map.current!);
-              setUserMarker(marker);
 
-              map.current!.easeTo({
-                center: [longitude, latitude],
-                zoom: 14,
-                duration: 2000,
-                pitch: 50,
-                bearing: Math.random() * 60 - 30, // random bearing for visual interest
-                essential: true
-              });
+            // Instead of automatically requesting location, we'll fetch events for the default location
+            fetchEvents(viewState.latitude, viewState.longitude);
 
-              setViewState({ longitude, latitude, zoom: 14 });
-              fetchEvents(latitude, longitude);
-            } catch (locationError) {
-              console.error('Location error:', locationError);
-              fetchEvents(viewState.latitude, viewState.longitude);
-            }
+            // Show a toast prompting the user to enable location for better results
+            toast({
+              title: "Enable location",
+              description: "Click the location button for events near you",
+            });
           });
         }
       } catch (error) {
@@ -183,18 +164,18 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
 
   const handleLocationSearch = (location: string) => {
     if (!location.trim()) return;
-    
+
     toast({
       title: "Searching",
       description: `Searching for events near ${location}...`,
     });
-    
+
     // This would typically use a geocoding API to convert the location string to coordinates
     // For now, we'll just use a mock implementation
     setTimeout(() => {
       const randomLat = 40.7 + (Math.random() * 0.2);
       const randomLng = -74 + (Math.random() * 0.2);
-      
+
       if (map.current) {
         map.current.easeTo({
           center: [randomLng, randomLat],
@@ -202,20 +183,71 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           duration: 1500,
           essential: true
         });
-        
+
         setViewState({ longitude: randomLng, latitude: randomLat, zoom: 13 });
         fetchEvents(randomLat, randomLng);
       }
     }, 1000);
   };
 
+  const handleGetUserLocation = async () => {
+    setLocationRequested(true);
+
+    try {
+      const [longitude, latitude] = await getUserLocation();
+
+      if (userMarker) userMarker.remove();
+
+      // Create a custom element for the user marker
+      const el = document.createElement('div');
+      el.className = 'flex items-center justify-center';
+      el.innerHTML = `
+        <div class="relative">
+          <div class="w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
+          <div class="w-12 h-12 bg-green-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+        </div>
+      `;
+
+      const marker = new mapboxgl.Marker({ element: el })
+        .setLngLat([longitude, latitude])
+        .addTo(map.current!);
+      setUserMarker(marker);
+
+      map.current!.easeTo({
+        center: [longitude, latitude],
+        zoom: 14,
+        duration: 2000,
+        pitch: 50,
+        bearing: Math.random() * 60 - 30, // random bearing for visual interest
+        essential: true
+      });
+
+      setViewState({ longitude, latitude, zoom: 14 });
+      fetchEvents(latitude, longitude);
+
+      toast({
+        title: "Location found",
+        description: "Showing events near your current location",
+      });
+    } catch (error) {
+      console.error('Error getting user location:', error);
+      toast({
+        title: "Location access denied",
+        description: "Please enable location access in your browser settings.",
+        variant: "destructive"
+      });
+    } finally {
+      setLocationRequested(false);
+    }
+  };
+
   return (
     <div className="w-full h-full relative">
-      <div 
-        ref={mapContainer} 
+      <div
+        ref={mapContainer}
         className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50"
       />
-      
+
       {loading && !mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-xl">
           <div className="flex flex-col items-center gap-2">
@@ -224,8 +256,8 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           </div>
         </div>
       )}
-      
-      <MapControls 
+
+      <MapControls
         currentView={currentView}
         onViewChange={handleViewChange}
         onToggleFilters={handleToggleFilters}
@@ -233,7 +265,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       />
 
       {events.length > 0 && map.current && mapLoaded && (
-        <MapMarkers 
+        <MapMarkers
           map={map.current}
           events={events}
           onMarkerClick={(event) => {
@@ -252,12 +284,30 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           onViewDetails={() => onEventSelect?.(selectedEvent)}
         />
       )}
-      
+
       <CoordinatesDisplay
         longitude={viewState.longitude}
         latitude={viewState.latitude}
         zoom={viewState.zoom}
       />
+
+      {/* Location Button */}
+      <div className="absolute bottom-4 left-4 z-10">
+        <Button
+          variant="secondary"
+          size="sm"
+          className="bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 flex items-center gap-2"
+          onClick={handleGetUserLocation}
+          disabled={locationRequested}
+        >
+          {locationRequested ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <MapPin className="h-4 w-4" />
+          )}
+          {locationRequested ? 'Getting location...' : 'Use my location'}
+        </Button>
+      </div>
     </div>
   );
 };

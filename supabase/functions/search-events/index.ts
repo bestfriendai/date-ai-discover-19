@@ -14,38 +14,44 @@ serve(async (req) => {
   try {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY')
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY')
-    
+
     if (!TICKETMASTER_KEY) {
       throw new Error('TICKETMASTER_KEY is not set')
     }
-    
+
     // Parse request parameters
     const params = await req.json()
     const {
       keyword = '',
       lat,
       lng,
+      latitude,
+      longitude,
       location,
       radius = 10,
       startDate,
       endDate,
       categories = []
     } = params
-    
+
+    // Support both lat/lng and latitude/longitude parameter formats
+    const userLat = latitude || lat
+    const userLng = longitude || lng
+
     // Prepare results array
     let allEvents = []
-    
+
     // Fetch from Ticketmaster API
     try {
       let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=20`
-      
+
       // Add location parameters
-      if (lat && lng) {
-        ticketmasterUrl += `&latlong=${lat},${lng}&radius=${radius}&unit=miles`
+      if (userLat && userLng) {
+        ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${radius}&unit=miles`
       } else if (location) {
         ticketmasterUrl += `&city=${encodeURIComponent(location)}`
       }
-      
+
       // Add date range
       if (startDate) {
         ticketmasterUrl += `&startDateTime=${startDate}T00:00:00Z`
@@ -53,12 +59,12 @@ serve(async (req) => {
       if (endDate) {
         ticketmasterUrl += `&endDateTime=${endDate}T23:59:59Z`
       }
-      
+
       // Add keyword
       if (keyword) {
         ticketmasterUrl += `&keyword=${encodeURIComponent(keyword)}`
       }
-      
+
       // Add categories
       if (categories.length > 0) {
         // Map our categories to Ticketmaster's segmentId
@@ -69,19 +75,19 @@ serve(async (req) => {
           'family': 'KZFzniwnSyZfZ7v7n1',
           'food': 'KZFzniwnSyZfZ7v7l1'
         }
-        
+
         const segmentIds = categories
           .map(cat => categoryMap[cat])
           .filter(Boolean)
-          
+
         if (segmentIds.length > 0) {
           ticketmasterUrl += `&segmentId=${segmentIds.join(',')}`
         }
       }
-      
+
       const response = await fetch(ticketmasterUrl)
       const data = await response.json()
-      
+
       // Transform Ticketmaster events
       const ticketmasterEvents = data._embedded?.events?.map(event => ({
         id: `ticketmaster-${event.id}`,
@@ -99,16 +105,16 @@ serve(async (req) => {
           parseFloat(event._embedded?.venues?.[0]?.location?.latitude)
         ] : undefined,
         url: event.url,
-        price: event.priceRanges ? 
-          `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` : 
+        price: event.priceRanges ?
+          `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` :
           undefined
       })) || []
-      
+
       allEvents = [...allEvents, ...ticketmasterEvents]
     } catch (ticketmasterError) {
       console.error('Ticketmaster API error:', ticketmasterError)
     }
-    
+
     // Fetch from SerpAPI if key is available
     if (SERPAPI_KEY && (keyword || location)) {
       try {
@@ -116,17 +122,17 @@ serve(async (req) => {
         if (location) {
           serpQuery += ` in ${location}`
         }
-        
+
         const serpUrl = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(serpQuery)}&api_key=${SERPAPI_KEY}`
-        
+
         const response = await fetch(serpUrl)
         const data = await response.json()
-        
+
         // Transform SerpAPI events
         const serpEvents = data.events_results?.map(event => {
           // Extract coordinates (would need geocoding in real implementation)
           const coordinates = undefined
-          
+
           return {
             id: `serpapi-${btoa(event.title).slice(0, 10)}`,
             source: 'serpapi',
@@ -143,17 +149,17 @@ serve(async (req) => {
             price: event.ticket_info?.[0]?.price || undefined
           }
         }) || []
-        
+
         allEvents = [...allEvents, ...serpEvents]
       } catch (serpError) {
         console.error('SerpAPI error:', serpError)
       }
     }
-    
+
     // Deduplicate events based on title and date
     const uniqueEvents = []
     const eventKeys = new Set()
-    
+
     for (const event of allEvents) {
       const key = `${event.title}-${event.date}`
       if (!eventKeys.has(key)) {
