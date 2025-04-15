@@ -1,4 +1,6 @@
+
 import { useEffect, useRef, useState } from 'react';
+import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -12,7 +14,7 @@ interface MapComponentProps {
 
 const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<any>(null);
+  const mapInstance = useRef<mapboxgl.Map | null>(null);
   const [lng, setLng] = useState(-73.9712);
   const [lat, setLat] = useState(40.7831);
   const [zoom, setZoom] = useState(12);
@@ -94,7 +96,6 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
 
     const initializeMap = async () => {
       try {
-        const mapboxgl = await import('mapbox-gl');
         const { data: { MAPBOX_TOKEN }, error } = await supabase.functions.invoke('get-mapbox-token');
         
         if (error) throw error;
@@ -122,8 +123,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           fetchEvents(center.lat, center.lng);
         });
 
-        const NavigationControl = mapboxgl.NavigationControl;
-        map.addControl(new NavigationControl({ visualizePitch: true }), 'bottom-right');
+        map.addControl(new mapboxgl.NavigationControl({ visualizePitch: true }), 'bottom-right');
 
         fetchEvents(lat, lng);
       } catch (error) {
