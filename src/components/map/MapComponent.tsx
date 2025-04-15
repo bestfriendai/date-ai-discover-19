@@ -32,6 +32,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const [mapLoaded, setMapLoaded] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
   const [locationRequested, setLocationRequested] = useState(false);
+  const [currentLocation, setCurrentLocation] = useState<string>('New York');
 
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 10) => {
     try {
@@ -203,26 +204,50 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       el.className = 'flex items-center justify-center';
       el.innerHTML = `
         <div class="relative">
-          <div class="w-6 h-6 bg-green-500 rounded-full animate-pulse"></div>
-          <div class="w-12 h-12 bg-green-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
+          <div class="w-6 h-6 bg-blue-500 rounded-full animate-pulse"></div>
+          <div class="w-12 h-12 bg-blue-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
         </div>
       `;
 
+      // Create and add the user marker to the map
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat([longitude, latitude])
         .addTo(map.current!);
       setUserMarker(marker);
 
-      map.current!.easeTo({
+      // Immediately center the map on the user's location
+      map.current!.flyTo({
         center: [longitude, latitude],
         zoom: 14,
-        duration: 2000,
-        pitch: 50,
-        bearing: Math.random() * 60 - 30, // random bearing for visual interest
+        duration: 1500,
         essential: true
       });
 
+      // Update the view state
       setViewState({ longitude, latitude, zoom: 14 });
+
+      // Try to get the location name using reverse geocoding
+      try {
+        const response = await fetch(
+          `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
+        );
+        const data = await response.json();
+        if (data.features && data.features.length > 0) {
+          // Find the place name (usually city or neighborhood)
+          const place = data.features.find((f: any) =>
+            f.place_type.includes('place') ||
+            f.place_type.includes('locality') ||
+            f.place_type.includes('neighborhood')
+          );
+          if (place) {
+            setCurrentLocation(place.text);
+          }
+        }
+      } catch (error) {
+        console.error('Error getting location name:', error);
+      }
+
+      // Fetch events near the user's location
       fetchEvents(latitude, longitude);
 
       toast({
@@ -291,22 +316,24 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         zoom={viewState.zoom}
       />
 
-      {/* Location Button */}
-      <div className="absolute bottom-4 left-4 z-10">
-        <Button
-          variant="secondary"
-          size="sm"
-          className="bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 flex items-center gap-2"
-          onClick={handleGetUserLocation}
-          disabled={locationRequested}
-        >
-          {locationRequested ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <MapPin className="h-4 w-4" />
-          )}
-          {locationRequested ? 'Getting location...' : 'Use my location'}
-        </Button>
+      {/* Bottom Controls */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-10 flex items-center gap-2">
+        <div className="bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg rounded-full px-4 py-2 flex items-center gap-2">
+          <div className="text-sm font-medium">{currentLocation}</div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="rounded-full h-8 w-8 bg-blue-600 text-white hover:bg-blue-700"
+            onClick={handleGetUserLocation}
+            disabled={locationRequested}
+          >
+            {locationRequested ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <MapPin className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
       </div>
     </div>
   );

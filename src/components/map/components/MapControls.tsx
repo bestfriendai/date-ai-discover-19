@@ -20,7 +20,7 @@ export const MapControls = ({
   currentView
 }: MapControlsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
-  
+
   const handleSearch = () => {
     if (!searchTerm.trim()) {
       toast({
@@ -30,18 +30,18 @@ export const MapControls = ({
       });
       return;
     }
-    
+
     onLocationSearch(searchTerm);
   };
-  
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
   };
-  
+
   return (
-    <motion.div 
+    <motion.div
       className="absolute top-4 left-4 right-4 z-10 flex items-center gap-2"
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
@@ -51,22 +51,22 @@ export const MapControls = ({
         <Input
           type="text"
           placeholder="Search location..."
-          className="w-full pl-10 bg-background/80 backdrop-blur-xl border-border/50"
+          className="w-full pl-10 bg-background/80 backdrop-blur-xl border-border/50 rounded-full"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={handleKeyDown}
         />
         <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <Button
+          variant="ghost"
+          size="icon"
           className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground"
           onClick={handleSearch}
         >
           <Search className="h-4 w-4" />
         </Button>
       </div>
-      
+
       <div className="flex items-center gap-1 bg-background/80 backdrop-blur-xl rounded-md border border-border/50 p-1">
         <Button
           variant="ghost"
@@ -85,20 +85,20 @@ export const MapControls = ({
           <Grid className="h-4 w-4" />
         </Button>
       </div>
-      
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        onClick={onToggleFilters} 
-        className="bg-background/80 backdrop-blur-xl border border-border/50"
+
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={onToggleFilters}
+        className="bg-background/80 backdrop-blur-xl border border-border/50 rounded-full"
       >
         <Filter className="h-4 w-4" />
       </Button>
-      
-      <Button 
-        variant="ghost" 
-        size="icon" 
-        className="bg-background/80 backdrop-blur-xl border border-border/50"
+
+      <Button
+        variant="ghost"
+        size="icon"
+        className="bg-background/80 backdrop-blur-xl border border-border/50 rounded-full"
         onClick={() => setSearchTerm('')}
       >
         <X className="h-4 w-4" />

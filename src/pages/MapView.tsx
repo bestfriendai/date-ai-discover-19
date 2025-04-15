@@ -43,28 +43,28 @@ const MapView = () => {
               transition={{ type: "spring", damping: 20, stiffness: 200 }}
               className="w-[380px] bg-card/50 backdrop-blur-xl border-r border-border/50 relative z-10 overflow-hidden"
             >
-              <EventsSidebar 
-                onClose={() => setLeftSidebarOpen(false)} 
+              <EventsSidebar
+                onClose={() => setLeftSidebarOpen(false)}
                 onEventSelect={handleEventSelect}
               />
             </motion.div>
           )}
         </AnimatePresence>
-        
+
         <div className="flex-1 relative">
           <MapComponent onEventSelect={handleEventSelect} />
-          
+
           {/* Toggle button for left sidebar */}
           <Button
             variant="ghost"
             size="icon"
             onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-            className="absolute top-4 left-4 z-10 bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90"
+            className="absolute top-4 left-4 z-20 bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 rounded-full"
           >
             {leftSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
         </div>
-        
+
         <AnimatePresence mode="wait">
           {rightSidebarOpen && (
             <motion.div
@@ -74,9 +74,9 @@ const MapView = () => {
               transition={{ type: "spring", damping: 20, stiffness: 200 }}
               className="w-[400px] bg-card/50 backdrop-blur-xl border-l border-border/50 relative z-10"
             >
-              <EventDetail 
-                event={selectedEvent || mockEvent} 
-                onClose={() => setRightSidebarOpen(false)} 
+              <EventDetail
+                event={selectedEvent || mockEvent}
+                onClose={() => setRightSidebarOpen(false)}
               />
             </motion.div>
           )}

@@ -5,30 +5,57 @@ import { useState } from 'react';
 const mockEvents = [
   {
     id: '1',
-    title: 'Loudoun United FC vs. Pittsburgh Riverhounds',
-    date: 'Fri, Apr 18',
-    time: '04:30 PM',
-    location: 'Segra Field',
-    category: 'sports',
-    image: '/lovable-uploads/abdea098-9a65-4c79-8fad-c2ad27c07525.png'
+    title: 'Hamilton',
+    date: 'Sat, May 17',
+    time: '07:00 PM',
+    location: 'Richard Rodgers Theatre-NY',
+    category: 'arts & theatre',
+    image: '/lovable-uploads/hamilton.jpg'
   },
   {
     id: '2',
-    title: 'Charity Gayle',
-    date: 'Thu, May 1',
+    title: 'Harry Potter and the Cursed Child',
+    date: 'Mon, May 19',
     time: '07:00 PM',
-    location: 'Cornerstone Chapel - Leesburg',
-    category: 'music',
-    image: '/lovable-uploads/dbedd343-8e17-47f1-873d-e473200d7dc8.png'
+    location: 'Lyric Theatre - NY',
+    category: 'arts & theatre',
+    image: '/lovable-uploads/harry-potter.jpg'
   },
   {
     id: '3',
-    title: 'Loudoun United FC vs. Lexington SC',
-    date: 'Fri, May 9',
-    time: '06:00 PM',
-    location: 'Segra Field',
-    category: 'sports',
-    image: '/lovable-uploads/abdea098-9a65-4c79-8fad-c2ad27c07525.png'
+    title: 'Hamilton',
+    date: 'Mon, May 19',
+    time: '07:00 PM',
+    location: 'Richard Rodgers Theatre-NY',
+    category: 'arts & theatre',
+    image: '/lovable-uploads/hamilton.jpg'
+  },
+  {
+    id: '4',
+    title: 'Harry Potter and the Cursed Child',
+    date: 'Tue, May 20',
+    time: '07:00 PM',
+    location: 'Lyric Theatre - NY',
+    category: 'arts & theatre',
+    image: '/lovable-uploads/harry-potter.jpg'
+  },
+  {
+    id: '5',
+    title: 'Hamilton',
+    date: 'Tue, May 20',
+    time: '07:00 PM',
+    location: 'Richard Rodgers Theatre-NY',
+    category: 'arts & theatre',
+    image: '/lovable-uploads/hamilton.jpg'
+  },
+  {
+    id: '6',
+    title: 'Harry Potter and the Cursed Child',
+    date: 'Wed, May 21',
+    time: '07:00 PM',
+    location: 'Lyric Theatre - NY',
+    category: 'arts & theatre',
+    image: '/lovable-uploads/harry-potter.jpg'
   }
 ];
 
@@ -46,48 +73,49 @@ const EventsSidebar = ({ onClose, onEventSelect }: EventsSidebarProps) => {
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-border">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Events</h2>
+          <div className="flex items-center">
+            <h2 className="text-xl font-bold">Events</h2>
+            <div className="ml-2 px-2 py-1 bg-blue-600/10 text-blue-600 rounded-full text-xs font-medium">
+              {events.length} Events
+            </div>
+          </div>
           <button onClick={onClose} className="p-2 rounded-md hover:bg-muted">
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
-        
-        <div className="text-sm text-muted-foreground mb-4">{location}</div>
-        
+
+        <div className="text-sm text-muted-foreground mb-4">St. George Theatre</div>
+
         <div className="flex items-center justify-between">
-          <div className="text-sm font-medium">{events.length} Events</div>
           <div className="flex items-center space-x-2">
-            <button 
-              onClick={() => setView('list')} 
+            <button
+              onClick={() => setView('list')}
               className={`p-1.5 rounded ${view === 'list' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-list"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
             </button>
-            <button 
-              onClick={() => setView('grid')} 
+            <button
+              onClick={() => setView('grid')}
               className={`p-1.5 rounded ${view === 'grid' ? 'bg-muted' : 'hover:bg-muted/50'}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-grid"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
             </button>
-            <button className="p-1.5 rounded hover:bg-muted/50">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
-            </button>
-            <button className="p-1.5 rounded hover:bg-muted/50">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-x"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
-            </button>
           </div>
+          <button className="p-1.5 rounded-full bg-background/80 border border-border/50 hover:bg-muted/50">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+          </button>
         </div>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto">
         {events.map(event => (
-          <div 
-            key={event.id} 
+          <div
+            key={event.id}
             className="p-4 border-b border-border hover:bg-muted/50 cursor-pointer transition-colors"
             onClick={() => onEventSelect && onEventSelect(event)}
           >
             <div className="flex">
-              <div className="w-16 h-16 rounded overflow-hidden mr-3 bg-muted flex-shrink-0">
+              <div className="w-16 h-16 rounded-md overflow-hidden mr-3 bg-muted flex-shrink-0">
                 <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
               </div>
               <div className="flex-1">

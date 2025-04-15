@@ -4,19 +4,19 @@ import { Button } from '@/components/ui/button';
 
 const Header = () => {
   const location = useLocation();
-  
+
   return (
     <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/80 backdrop-blur-xl">
       <div className="container flex items-center justify-between h-16 px-4">
         <div className="flex items-center">
           <Link to="/" className="flex items-center mr-6 group">
-            <div className="bg-primary rounded-full p-1.5 mr-2 shadow-sm shadow-primary/20 group-hover:shadow-md group-hover:shadow-primary/30 transition-shadow">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-primary-foreground"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <div className="bg-blue-600 rounded-full p-1.5 mr-2 shadow-sm shadow-blue-600/20 group-hover:shadow-md group-hover:shadow-blue-600/30 transition-shadow">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
             </div>
             <span className="font-bold text-lg">DateAI</span>
-            <span className="text-xs bg-secondary/10 text-secondary border border-secondary/20 rounded px-1.5 ml-2">BETA</span>
+            <span className="text-xs bg-blue-600/10 text-blue-600 border border-blue-600/20 rounded px-1.5 ml-2">BETA</span>
           </Link>
-          
+
           <nav className="hidden md:flex items-center space-x-1">
             <Link to="/map">
               <Button variant={location.pathname === '/map' ? 'secondary' : 'ghost'} size="sm" className="gap-2">
@@ -24,10 +24,16 @@ const Header = () => {
                 Map
               </Button>
             </Link>
+            <Link to="/chat">
+              <Button variant={location.pathname === '/chat' ? 'secondary' : 'ghost'} size="sm" className="gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
+                AI Chat
+              </Button>
+            </Link>
             <Link to="/plan">
               <Button variant={location.pathname === '/plan' ? 'secondary' : 'ghost'} size="sm" className="gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                Plan
+                Date Plan
               </Button>
             </Link>
             <Link to="/favorites">
