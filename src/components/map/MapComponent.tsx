@@ -63,7 +63,11 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           
           // Add navigation controls
           map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-          map.current.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
+          
+          // Using the correct full screen control
+          if (mapboxgl.FullscreenControl) {
+            map.current.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
+          }
           
           // Fetch events once map is loaded
           map.current.on('load', () => {
@@ -93,6 +97,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     // Cleanup
     return () => {
       if (map.current) {
+        // The proper way to cleanup a mapbox instance
         map.current.remove();
       }
     };
@@ -163,7 +168,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       // Create and add popup
       const popup = new mapboxgl.Popup({ closeOnClick: false })
         .setLngLat([selectedEvent.coordinates[0], selectedEvent.coordinates[1]])
-        .setDOMContent(popupEl)
+        .setHTML(popupEl.outerHTML) // Using setHTML instead of setDOMContent
         .addTo(map.current);
         
       // Cleanup
