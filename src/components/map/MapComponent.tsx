@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -64,11 +63,6 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
           // Add navigation controls
           map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
           
-          // Using the correct full screen control
-          if (mapboxgl.FullscreenControl) {
-            map.current.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
-          }
-          
           // Fetch events once map is loaded
           map.current.on('load', () => {
             fetchEvents(viewState.latitude, viewState.longitude);
@@ -97,7 +91,6 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     // Cleanup
     return () => {
       if (map.current) {
-        // The proper way to cleanup a mapbox instance
         map.current.remove();
       }
     };
@@ -117,27 +110,17 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         // Create custom marker element
         const markerEl = document.createElement('div');
         markerEl.className = 'mapboxgl-marker';
-        markerEl.innerHTML = `
-          <div class="relative cursor-pointer">
-            <div class="w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg transform-gpu transition-transform hover:scale-110">
-              <div class="w-4 h-4 bg-background rounded-full"></div>
-            </div>
-            <div class="w-2 h-2 bg-primary absolute -bottom-1 left-1/2 transform -translate-x-1/2 rotate-45"></div>
-          </div>
-        `;
         
-        // Add click handler
+        const marker = new mapboxgl.Marker(markerEl)
+          .setLngLat([event.coordinates[0], event.coordinates[1]])
+          .addTo(map.current!);
+        
         markerEl.addEventListener('click', () => {
           setSelectedEvent(event);
           if (onEventSelect) {
             onEventSelect(event);
           }
         });
-        
-        // Add marker to map
-        new mapboxgl.Marker(markerEl)
-          .setLngLat([event.coordinates[0], event.coordinates[1]])
-          .addTo(map.current!);
       });
     }
   }, [events, onEventSelect]);
@@ -157,20 +140,11 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         </button>
       `;
       
-      // Add click handler for view details button
-      const button = popupEl.querySelector('button');
-      if (button && onEventSelect) {
-        button.addEventListener('click', () => {
-          onEventSelect(selectedEvent);
-        });
-      }
-      
-      // Create and add popup
-      const popup = new mapboxgl.Popup({ closeOnClick: false })
+      const popup = new mapboxgl.Popup()
         .setLngLat([selectedEvent.coordinates[0], selectedEvent.coordinates[1]])
-        .setHTML(popupEl.outerHTML) // Using setHTML instead of setDOMContent
+        .setHTML(popupEl.outerHTML)
         .addTo(map.current);
-        
+      
       // Cleanup
       return () => {
         popup.remove();
