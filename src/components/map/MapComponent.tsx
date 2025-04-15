@@ -1,5 +1,6 @@
 
 import { useRef, useEffect, useState, useCallback } from 'react';
+import ReactDOMServer from 'react-dom/server';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { Loader2, MapPin } from 'lucide-react';
 import { searchEvents } from '@/services/eventService';
 import { Button } from '@/components/ui/button';
+import UserLocationMarker from './markers/UserLocationMarker'; // Import the new component
 
 interface MapComponentProps {
   onEventSelect?: (event: Event) => void;
@@ -238,32 +240,75 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     });
   };
 
-  const handleLocationSearch = (location: string) => {
-    if (!location.trim()) return;
+  // Function to handle clearing the search
+  const handleClearSearch = () => {
+    console.log('Search cleared, fetching events for current map center');
+    // Re-fetch events for the current map center coordinates
+    fetchEvents(viewState.latitude, viewState.longitude);
+    // Optionally, you could reset the currentLocation state here if desired
+    // setCurrentLocation('Current View');
+  };
 
+  const handleLocationSearch = async (location: string) => {
+    if (!location.trim() || !mapboxgl.accessToken) return;
+
+    setLoading(true); // Indicate loading state
     toast({
       title: "Searching",
-      description: `Searching for events near ${location}...`,
+      description: `Looking for events near ${location}...`,
     });
 
-    // This would typically use a geocoding API to convert the location string to coordinates
-    // For now, we'll just use a mock implementation
-    setTimeout(() => {
-      const randomLat = 40.7 + (Math.random() * 0.2);
-      const randomLng = -74 + (Math.random() * 0.2);
+    try {
+      const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(
+        location
+      )}.json?access_token=${mapboxgl.accessToken}&limit=1`;
 
-      if (map.current) {
-        map.current.easeTo({
-          center: [randomLng, randomLat],
-          zoom: 13,
-          duration: 1500,
-          essential: true
+      console.log('Geocoding URL:', geocodeUrl);
+      const response = await fetch(geocodeUrl);
+      const data = await response.json();
+      console.log('Geocoding response:', data);
+
+      if (data.features && data.features.length > 0) {
+        const feature = data.features[0];
+        const [longitude, latitude] = feature.center;
+        const placeName = feature.text || location; // Use feature text or fallback to input
+
+        console.log(`Geocoded ${location} to:`, longitude, latitude, `(${placeName})`);
+        setCurrentLocation(placeName); // Update the displayed location name
+
+        if (map.current) {
+          map.current.easeTo({
+            center: [longitude, latitude],
+            zoom: 13, // Adjust zoom level as needed for searched locations
+            duration: 1500,
+            essential: true,
+          });
+
+          setViewState({ longitude, latitude, zoom: 13 });
+          await fetchEvents(latitude, longitude); // Fetch events for the new location
+          toast({
+            title: "Location Found",
+            description: `Showing events near ${placeName}`,
+          });
+        }
+      } else {
+        console.warn(`Could not geocode location: ${location}`);
+        toast({
+          title: "Location not found",
+          description: `Could not find coordinates for "${location}". Please try a different search term.`,
+          variant: "destructive",
         });
-
-        setViewState({ longitude: randomLng, latitude: randomLat, zoom: 13 });
-        fetchEvents(randomLat, randomLng);
       }
-    }, 1000);
+    } catch (error) {
+      console.error('Error during geocoding or event fetching:', error);
+      toast({
+        title: "Search Error",
+        description: "An error occurred while searching. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false); // Clear loading state
+    }
   };
 
   const handleGetUserLocation = async () => {
@@ -294,18 +339,15 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       }
 
       console.log('Creating user marker');
-      // Create a custom element for the user marker
+      // Render the UserLocationMarker component to an HTML string
+      const markerHtml = ReactDOMServer.renderToString(
+        <UserLocationMarker color="blue" />
+      );
       const el = document.createElement('div');
-      el.className = 'flex items-center justify-center';
-      el.innerHTML = `
-        <div class="relative">
-          <div class="w-6 h-6 bg-blue-600 rounded-full animate-pulse"></div>
-          <div class="w-12 h-12 bg-blue-600/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
-        </div>
-      `;
+      el.innerHTML = markerHtml;
 
-      // Create and add the user marker to the map
-      const marker = new mapboxgl.Marker({ element: el })
+      // Create and add the user marker to the map using the rendered component
+      const marker = new mapboxgl.Marker({ element: el.firstChild as HTMLElement })
         .setLngLat([longitude, latitude])
         .addTo(map.current);
       setUserMarker(marker);
@@ -384,21 +426,19 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       if (map.current) {
         console.log('Using fallback location:', fallbackLat, fallbackLng);
 
-        // Create a fallback marker
-        const el = document.createElement('div');
-        el.className = 'flex items-center justify-center';
-        el.innerHTML = `
-          <div class="relative">
-            <div class="w-6 h-6 bg-red-500 rounded-full animate-pulse"></div>
-            <div class="w-12 h-12 bg-red-500/30 rounded-full absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-ping"></div>
-          </div>
-        `;
+        // Render the UserLocationMarker component (red for fallback)
+        const fallbackMarkerHtml = ReactDOMServer.renderToString(
+          <UserLocationMarker color="red" />
+        );
+        const fallbackEl = document.createElement('div');
+        fallbackEl.innerHTML = fallbackMarkerHtml;
+
 
         // Remove existing marker if any
         if (userMarker) userMarker.remove();
 
-        // Add the fallback marker
-        const marker = new mapboxgl.Marker({ element: el })
+        // Add the fallback marker using the rendered component
+        const marker = new mapboxgl.Marker({ element: fallbackEl.firstChild as HTMLElement })
           .setLngLat([fallbackLng, fallbackLat])
           .addTo(map.current);
         setUserMarker(marker);
@@ -441,6 +481,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         onViewChange={handleViewChange}
         onToggleFilters={handleToggleFilters}
         onLocationSearch={handleLocationSearch}
+        onSearchClear={handleClearSearch} // Pass the clear handler
       />
 
       {events.length > 0 && map.current && mapLoaded && (
@@ -480,7 +521,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             className="rounded-full h-10 w-10 bg-blue-600 text-white hover:bg-blue-700 shadow-md"
             onClick={handleGetUserLocation}
             disabled={locationRequested}
-            title="Use my current location"
+            // title="Use my current location" // Removed title prop as a workaround for TS error
           >
             {locationRequested ? (
               <Loader2 className="h-5 w-5 animate-spin" />

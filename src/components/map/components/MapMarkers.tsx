@@ -2,7 +2,7 @@
 import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
-import { EventMarker } from '../markers/EventMarker';
+import EventMarker from '../markers/EventMarker'; // Use default import
 import { createRoot } from 'react-dom/client';
 
 interface MapMarkersProps {
@@ -13,8 +13,8 @@ interface MapMarkersProps {
 }
 
 export const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMarkersProps) => {
-  const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: any}}>({});
-  
+  const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: ReturnType<typeof createRoot>}}>({}); // More specific type for root
+
   useEffect(() => {
     // Create markers for events that don't have one yet
     events.forEach(event => {
@@ -25,9 +25,9 @@ export const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMar
         // Just update the selected state
         const markerRoot = markersRef.current[event.id].root;
         markerRoot.render(
-          <EventMarker 
-            event={event} 
-            selected={selectedEvent?.id === event.id}
+          <EventMarker
+            isSelected={selectedEvent?.id === event.id}
+            onClick={() => onMarkerClick(event)} // Pass click handler
           />
         );
         return;
@@ -39,22 +39,22 @@ export const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMar
       
       // Render EventMarker component
       root.render(
-        <EventMarker 
-          event={event} 
-          selected={selectedEvent?.id === event.id}
+        <EventMarker
+          isSelected={selectedEvent?.id === event.id}
+          onClick={() => onMarkerClick(event)} // Pass click handler
         />
       );
-      
+
       // Create and add Mapbox marker
       const marker = new mapboxgl.Marker({ element: markerEl })
         .setLngLat([event.coordinates[0], event.coordinates[1]])
         .addTo(map);
-      
-      // Add click handler
-      markerEl.addEventListener('click', () => {
-        onMarkerClick(event);
-      });
-      
+
+      // Click handler is now inside EventMarker, no need for this:
+      // markerEl.addEventListener('click', () => {
+      //   onMarkerClick(event);
+      // });
+
       // Store marker reference for future updates
       markersRef.current[event.id] = { marker, root };
     });

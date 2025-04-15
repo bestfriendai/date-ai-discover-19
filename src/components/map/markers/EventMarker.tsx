@@ -1,32 +1,34 @@
-
-import type { Event } from '@/types';
+import React from 'react';
+import { MapPin } from 'lucide-react'; // Assuming lucide-react is installed
 import { cn } from '@/lib/utils';
-import { motion } from 'framer-motion';
 
 interface EventMarkerProps {
-  event: Event;
-  selected?: boolean;
+  isSelected?: boolean;
+  onClick?: () => void;
 }
 
-export const EventMarker = ({ event, selected }: EventMarkerProps) => {
+const EventMarker = ({ isSelected = false, onClick }: EventMarkerProps) => {
   return (
-    <motion.div 
-      className="relative cursor-pointer group z-10"
-      initial={{ scale: 0.8, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      whileHover={{ scale: 1.1 }}
-      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+    <button
+      type="button"
+      onClick={onClick}
+      className={cn(
+        "cursor-pointer transition-transform duration-150 ease-in-out hover:scale-110 focus:outline-none",
+        isSelected ? "scale-110" : "scale-100"
+      )}
+      aria-label="Event Location"
     >
-      <div className={cn(
-        "w-8 h-8 rounded-full flex items-center justify-center shadow-lg transform-gpu transition-all duration-300",
-        selected ? "bg-secondary ring-4 ring-secondary/20" : "bg-primary"
-      )}>
-        <div className="w-5 h-5 bg-background rounded-full" />
-      </div>
-      <div className={cn(
-        "w-2 h-2 absolute -bottom-1 left-1/2 transform -translate-x-1/2 rotate-45 transition-colors duration-300",
-        selected ? "bg-secondary" : "bg-primary"
-      )} />
-    </motion.div>
+      <MapPin
+        className={cn(
+          "h-6 w-6 drop-shadow-md",
+          isSelected
+            ? "text-primary fill-primary/80"
+            : "text-red-600 fill-red-600/30" // Default event color
+        )}
+        strokeWidth={1.5}
+      />
+    </button>
   );
 };
+
+export default EventMarker;

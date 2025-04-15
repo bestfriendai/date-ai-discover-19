@@ -100,7 +100,12 @@
 }
 
 .mapboxgl-popup-content {
-  @apply bg-card text-card-foreground rounded-md border border-border shadow-md p-3;
+  @apply bg-card text-card-foreground rounded-md border border-border shadow-md p-0; /* Remove padding */
+}
+
+/* Custom popup class for React-rendered content */
+.date-ai-popup .mapboxgl-popup-content {
+  @apply p-0; /* Ensure no padding on the main container */
 }
 
 .mapboxgl-popup-close-button {
