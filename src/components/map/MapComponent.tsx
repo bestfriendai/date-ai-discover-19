@@ -1,6 +1,6 @@
-
 import { useEffect, useRef, useState } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
+import { motion } from 'framer-motion';
 
 // In a real app, this would be in an env variable
 // Using a public token for this demo as we're showing map tiles only
@@ -51,12 +51,12 @@ const MapComponent = ({ onEventSelect }: MapComponentProps = {}) => {
         const NavigationControl = (mapboxgl as any).default.NavigationControl;
         map.addControl(new NavigationControl({ visualizePitch: true }), 'bottom-right');
 
-        // Add search box placeholder
+        // Update search box styling
         const searchBox = document.createElement('div');
-        searchBox.className = 'absolute top-4 left-1/2 transform -translate-x-1/2 bg-card border border-border rounded-md flex items-center p-2 shadow-md w-96 max-w-[90%]';
+        searchBox.className = 'absolute top-4 left-1/2 transform -translate-x-1/2 bg-card/80 backdrop-blur-sm border border-border rounded-lg flex items-center p-2 shadow-lg w-96 max-w-[90%] transition-all duration-200 hover:bg-card/90';
         searchBox.innerHTML = `
-          <input type="text" placeholder="New York" class="bg-transparent border-none outline-none flex-1 text-sm" />
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><path d="m21 21-6.05-6.05m0 0a7 7 0 1 0-9.9-9.9 7 7 0 0 0 9.9 9.9Z"/></svg>
+          <input type="text" placeholder="Search locations..." class="bg-transparent border-none outline-none flex-1 text-sm px-2" />
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2 opacity-50"><path d="m21 21-6.05-6.05m0 0a7 7 0 1 0-9.9-9.9 7 7 0 0 0 9.9 9.9Z"/></svg>
         `;
         mapContainer.current.appendChild(searchBox);
 
@@ -137,19 +137,26 @@ const MapComponent = ({ onEventSelect }: MapComponentProps = {}) => {
 
   return (
     <div className="w-full h-full relative">
-      <div ref={mapContainer} className="w-full h-full" />
-      
-      <div className="absolute bottom-4 right-4 bg-card/90 backdrop-blur-sm border border-border rounded-md p-2 text-xs">
-        <div>
-          <span className="text-muted-foreground">Longitude:</span> {lng}
+      <div ref={mapContainer} className="w-full h-full transition-all duration-300" />
+      <motion.div 
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.5 }}
+        className="absolute bottom-4 right-4 bg-card/80 backdrop-blur-sm border border-border rounded-lg p-2 text-xs space-y-1"
+      >
+        <div className="flex items-center space-x-2">
+          <span className="text-muted-foreground">Longitude:</span>
+          <span className="font-medium">{lng.toFixed(4)}</span>
         </div>
-        <div>
-          <span className="text-muted-foreground">Latitude:</span> {lat}
+        <div className="flex items-center space-x-2">
+          <span className="text-muted-foreground">Latitude:</span>
+          <span className="font-medium">{lat.toFixed(4)}</span>
         </div>
-        <div>
-          <span className="text-muted-foreground">Zoom:</span> {zoom}
+        <div className="flex items-center space-x-2">
+          <span className="text-muted-foreground">Zoom:</span>
+          <span className="font-medium">{zoom.toFixed(2)}</span>
         </div>
-      </div>
+      </motion.div>
     </div>
   );
 };

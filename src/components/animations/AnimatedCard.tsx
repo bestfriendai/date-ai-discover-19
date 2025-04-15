@@ -11,14 +11,17 @@ export const AnimatedCard = ({ children, delay = 0 }: AnimatedCardProps) => (
     initial={{ opacity: 0, y: 20 }}
     animate={{ opacity: 1, y: 0 }}
     transition={{ 
-      duration: 0.3, 
+      type: "spring",
+      stiffness: 260,
+      damping: 20,
       delay: delay 
     }}
     whileHover={{ 
-      scale: 1.02, 
-      transition: { duration: 0.2 } 
+      scale: 1.03,
+      transition: { type: "spring", stiffness: 400, damping: 10 }
     }}
     whileTap={{ scale: 0.98 }}
+    className="h-full"
   >
     {children}
   </motion.div>
