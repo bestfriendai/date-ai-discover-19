@@ -24,11 +24,26 @@ export const MapPopup = ({ map, event, onClose, onViewDetails }: MapPopupProps) 
     </button>
   `;
 
+  // Fix: Create a new popup with the HTML content
   const popup = new mapboxgl.Popup({ closeOnClick: false })
     .setLngLat([event.coordinates[0], event.coordinates[1]])
-    .setHTML(popupEl.outerHTML);
+    .setHTML(popupEl.outerHTML)
+    .addTo(map);
   
-  popup.addTo(map);
+  // Add event listener for the view details button
+  const popupNode = popup.getElement();
+  const button = popupNode.querySelector('button');
+  if (button && onViewDetails) {
+    button.addEventListener('click', () => {
+      onViewDetails();
+      popup.remove();
+    });
+  }
+  
+  // Add event listener for popup close
+  popup.on('close', () => {
+    onClose();
+  });
   
   return null; // This is a utility component that doesn't render anything
 };

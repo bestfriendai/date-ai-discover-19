@@ -8,6 +8,7 @@ import { MapControls } from './components/MapControls';
 import { MapMarkers } from './components/MapMarkers';
 import { MapPopup } from './components/MapPopup';
 import { CoordinatesDisplay } from './components/CoordinatesDisplay';
+import { toast } from '@/hooks/use-toast';
 
 interface MapComponentProps {
   onEventSelect?: (event: Event) => void;
@@ -36,11 +37,16 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
       });
 
       if (error) throw error;
-      if (data.events) {
+      if (data?.events) {
         setEvents(data.events);
       }
     } catch (error) {
       console.error('Error fetching events:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch events. Please try again later.",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
@@ -49,8 +55,10 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   useEffect(() => {
     const initializeMap = async () => {
       try {
-        const { data: { MAPBOX_TOKEN }, error } = await supabase.functions.invoke('get-mapbox-token');
+        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (error) throw error;
+        
+        const MAPBOX_TOKEN = data?.MAPBOX_TOKEN;
         
         if (MAPBOX_TOKEN && mapContainer.current) {
           mapboxgl.accessToken = MAPBOX_TOKEN;
@@ -82,6 +90,11 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         }
       } catch (error) {
         console.error('Error initializing map:', error);
+        toast({
+          title: "Map Error",
+          description: "Failed to initialize map. Please refresh the page.",
+          variant: "destructive"
+        });
       }
     };
 
@@ -89,6 +102,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
 
     return () => {
       if (mapInstance.current) {
+        // Fixed: Use proper removal method for mapbox
         mapInstance.current.remove();
       }
     };
