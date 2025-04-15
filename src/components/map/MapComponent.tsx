@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -16,7 +15,7 @@ interface MapComponentProps {
 
 const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const mapInstance = useRef<mapboxgl.Map | null>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
   const [viewState, setViewState] = useState({
     longitude: -73.9712,
     latitude: 40.7831,
@@ -25,6 +24,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [loading, setLoading] = useState(true);
+  const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
 
   const fetchEvents = async (latitude: number, longitude: number) => {
     try {
@@ -52,38 +52,80 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     }
   };
 
+  const getUserLocation = async (): Promise<[number, number]> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Geolocation is not supported by your browser.'));
+        return;
+      }
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          resolve([position.coords.longitude, position.coords.latitude]);
+        },
+        (error) => {
+          reject(error);
+        }
+      );
+    });
+  };
+
   useEffect(() => {
     const initializeMap = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
         if (error) throw error;
         
-        const MAPBOX_TOKEN = data?.MAPBOX_TOKEN;
-        
-        if (MAPBOX_TOKEN && mapContainer.current) {
-          mapboxgl.accessToken = MAPBOX_TOKEN;
+        if (data?.MAPBOX_TOKEN && mapContainer.current) {
+          mapboxgl.accessToken = data.MAPBOX_TOKEN;
           
-          mapInstance.current = new mapboxgl.Map({
+          map.current = new mapboxgl.Map({
             container: mapContainer.current,
             style: 'mapbox://styles/mapbox/dark-v11',
             center: [viewState.longitude, viewState.latitude],
             zoom: viewState.zoom
           });
+
+          try {
+            const [longitude, latitude] = await getUserLocation();
+            
+            if (userMarker) userMarker.remove();
+            const marker = new mapboxgl.Marker({ color: '#10b981' })
+              .setLngLat([longitude, latitude])
+              .addTo(map.current);
+            setUserMarker(marker);
+
+            map.current.flyTo({
+              center: [longitude, latitude],
+              zoom: 14,
+              duration: 2000,
+              essential: true
+            });
+
+            setViewState({ longitude, latitude, zoom: 14 });
+            fetchEvents(latitude, longitude);
+          } catch (locationError) {
+            console.error('Location error:', locationError);
+            toast({
+              title: "Location Access Denied",
+              description: "Using default location. Please enable location access for a better experience.",
+              variant: "destructive",
+            });
+            fetchEvents(viewState.latitude, viewState.longitude);
+          }
           
-          // Fetch events once map is loaded
-          mapInstance.current.on('load', () => {
+          map.current.on('load', () => {
             fetchEvents(viewState.latitude, viewState.longitude);
           });
           
-          // Update events when map moves
-          mapInstance.current.on('moveend', () => {
-            const center = mapInstance.current?.getCenter();
+          map.current.on('moveend', () => {
+            const center = map.current?.getCenter();
             if (center) {
               fetchEvents(center.lat, center.lng);
               setViewState({
                 longitude: center.lng,
                 latitude: center.lat,
-                zoom: mapInstance.current?.getZoom() || viewState.zoom
+                zoom: map.current?.getZoom() || viewState.zoom
               });
             }
           });
@@ -92,8 +134,8 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         console.error('Error initializing map:', error);
         toast({
           title: "Map Error",
-          description: "Failed to initialize map. Please refresh the page.",
-          variant: "destructive"
+          description: "Failed to initialize map. Please try again later.",
+          variant: "destructive",
         });
       }
     };
@@ -101,14 +143,12 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     initializeMap();
 
     return () => {
-      if (mapInstance.current) {
-        // Fixed: Use proper removal method for mapbox
-        mapInstance.current.remove();
-      }
+      userMarker?.remove();
+      map.current?.remove();
     };
   }, []);
 
-  const handleMarkerClick = (event: Event) => {
+  const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
     if (onEventSelect) {
       onEventSelect(event);
@@ -122,17 +162,17 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50"
       />
       
-      {mapInstance.current && (
+      {map.current && (
         <>
-          <MapControls map={mapInstance.current} />
+          <MapControls map={map.current} />
           <MapMarkers 
-            map={mapInstance.current}
+            map={map.current}
             events={events}
-            onMarkerClick={handleMarkerClick}
+            onMarkerClick={handleEventSelect}
           />
           {selectedEvent && (
             <MapPopup
-              map={mapInstance.current}
+              map={map.current}
               event={selectedEvent}
               onClose={() => setSelectedEvent(null)}
               onViewDetails={() => onEventSelect?.(selectedEvent)}
