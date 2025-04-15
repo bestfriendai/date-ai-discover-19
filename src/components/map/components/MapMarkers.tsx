@@ -26,8 +26,9 @@ export const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMar
         const markerRoot = markersRef.current[event.id].root;
         markerRoot.render(
           <EventMarker
+            event={event} // Pass the whole event object
             isSelected={selectedEvent?.id === event.id}
-            onClick={() => onMarkerClick(event)} // Pass click handler
+            onClick={() => onMarkerClick(event)}
           />
         );
         return;
@@ -40,8 +41,9 @@ export const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMar
       // Render EventMarker component
       root.render(
         <EventMarker
+          event={event} // Pass the whole event object
           isSelected={selectedEvent?.id === event.id}
-          onClick={() => onMarkerClick(event)} // Pass click handler
+          onClick={() => onMarkerClick(event)}
         />
       );
 

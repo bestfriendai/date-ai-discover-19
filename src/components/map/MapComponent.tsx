@@ -36,7 +36,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   const [locationRequested, setLocationRequested] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
 
-  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 10) => {
+  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30) => { // Default radius set to 30 miles
     try {
       setLoading(true);
 

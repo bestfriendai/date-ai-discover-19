@@ -22,7 +22,7 @@ export async function searchEvents(params: SearchParams): Promise<Event[]> {
       lat: params.latitude,
       lng: params.longitude,
       location: params.location,
-      radius: params.radius || 10,
+      radius: params.radius || 30, // Default radius set to 30 miles
       startDate: params.startDate,
       endDate: params.endDate,
       categories: params.categories

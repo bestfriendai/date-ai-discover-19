@@ -1,5 +1,22 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 
+// Define the Event interface matching the frontend type
+interface Event {
+  id: string;
+  source?: string;
+  title: string;
+  description?: string;
+  date: string;
+  time: string;
+  location: string;
+  venue?: string;
+  category: string;
+  image: string;
+  coordinates?: [number, number]; // [longitude, latitude]
+  url?: string;
+  price?: string;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -39,7 +56,7 @@ serve(async (req) => {
     const userLng = longitude || lng
 
     // Prepare results array
-    let allEvents = []
+    let allEvents: Event[] = []
 
     // Fetch from Ticketmaster API
     try {
@@ -119,11 +136,21 @@ serve(async (req) => {
     if (SERPAPI_KEY && (keyword || location)) {
       try {
         let serpQuery = keyword || 'events'
-        if (location) {
+        let serpUrl = `https://serpapi.com/search.json?engine=google_events&api_key=${SERPAPI_KEY}`
+
+        // Prioritize lat/lng for location if available
+        if (userLat && userLng) {
+          serpUrl += `&ll=@${userLat},${userLng},11z` // Use ll parameter with coordinates and zoom level 11z
+          // Optionally add location string for context if available
+          if (location) {
+             serpQuery += ` near ${location}` // Add location context to query if desired
+          }
+        } else if (location) {
+          // Fallback to location string if no coordinates
           serpQuery += ` in ${location}`
         }
-
-        const serpUrl = `https://serpapi.com/search.json?engine=google_events&q=${encodeURIComponent(serpQuery)}&api_key=${SERPAPI_KEY}`
+        
+        serpUrl += `&q=${encodeURIComponent(serpQuery)}`
 
         const response = await fetch(serpUrl)
         const data = await response.json()
@@ -157,7 +184,7 @@ serve(async (req) => {
     }
 
     // Deduplicate events based on title and date
-    const uniqueEvents = []
+    const uniqueEvents: Event[] = []
     const eventKeys = new Set()
 
     for (const event of allEvents) {
