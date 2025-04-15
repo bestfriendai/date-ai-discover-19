@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { Compass, Layers, ZoomIn, ZoomOut } from 'lucide-react';
 
 // In a real app, this would be in an env variable
 // Using a public token for this demo as we're showing map tiles only
@@ -137,22 +139,60 @@ const MapComponent = ({ onEventSelect }: MapComponentProps = {}) => {
 
   return (
     <div className="w-full h-full relative">
-      <div ref={mapContainer} className="w-full h-full transition-all duration-300" />
+      <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
+      
+      {/* Custom Controls */}
+      <div className="absolute right-4 bottom-24 flex flex-col gap-2">
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-background/80 backdrop-blur-lg rounded-lg p-1.5 border border-border/50 shadow-lg"
+        >
+          <div className="flex flex-col gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ZoomIn className="h-4 w-4" />
+            </Button>
+            <div className="h-px bg-border/50 mx-1" />
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <ZoomOut className="h-4 w-4" />
+            </Button>
+          </div>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.3 }}
+          className="bg-background/80 backdrop-blur-lg rounded-lg p-1.5 border border-border/50 shadow-lg"
+        >
+          <div className="flex flex-col gap-2">
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Compass className="h-4 w-4" />
+            </Button>
+            <div className="h-px bg-border/50 mx-1" />
+            <Button variant="ghost" size="icon" className="h-8 w-8">
+              <Layers className="h-4 w-4" />
+            </Button>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Map Info */}
       <motion.div 
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.5 }}
-        className="absolute bottom-4 right-4 bg-card/80 backdrop-blur-sm border border-border rounded-lg p-2 text-xs space-y-1"
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="absolute left-4 bottom-4 bg-background/80 backdrop-blur-lg rounded-lg p-3 text-xs space-y-1 border border-border/50 shadow-lg"
       >
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Longitude:</span>
           <span className="font-medium">{lng.toFixed(4)}</span>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Latitude:</span>
           <span className="font-medium">{lat.toFixed(4)}</span>
         </div>
-        <div className="flex items-center space-x-2">
+        <div className="flex items-center gap-2">
           <span className="text-muted-foreground">Zoom:</span>
           <span className="font-medium">{zoom.toFixed(2)}</span>
         </div>
