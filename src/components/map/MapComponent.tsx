@@ -1,18 +1,8 @@
 
 import { useRef, useEffect, useState } from 'react';
-import Map, { 
-  Marker, 
-  Popup, 
-  NavigationControl,
-  FullscreenControl,
-  Source,
-  Layer,
-  MapRef
-} from 'react-map-gl';
+import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { motion } from 'framer-motion';
-import { Button } from '@/components/ui/button';
-import { Compass, Layers, ZoomIn, ZoomOut } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import type { Event } from '@/types';
 import { EventMarker } from './markers/EventMarker';
@@ -23,7 +13,8 @@ interface MapComponentProps {
 }
 
 const MapComponent = ({ onEventSelect }: MapComponentProps) => {
-  const mapRef = useRef<MapRef>(null);
+  const mapContainer = useRef<HTMLDivElement>(null);
+  const map = useRef<mapboxgl.Map | null>(null);
   const [viewState, setViewState] = useState({
     longitude: -73.9712,
     latitude: 40.7831,
@@ -60,8 +51,37 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
         const { data: { MAPBOX_TOKEN }, error } = await supabase.functions.invoke('get-mapbox-token');
         if (error) throw error;
         
-        if (MAPBOX_TOKEN) {
-          fetchEvents(viewState.latitude, viewState.longitude);
+        if (MAPBOX_TOKEN && mapContainer.current) {
+          mapboxgl.accessToken = MAPBOX_TOKEN;
+          
+          map.current = new mapboxgl.Map({
+            container: mapContainer.current,
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [viewState.longitude, viewState.latitude],
+            zoom: viewState.zoom
+          });
+          
+          // Add navigation controls
+          map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+          map.current.addControl(new mapboxgl.FullscreenControl(), 'bottom-right');
+          
+          // Fetch events once map is loaded
+          map.current.on('load', () => {
+            fetchEvents(viewState.latitude, viewState.longitude);
+          });
+          
+          // Update events when map moves
+          map.current.on('moveend', () => {
+            const center = map.current?.getCenter();
+            if (center) {
+              fetchEvents(center.lat, center.lng);
+              setViewState({
+                longitude: center.lng,
+                latitude: center.lat,
+                zoom: map.current?.getZoom() || viewState.zoom
+              });
+            }
+          });
         }
       } catch (error) {
         console.error('Error initializing map:', error);
@@ -69,65 +89,97 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
     };
 
     initializeMap();
+
+    // Cleanup
+    return () => {
+      if (map.current) {
+        map.current.remove();
+      }
+    };
   }, []);
 
-  const handleMarkerClick = (event: Event) => {
-    setSelectedEvent(event);
-    if (onEventSelect) {
-      onEventSelect(event);
-    }
-  };
+  useEffect(() => {
+    // Add markers for events
+    if (map.current && events.length > 0) {
+      // Remove existing markers
+      const existingMarkers = document.querySelectorAll('.mapboxgl-marker');
+      existingMarkers.forEach(marker => marker.remove());
 
-  const handleMapMove = () => {
-    if (!mapRef.current) return;
-    const center = mapRef.current.getCenter();
-    fetchEvents(center.lat, center.lng);
-  };
+      // Add markers for each event
+      events.forEach(event => {
+        if (!event.coordinates) return;
+        
+        // Create custom marker element
+        const markerEl = document.createElement('div');
+        markerEl.className = 'mapboxgl-marker';
+        markerEl.innerHTML = `
+          <div class="relative cursor-pointer">
+            <div class="w-6 h-6 bg-primary rounded-full flex items-center justify-center shadow-lg transform-gpu transition-transform hover:scale-110">
+              <div class="w-4 h-4 bg-background rounded-full"></div>
+            </div>
+            <div class="w-2 h-2 bg-primary absolute -bottom-1 left-1/2 transform -translate-x-1/2 rotate-45"></div>
+          </div>
+        `;
+        
+        // Add click handler
+        markerEl.addEventListener('click', () => {
+          setSelectedEvent(event);
+          if (onEventSelect) {
+            onEventSelect(event);
+          }
+        });
+        
+        // Add marker to map
+        new mapboxgl.Marker(markerEl)
+          .setLngLat([event.coordinates[0], event.coordinates[1]])
+          .addTo(map.current!);
+      });
+    }
+  }, [events, onEventSelect]);
+
+  useEffect(() => {
+    // Add popup for selected event
+    if (map.current && selectedEvent && selectedEvent.coordinates) {
+      const popupEl = document.createElement('div');
+      popupEl.className = 'p-2 max-w-[200px]';
+      popupEl.innerHTML = `
+        <h3 class="font-semibold text-sm mb-1">${selectedEvent.title}</h3>
+        <div class="text-xs text-muted-foreground mb-2">
+          Category: ${selectedEvent.category}
+        </div>
+        <button class="w-full px-4 py-2 text-xs bg-primary text-white rounded-md">
+          View Details
+        </button>
+      `;
+      
+      // Add click handler for view details button
+      const button = popupEl.querySelector('button');
+      if (button && onEventSelect) {
+        button.addEventListener('click', () => {
+          onEventSelect(selectedEvent);
+        });
+      }
+      
+      // Create and add popup
+      const popup = new mapboxgl.Popup({ closeOnClick: false })
+        .setLngLat([selectedEvent.coordinates[0], selectedEvent.coordinates[1]])
+        .setDOMContent(popupEl)
+        .addTo(map.current);
+        
+      // Cleanup
+      return () => {
+        popup.remove();
+      };
+    }
+  }, [selectedEvent, onEventSelect]);
 
   return (
     <div className="w-full h-full relative">
-      <div className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50">
-        <Map
-          ref={mapRef}
-          {...viewState}
-          onMove={evt => setViewState(evt.viewState)}
-          mapStyle="mapbox://styles/mapbox/dark-v11"
-          onMoveEnd={handleMapMove}
-        >
-          <NavigationControl position="bottom-right" />
-          <FullscreenControl position="bottom-right" />
-
-          {events.map((event) => (
-            <Marker
-              key={event.id}
-              longitude={event.coordinates?.[0] || 0}
-              latitude={event.coordinates?.[1] || 0}
-              anchor="bottom"
-              onClick={(e) => {
-                e.originalEvent.stopPropagation();
-                handleMarkerClick(event);
-              }}
-            >
-              <EventMarker event={event} />
-            </Marker>
-          ))}
-
-          {selectedEvent && selectedEvent.coordinates && (
-            <Popup
-              longitude={selectedEvent.coordinates[0]}
-              latitude={selectedEvent.coordinates[1]}
-              anchor="bottom"
-              onClose={() => setSelectedEvent(null)}
-            >
-              <EventPopup 
-                event={selectedEvent}
-                onViewDetails={() => onEventSelect?.(selectedEvent)}
-              />
-            </Popup>
-          )}
-        </Map>
-      </div>
-
+      <div 
+        ref={mapContainer} 
+        className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50"
+      />
+      
       <motion.div 
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
