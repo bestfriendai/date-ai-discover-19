@@ -8,14 +8,16 @@ interface EmptyStateProps {
   description: string;
   actionLabel?: string;
   actionHref?: string;
+  actionOnClick?: () => void;
 }
 
-const EmptyState = ({ 
-  icon, 
-  title, 
-  description, 
-  actionLabel, 
-  actionHref 
+const EmptyState = ({
+  icon,
+  title,
+  description,
+  actionLabel,
+  actionHref,
+  actionOnClick
 }: EmptyStateProps) => {
   return (
     <div className="flex flex-col items-center justify-center text-center py-20">
@@ -29,11 +31,15 @@ const EmptyState = ({
       </div>
       <h3 className="text-xl font-semibold mb-2">{title}</h3>
       <p className="text-muted-foreground max-w-md mb-8">{description}</p>
-      
-      {actionLabel && actionHref && (
-        <Link to={actionHref}>
-          <Button>{actionLabel}</Button>
-        </Link>
+
+      {actionLabel && (
+        actionHref ? (
+          <Link to={actionHref}>
+            <Button>{actionLabel}</Button>
+          </Link>
+        ) : actionOnClick ? (
+          <Button onClick={actionOnClick}>{actionLabel}</Button>
+        ) : null
       )}
     </div>
   );

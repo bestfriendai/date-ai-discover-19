@@ -1,12 +1,157 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import ItineraryList from '@/components/itinerary/ItineraryList';
+import ItineraryBuilder from '@/components/itinerary/ItineraryBuilder';
 import EmptyState from '@/components/shared/EmptyState';
+import { Button } from '@/components/ui/button';
+import { PlusCircle } from 'lucide-react';
+import { getUserItineraries, getItineraryById, saveItinerary } from '@/services/itineraryService';
+import type { Itinerary } from '@/types';
+import { useToast } from '@/hooks/use-toast';
 
 const DatePlan = () => {
-  // In a real app, this would come from an API or state management
-  const [itineraries, setItineraries] = useState([]);
+  const { id } = useParams();
+  const navigate = useNavigate();
+  const { toast } = useToast();
+
+  const [itineraries, setItineraries] = useState<Itinerary[]>([]);
+  const [selectedItinerary, setSelectedItinerary] = useState<Itinerary | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch itineraries on component mount
+  useEffect(() => {
+    const fetchItineraries = async () => {
+      try {
+        setLoading(true);
+        const data = await getUserItineraries();
+        setItineraries(data);
+      } catch (error) {
+        console.error('Error fetching itineraries:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load itineraries. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchItineraries();
+  }, [toast]);
+
+  // Fetch specific itinerary if ID is provided
+  useEffect(() => {
+    if (id && id !== 'new') {
+      const fetchItinerary = async () => {
+        try {
+          const data = await getItineraryById(id);
+          if (data) {
+            setSelectedItinerary(data);
+          } else {
+            navigate('/plan');
+            toast({
+              title: "Not Found",
+              description: "The requested itinerary could not be found.",
+              variant: "destructive"
+            });
+          }
+        } catch (error) {
+          console.error('Error fetching itinerary:', error);
+          navigate('/plan');
+          toast({
+            title: "Error",
+            description: "Failed to load itinerary. Please try again.",
+            variant: "destructive"
+          });
+        }
+      };
+
+      fetchItinerary();
+    } else if (id === 'new') {
+      // Create a new empty itinerary
+      const today = new Date();
+      setSelectedItinerary({
+        id: `new-${Date.now()}`,
+        name: 'New Itinerary',
+        description: '',
+        date: today.toISOString().split('T')[0],
+        items: [],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+    }
+  }, [id, navigate, toast]);
+
+  // Handle saving an itinerary
+  const handleSaveItinerary = async (itinerary: Itinerary) => {
+    try {
+      const savedId = await saveItinerary(itinerary);
+
+      // Refresh the itineraries list
+      const updatedItineraries = await getUserItineraries();
+      setItineraries(updatedItineraries);
+
+      // If this was a new itinerary, navigate to the saved one
+      if (itinerary.id.startsWith('new-')) {
+        navigate(`/plan/${savedId}`);
+      }
+
+      return savedId;
+    } catch (error) {
+      console.error('Error saving itinerary:', error);
+      throw error;
+    }
+  };
+
+  // Create a new itinerary
+  const handleCreateNew = () => {
+    navigate('/plan/new');
+  };
+
+  // Render the appropriate view based on whether an itinerary is selected
+  const renderContent = () => {
+    if (id) {
+      return selectedItinerary ? (
+        <ItineraryBuilder
+          itinerary={selectedItinerary}
+          onSave={handleSaveItinerary}
+        />
+      ) : (
+        <div className="flex justify-center items-center h-64">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      );
+    }
+
+    return itineraries.length > 0 ? (
+      <>
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-xl font-semibold">My Itineraries</h2>
+          <Button
+            onClick={handleCreateNew}
+            className="flex items-center gap-2"
+          >
+            <PlusCircle className="h-4 w-4" />
+            New Itinerary
+          </Button>
+        </div>
+        <ItineraryList itineraries={itineraries} />
+      </>
+    ) : (
+      <>
+        <EmptyState
+          icon="calendar"
+          title="No itineraries yet"
+          description="Create your first itinerary to plan the perfect date."
+          actionLabel="Create Itinerary"
+          actionOnClick={handleCreateNew}
+        />
+      </>
+    );
+  };
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -23,17 +168,13 @@ const DatePlan = () => {
                 <p className="text-muted-foreground">Create your perfect date experience</p>
               </div>
             </div>
-            
-            {itineraries.length > 0 ? (
-              <ItineraryList itineraries={itineraries} />
+
+            {loading ? (
+              <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
             ) : (
-              <EmptyState 
-                icon="heart"
-                title="No favorite events yet"
-                description="Save some events to your favorites first to create a custom date plan."
-                actionLabel="Browse Events"
-                actionHref="/map"
-              />
+              renderContent()
             )}
           </div>
         </div>

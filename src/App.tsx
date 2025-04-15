@@ -29,6 +29,11 @@ const App = () => {
             <DatePlan />
           </PageTransition>
         } />
+        <Route path="/plan/:id" element={
+          <PageTransition>
+            <DatePlan />
+          </PageTransition>
+        } />
         <Route path="/favorites" element={
           <PageTransition>
             <Favorites />
