@@ -138,11 +138,11 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
   };
 
   const handleToggleFilters = () => {
-    // Implement filter toggle
+    // Implement filter toggle functionality
   };
 
   const handleLocationSearch = (location: string) => {
-    // Implement location search
+    // Implement location search functionality
   };
 
   return (
@@ -167,6 +167,7 @@ const MapComponent = ({ onEventSelect }: MapComponentProps) => {
             setSelectedEvent(event);
             if (onEventSelect) onEventSelect(event);
           }}
+          selectedEvent={selectedEvent}
         />
       )}
 
