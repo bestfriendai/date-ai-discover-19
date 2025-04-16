@@ -176,27 +176,43 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   // --- Event Fetching ---
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
     setLoading(true); onLoadingChange?.(true);
-      if (events && events.sourceStats) {
-        console.log('[Events][SourceStats]', events.sourceStats);
-      }
     try {
       const startDate = currentFilters.dateRange?.from ? formatISO(currentFilters.dateRange.from, { representation: 'date' }) : undefined;
       const endDate = currentFilters.dateRange?.to ? formatISO(currentFilters.dateRange.to, { representation: 'date' }) : undefined;
       const rawResponse = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
-console.log('[Map][DEBUG] Raw backend response:', rawResponse);
-const { events, sourceStats } = rawResponse;
-setEvents(events);
-onEventsChange?.(events);
-if (sourceStats) {
-  console.log('[Events][SourceStats]', sourceStats);
-}
-      // Optional: Add success/no results toast here
-      setMapError(null); // Clear previous errors
+      console.log('[Map][DEBUG] Raw backend response:', rawResponse);
 
+      if (rawResponse && rawResponse.events) {
+        const { events: fetchedEvents, sourceStats } = rawResponse;
+        setEvents(fetchedEvents);
+        onEventsChange?.(fetchedEvents);
+        if (sourceStats) {
+          console.log('[Events][SourceStats]', sourceStats);
+        }
+        // Clear previous errors
+        setMapError(null);
+
+        // Show toast if no events found
+        if (fetchedEvents.length === 0) {
+          toast({ title: "No events found", description: "Try adjusting your search criteria or location.", variant: "default" });
+        }
+      } else {
+        // Handle empty response
+        setEvents([]);
+        onEventsChange?.([]);
+        setMapError("No events data returned.");
+      }
+    } catch (error) {
+      console.error('Error fetching events:', error);
+      toast({ title: "Error", description: "Failed to fetch events.", variant: "destructive" });
       setMapError("Failed to fetch events.");
-
-    } catch (error) { console.error('Error fetching events:', error); toast({ title: "Error", description: "Failed to fetch events.", variant: "destructive" }); }
-    finally { setLoading(false); onLoadingChange?.(false); }
+      setEvents([]);
+      onEventsChange?.([]);
+    }
+    finally {
+      setLoading(false);
+      onLoadingChange?.(false);
+    }
   }, [onEventsChange, onLoadingChange]);
 
   // --- Filter Handling ---
@@ -245,38 +261,119 @@ if (sourceStats) {
     let hoveredFeatureId: string | number | undefined = undefined;
     const setHoverState = (id: string | number | undefined, state: boolean) => { if (id !== undefined && currentMap?.getSource('events')) currentMap.setFeatureState({ source: 'events', id }, { hover: state }); };
 
-    // Remove existing listeners first
-    currentMap.off('mousemove', 'clusters'); currentMap.off('mouseleave', 'clusters');
-    currentMap.off('mousemove', 'unclustered-point'); currentMap.off('mouseleave', 'unclustered-point');
-    currentMap.off('click', 'clusters'); currentMap.off('click', 'unclustered-point');
-    currentMap.off('mouseenter', 'clusters'); currentMap.off('mouseleave', 'clusters');
-    currentMap.off('mouseenter', 'unclustered-point'); currentMap.off('mouseleave', 'unclustered-point');
-
-    // Add new listeners
-    currentMap.on('mousemove', 'clusters', (e) => { if (e.features?.length) { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = e.features[0].id; setHoverState(hoveredFeatureId, true); } });
-    currentMap.on('mouseleave', 'clusters', () => { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = undefined; });
-    currentMap.on('mousemove', 'unclustered-point', (e) => {
+    // Add event listeners for map interactions
+    // Hover effects for clusters
+    currentMap.on('mousemove', 'clusters', function(e) {
       if (e.features?.length) {
-        const currentFeature = e.features[0]; const currentFeatureId = currentFeature.properties?.id;
-        if (hoveredFeatureId !== currentFeatureId) { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = currentFeatureId; setHoverState(hoveredFeatureId, true); }
-        if (map.current && currentFeature.geometry.type === 'Point') {
-          const coords = currentFeature.geometry.coordinates.slice() as [number, number]; const title = currentFeature.properties?.title || 'Event';
-          while (Math.abs(e.lngLat.lng - coords[0]) > 180) coords[0] += e.lngLat.lng > coords[0] ? 360 : -360;
-          if (!hoverPopup.current) hoverPopup.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 15, className: 'date-ai-hover-popup' });
-          hoverPopup.current.setLngLat(coords).setHTML(`<p class="text-xs font-medium">${title}</p>`).addTo(map.current);
+        if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false);
+        hoveredFeatureId = e.features[0].id;
+        setHoverState(hoveredFeatureId, true);
+      }
+    });
+
+    currentMap.on('mouseleave', 'clusters', function() {
+      if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false);
+      hoveredFeatureId = undefined;
+    });
+
+    // Hover effects for unclustered points
+    currentMap.on('mousemove', 'unclustered-point', function(e) {
+      if (e.features?.length) {
+        const currentFeature = e.features[0];
+        const currentFeatureId = currentFeature.properties?.id;
+
+        if (hoveredFeatureId !== currentFeatureId) {
+          if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false);
+          hoveredFeatureId = currentFeatureId;
+          setHoverState(hoveredFeatureId, true);
         }
-      } else { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = undefined; hoverPopup.current?.remove(); }
+
+        if (map.current && currentFeature.geometry.type === 'Point') {
+          const coords = currentFeature.geometry.coordinates.slice();
+          const title = currentFeature.properties?.title || 'Event';
+
+          while (Math.abs(e.lngLat.lng - coords[0]) > 180) {
+            coords[0] += e.lngLat.lng > coords[0] ? 360 : -360;
+          }
+
+          if (!hoverPopup.current) {
+            hoverPopup.current = new mapboxgl.Popup({
+              closeButton: false,
+              closeOnClick: false,
+              offset: 15,
+              className: 'date-ai-hover-popup'
+            });
+          }
+
+          hoverPopup.current
+            .setLngLat(coords)
+            .setHTML(`<p class="text-xs font-medium">${title}</p>`)
+            .addTo(map.current);
+        }
+      } else {
+        if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false);
+        hoveredFeatureId = undefined;
+        hoverPopup.current?.remove();
+      }
     });
-    currentMap.on('mouseleave', 'unclustered-point', () => { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = undefined; hoverPopup.current?.remove(); });
-    currentMap.on('click', 'clusters', (e) => {
-      const features = currentMap.queryRenderedFeatures(e.point, { layers: ['clusters'] }); if (!features?.length) return; const clusterId = features[0].properties?.cluster_id; const source = currentMap.getSource('events') as mapboxgl.GeoJSONSource;
-      source?.getClusterExpansionZoom(clusterId, (err, zoom) => { if (err || !e.features?.[0]?.geometry || e.features[0].geometry.type !== 'Point') return; isProgrammaticMove.current = true; currentMap.easeTo({ center: e.features[0].geometry.coordinates as [number, number], zoom: zoom }); setTimeout(() => { isProgrammaticMove.current = false; }, 1100); });
+
+    currentMap.on('mouseleave', 'unclustered-point', function() {
+      if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false);
+      hoveredFeatureId = undefined;
+      hoverPopup.current?.remove();
     });
-    currentMap.on('click', 'unclustered-point', (e) => { if (!e.features?.[0]?.properties) return; const eventId = e.features[0].properties.id; const clickedEvent = events.find(ev => ev.id === eventId); if (clickedEvent) { setSelectedEvent(clickedEvent); onEventSelect?.(clickedEvent); } });
-    currentMap.on('mouseenter', 'clusters', () => { if(currentMap) currentMap.getCanvas().style.cursor = 'pointer'; });
-    currentMap.on('mouseleave', 'clusters', () => { if(currentMap) currentMap.getCanvas().style.cursor = ''; });
-    currentMap.on('mouseenter', 'unclustered-point', () => { if(currentMap) currentMap.getCanvas().style.cursor = 'pointer'; });
-    currentMap.on('mouseleave', 'unclustered-point', () => { if(currentMap) currentMap.getCanvas().style.cursor = ''; });
+
+    // Click handlers
+    currentMap.on('click', 'clusters', function(e) {
+      const features = currentMap.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+      if (!features?.length) return;
+
+      const clusterId = features[0].properties?.cluster_id;
+      const source = currentMap.getSource('events') as mapboxgl.GeoJSONSource;
+
+      source?.getClusterExpansionZoom(clusterId, function(err, zoom) {
+        if (err || !e.features?.[0]?.geometry || e.features[0].geometry.type !== 'Point') return;
+
+        isProgrammaticMove.current = true;
+        currentMap.easeTo({
+          center: e.features[0].geometry.coordinates,
+          zoom: zoom
+        });
+
+        setTimeout(function() {
+          isProgrammaticMove.current = false;
+        }, 1100);
+      });
+    });
+
+    currentMap.on('click', 'unclustered-point', function(e) {
+      if (!e.features?.[0]?.properties) return;
+
+      const eventId = e.features[0].properties.id;
+      const clickedEvent = events.find(ev => ev.id === eventId);
+
+      if (clickedEvent) {
+        setSelectedEvent(clickedEvent);
+        onEventSelect?.(clickedEvent);
+      }
+    });
+
+    // Cursor styling
+    currentMap.on('mouseenter', 'clusters', function() {
+      if (currentMap) currentMap.getCanvas().style.cursor = 'pointer';
+    });
+
+    currentMap.on('mouseleave', 'clusters', function() {
+      if (currentMap) currentMap.getCanvas().style.cursor = '';
+    });
+
+    currentMap.on('mouseenter', 'unclustered-point', function() {
+      if (currentMap) currentMap.getCanvas().style.cursor = 'pointer';
+    });
+
+    currentMap.on('mouseleave', 'unclustered-point', function() {
+      if (currentMap) currentMap.getCanvas().style.cursor = '';
+    });
 
   }, [events, onEventSelect]); // Include events and onEventSelect
 
@@ -457,6 +554,11 @@ map.current.on('style.load', () => {
 
 
   // --- Render ---
+
+  return (
+    <div className="w-full h-full relative">
+      <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
+
       {mapError && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
@@ -465,10 +567,6 @@ map.current.on('style.load', () => {
           </div>
         </div>
       )}
-
-  return (
-    <div className="w-full h-full relative">
-      <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
 
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-xl">

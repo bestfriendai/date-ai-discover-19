@@ -6,6 +6,7 @@ import MapComponent from '@/components/map/MapComponent';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import type { Event } from '@/types';
 
 // Mock event for demo purposes
 const mockEvent = {

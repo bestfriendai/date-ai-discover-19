@@ -72,8 +72,6 @@ export function normalizeTicketmasterEvent(event: any): Event {
     id: `ticketmaster-${event.id}`,
     source: 'ticketmaster',
     title: event.name,
-// Partial type for Eventbrite event (expand as needed)
-
     description: event.description || event.info || '',
     date: event.dates.start.localDate,
     time: event.dates.start.localTime,
@@ -86,8 +84,8 @@ export function normalizeTicketmasterEvent(event: any): Event {
       parseFloat(event._embedded?.venues?.[0]?.location?.latitude)
     ] : undefined,
     url: event.url,
-    price: event.priceRanges ? 
-      `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` : 
+    price: event.priceRanges ?
+      `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` :
       undefined
   };
 }
@@ -95,7 +93,7 @@ export function normalizeTicketmasterEvent(event: any): Event {
 export function normalizeSerpApiEvent(event: any): Event {
   // Extract coordinates (would need geocoding in real implementation)
   const coordinates = undefined;
-  
+
   return {
     id: `serpapi-${btoa(event.title).slice(0, 10)}`,
     source: 'serpapi',

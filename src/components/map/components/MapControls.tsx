@@ -1,25 +1,17 @@
 
 import { useState } from 'react';
-import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite } from 'lucide-react'; // Added style icons
+import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover
-import { Calendar } from "@/components/ui/calendar"; // Import Calendar
-import { useState } from 'react';
-import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon } from 'lucide-react'; // Added CalendarIcon
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { toast } from '@/hooks/use-toast';
-import { motion } from 'framer-motion';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover
-import { Calendar } from "@/components/ui/calendar"; // Import Calendar
-import { Label } from "@/components/ui/label"; // Import Label
-import { DateRange } from 'react-day-picker'; // Import DateRange type
-import { format } from 'date-fns'; // For formatting dates
-import { cn } from '@/lib/utils'; // Import cn
-import { Checkbox } from "@/components/ui/checkbox"; // Import Checkbox
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { Label } from "@/components/ui/label";
+import { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
+import { cn } from '@/lib/utils';
+import { Checkbox } from "@/components/ui/checkbox";
 
 
 // Define Filter state structure
