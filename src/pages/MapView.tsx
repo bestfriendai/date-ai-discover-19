@@ -23,6 +23,8 @@ const MapView = () => {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [isEventsLoading, setIsEventsLoading] = useState(true);
+  const [events, setEvents] = useState<Event[]>([]); // Add state for events data
 
   // Function to handle event selection
   const handleEventSelect = (event: any) => {
@@ -46,13 +48,19 @@ const MapView = () => {
               <EventsSidebar
                 onClose={() => setLeftSidebarOpen(false)}
                 onEventSelect={handleEventSelect}
+                isLoading={isEventsLoading}
+                events={events} // Pass events data
               />
             </motion.div>
           )}
         </AnimatePresence>
 
         <div className="flex-1 relative">
-          <MapComponent onEventSelect={handleEventSelect} />
+          <MapComponent
+            onEventSelect={handleEventSelect}
+            onLoadingChange={setIsEventsLoading}
+            onEventsChange={setEvents} // Pass events state handler
+          />
 
           {/* Toggle button for left sidebar */}
           <Button

@@ -135,22 +135,31 @@ serve(async (req) => {
     // Fetch from SerpAPI if key is available
     if (SERPAPI_KEY && (keyword || location)) {
       try {
-        let serpQuery = keyword || 'events'
+        let serpQuery = keyword || '' // Start with keyword or empty string
         let serpUrl = `https://serpapi.com/search.json?engine=google_events&api_key=${SERPAPI_KEY}`
+
+        // Add categories to the query if provided
+        if (categories && categories.length > 0) {
+          serpQuery += (serpQuery ? ' ' : '') + categories.join(' ') + ' events' // Append categories and "events"
+        } else if (!keyword) {
+           serpQuery = 'events' // Default to "events" if no keyword and no categories
+        }
+
 
         // Prioritize lat/lng for location if available
         if (userLat && userLng) {
           serpUrl += `&ll=@${userLat},${userLng},11z` // Use ll parameter with coordinates and zoom level 11z
           // Optionally add location string for context if available
           if (location) {
-             serpQuery += ` near ${location}` // Add location context to query if desired
+             serpQuery += ` near ${location}` // Add location context
           }
         } else if (location) {
           // Fallback to location string if no coordinates
-          serpQuery += ` in ${location}`
+          serpQuery += ` in ${location}` // Add location context
         }
-        
-        serpUrl += `&q=${encodeURIComponent(serpQuery)}`
+
+        // Add the final query to the URL
+        serpUrl += `&q=${encodeURIComponent(serpQuery.trim())}` // Trim potential leading/trailing spaces
 
         const response = await fetch(serpUrl)
         const data = await response.json()

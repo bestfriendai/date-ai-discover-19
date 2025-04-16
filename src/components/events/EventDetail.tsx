@@ -27,7 +27,16 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
       
       <div className="flex-1 overflow-y-auto">
         <div className="h-48 bg-muted">
-          <img src={event.image} alt={event.title} className="w-full h-full object-cover" />
+          <img
+            src={event.image}
+            alt={event.title}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Set fallback image if the original fails to load
+              (e.target as HTMLImageElement).onerror = null; // Prevent infinite loop if fallback also fails
+              (e.target as HTMLImageElement).src = '/placeholder.svg';
+            }}
+          />
         </div>
         
         <div className="p-4">
