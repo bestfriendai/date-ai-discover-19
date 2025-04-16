@@ -34,7 +34,7 @@ const MapView = () => {
   };
 
   return (
-    <div className="h-screen flex flex-col bg-background">
+    <div className="h-screen flex flex-col bg-background overflow-x-hidden">
       <Header />
       <div className="flex-1 flex relative overflow-hidden pt-16">
         <AnimatePresence mode="wait">
@@ -44,13 +44,14 @@ const MapView = () => {
               animate={{ x: 0 }}
               exit={{ x: -380 }}
               transition={{ type: "spring", damping: 20, stiffness: 200 }}
-              className="w-[380px] bg-card/50 backdrop-blur-xl border-r border-border/50 relative z-10 overflow-hidden"
+              className="w-full max-w-[380px] sm:w-[380px] bg-card/50 backdrop-blur-xl border-r border-border/50 relative z-20 overflow-y-auto h-full fixed sm:static left-0 top-0 sm:relative"
+              style={{ height: '100%', maxHeight: '100vh' }}
             >
               <EventsSidebar
                 onClose={() => setLeftSidebarOpen(false)}
                 onEventSelect={handleEventSelect}
                 isLoading={isEventsLoading}
-                events={events} // Pass events data
+                events={events}
               />
             </motion.div>
           )}
@@ -60,7 +61,7 @@ const MapView = () => {
           <MapComponent
             onEventSelect={handleEventSelect}
             onLoadingChange={setIsEventsLoading}
-            onEventsChange={setEvents} // Pass events state handler
+            onEventsChange={setEvents}
           />
 
           {/* Toggle button for left sidebar */}
@@ -68,9 +69,10 @@ const MapView = () => {
             variant="ghost"
             size="icon"
             onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-            className="absolute top-4 left-4 z-20 bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 rounded-full"
+            className="absolute top-4 left-4 z-30 bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10"
+            aria-label={leftSidebarOpen ? "Close events sidebar" : "Open events sidebar"}
           >
-            {leftSidebarOpen ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            {leftSidebarOpen ? <ChevronLeft className="h-6 w-6 sm:h-4 sm:w-4" /> : <ChevronRight className="h-6 w-6 sm:h-4 sm:w-4" />}
           </Button>
         </div>
 
@@ -81,7 +83,8 @@ const MapView = () => {
               animate={{ x: 0 }}
               exit={{ x: 400 }}
               transition={{ type: "spring", damping: 20, stiffness: 200 }}
-              className="w-[400px] bg-card/50 backdrop-blur-xl border-l border-border/50 relative z-10"
+              className="w-full max-w-[400px] sm:w-[400px] bg-card/50 backdrop-blur-xl border-l border-border/50 relative z-20 overflow-y-auto h-full fixed sm:static right-0 top-0 sm:relative"
+              style={{ height: '100%', maxHeight: '100vh' }}
             >
               <EventDetail
                 event={selectedEvent || mockEvent}
