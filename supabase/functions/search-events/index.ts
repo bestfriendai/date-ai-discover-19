@@ -43,25 +43,23 @@ serve(async (req) => {
 
   try {
     // Use the exact secret names as set in Supabase
-    const MAPBOX_TOKEN = process.env.MAPBOX_TOKEN;
-    const TICKETMASTER_KEY = process.env.TICKETMASTER_KEY;
-    const TICKETMASTER_SECRET = process.env.TICKETMASTER_SECRET;
-    const SERPAPI_KEY = process.env.SERPAPI_KEY;
+    const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN');
+    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
+    const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
     // Try all possible Eventbrite token env var names (including typo variant)
-    const EVENTBRITE_TOKEN =
-      process.env.EVENTBRITE_TOKEN ||
-      process.env.EVENTBRITE_PRIVATE_TOKEN ||
-      process.env.EVENTBRITE_API_KEY ||
-      process.env.EVENTBRITE_CLIENT_SECRET ||
-      process.env.EVENTBRITE_PUBLIC_TOKEN ||
-      process.env.VENTBRITE_PUBLIC_TOKEN; // typo variant
+    const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
+    const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
     // Debug: Log the presence of API keys (masking sensitive parts)
     console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_TOKEN:', EVENTBRITE_TOKEN ? EVENTBRITE_TOKEN.slice(0,4) + '...' : 'NOT SET');
 
     if (!TICKETMASTER_KEY) {
-      throw new Error('TICKETMASTER_KEY is not set')
+      return new Response(JSON.stringify({ error: 'TICKETMASTER_KEY is not set' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      });
     }
 
     // Parse request parameters
@@ -201,13 +199,8 @@ serve(async (req) => {
     // Fetch from Eventbrite API
     try {
       // Try multiple possible Eventbrite token environment variables
-      const EVENTBRITE_TOKEN = process.env.EVENTBRITE_TOKEN ||
-                              process.env.EVENTBRITE_PRIVATE_TOKEN ||
-                              process.env.VITE_EVENTBRITE_TOKEN ||
-                              process.env.VITE_EVENTBRITE_PRIVATE_TOKEN;
-
-      const EVENTBRITE_API_KEY = process.env.EVENTBRITE_API_KEY ||
-                               process.env.VITE_EVENTBRITE_API_KEY;
+      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
+      const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
 
       console.log('[DEBUG] Eventbrite tokens available:', {
         EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN,
@@ -215,12 +208,15 @@ serve(async (req) => {
       });
 
       // Load organization ID and OAuth token from environment
-      const EVENTBRITE_ORG_ID = process.env.EVENTBRITE_ORG_ID;
-      const EVENTBRITE_OAUTH_TOKEN = process.env.EVENTBRITE_OAUTH_TOKEN;
+      const EVENTBRITE_ORG_ID = Deno.env.get('EVENTBRITE_ORG_ID');
+      const EVENTBRITE_OAUTH_TOKEN = Deno.env.get('EVENTBRITE_OAUTH_TOKEN');
 
       if (!EVENTBRITE_ORG_ID || !EVENTBRITE_OAUTH_TOKEN) {
         console.log('[DEBUG] Missing Eventbrite organization ID or OAuth token');
-        throw new Error('Missing Eventbrite organization ID or OAuth token');
+        return new Response(JSON.stringify({ error: 'Missing Eventbrite organization ID or OAuth token' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
       }
 
       // Build base URL for organization events endpoint
