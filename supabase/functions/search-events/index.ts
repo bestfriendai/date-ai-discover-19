@@ -16,6 +16,7 @@ interface Event {
   url?: string;
   price?: string;
 }
+
 // Utility: Convert 24-hour time (e.g., '14:30') to 12-hour format with AM/PM
 function to12Hour(time24: string): string {
   if (!time24 || typeof time24 !== 'string') return '';
@@ -28,7 +29,6 @@ function to12Hour(time24: string): string {
   if (hour === 0) hour = 12;
   return `${hour}:${minute} ${ampm}`;
 }
-
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,13 +47,26 @@ serve(async (req) => {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
     const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-    // Try all possible Eventbrite token env var names (including typo variant)
-    const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
+    
+    // Get Eventbrite tokens - check all possible env var names
+    const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN') || Deno.env.get('EVENTBRITE_PRIVATE_TOKEN');
     const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
+    const EVENTBRITE_CLIENT_SECRET = Deno.env.get('EVENTBRITE_CLIENT_SECRET');
+    const EVENTBRITE_PUBLIC_TOKEN = Deno.env.get('EVENTBRITE_PUBLIC_TOKEN');
+    
     // Debug: Log the presence of API keys (masking sensitive parts)
     console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_TOKEN:', EVENTBRITE_TOKEN ? EVENTBRITE_TOKEN.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] EVENTBRITE_API_KEY:', EVENTBRITE_API_KEY ? EVENTBRITE_API_KEY.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] EVENTBRITE_PUBLIC_TOKEN:', EVENTBRITE_PUBLIC_TOKEN ? EVENTBRITE_PUBLIC_TOKEN.slice(0,4) + '...' : 'NOT SET');
+    
+    // Debug Eventbrite tokens availability
+    console.log('[DEBUG] Eventbrite tokens available:', { 
+      EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN, 
+      EVENTBRITE_API_KEY: !!EVENTBRITE_API_KEY,
+      EVENTBRITE_PUBLIC_TOKEN: !!EVENTBRITE_PUBLIC_TOKEN
+    });
 
     if (!TICKETMASTER_KEY) {
       return new Response(JSON.stringify({ error: 'TICKETMASTER_KEY is not set' }), {
@@ -74,8 +87,7 @@ serve(async (req) => {
       radius = 10,
       startDate,
       endDate,
-      categories = []
-,
+      categories = [],
       eventType = '',
       serpDate = ''
     } = params
@@ -196,17 +208,145 @@ serve(async (req) => {
       console.error('Ticketmaster API error:', ticketmasterError)
     }
 
-    // Eventbrite API integration
-    // Note: Eventbrite has deprecated their public search API as of December 2019
-    // See: https://github.com/Automattic/eventbrite-api/issues/83
-    // We can only access events from a specific organization, not public events in an area
+    // Fetch from Eventbrite API
     try {
-      // Set Eventbrite error message explaining the API limitation
-      eventbriteError = 'Eventbrite public search API has been deprecated. Only organization-specific events can be retrieved.';
-      console.log('[DEBUG] Eventbrite integration: Public search API is no longer available');
+      // Use public Eventbrite event search endpoint for public events
+      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
+      const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
+      const eventbriteAuthToken = EVENTBRITE_TOKEN || EVENTBRITE_API_KEY;
 
-      // No events from Eventbrite
-      eventbriteCount = 0;
+      if (!eventbriteAuthToken) {
+        eventbriteError = 'Eventbrite API key or token is not set';
+        throw new Error(eventbriteError);
+      }
+
+      // Build base URL for public event search
+      let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?expand=venue`;
+
+      // Add filters as query parameters
+      const eventbriteParams: string[] = [];
+      if (keyword) eventbriteParams.push(`q=${encodeURIComponent(keyword)}`);
+      if (location) eventbriteParams.push(`location.address=${encodeURIComponent(location)}`);
+      if (userLat && userLng) {
+        eventbriteParams.push(`location.latitude=${userLat}`);
+        eventbriteParams.push(`location.longitude=${userLng}`);
+      }
+      if (radius) eventbriteParams.push(`location.within=${radius}mi`);
+      if (startDate) eventbriteParams.push(`start_date.range_start=${startDate}T00:00:00Z`);
+      if (endDate) eventbriteParams.push(`start_date.range_end=${endDate}T23:59:59Z`);
+      if (categories.length > 0) eventbriteParams.push(`categories=${categories.join(',')}`);
+
+      // Pagination setup
+      let eventbriteEvents: any[] = [];
+      let ebPage = 1;
+      const ebPageSize = 50;
+      let ebTotalPages = 1;
+      const ebMaxPages = 10; // 10*50=500 events max
+
+      do {
+        let pagedUrl = eventbriteUrl + `&page=${ebPage}&page_size=${ebPageSize}`;
+        if (eventbriteParams.length > 0) {
+          pagedUrl += '&' + eventbriteParams.join('&');
+        }
+        console.log('[DEBUG] Eventbrite API URL:', pagedUrl);
+        const ebResp = await fetch(pagedUrl, {
+          headers: {
+            'Authorization': `Bearer ${eventbriteAuthToken}`
+          }
+        });
+        const ebData = await ebResp.json();
+        console.log('[DEBUG] Eventbrite API response:', {
+          pagination: ebData.pagination,
+          eventsCount: ebData.events?.length || 0,
+          error: ebData.error || null
+        });
+        if (ebData.events && Array.isArray(ebData.events)) {
+          eventbriteEvents = [...eventbriteEvents, ...ebData.events];
+        }
+        if (ebData.pagination?.page_count) {
+          ebTotalPages = ebData.pagination.page_count;
+        }
+        ebPage++;
+      } while (ebPage <= ebTotalPages && ebPage <= ebMaxPages);
+
+      // Robust Eventbrite normalization
+      function mapEventbriteCategory(categoryId) {
+        const mapping = {
+          '103': 'music',
+          '101': 'business',
+          '110': 'food',
+          '105': 'arts',
+          '104': 'film',
+          '108': 'sports',
+          '107': 'health',
+          '102': 'science',
+          '109': 'travel',
+          '111': 'charity',
+          '113': 'spirituality',
+          '114': 'family',
+          '115': 'holiday',
+          '116': 'government',
+          '112': 'fashion',
+          '106': 'hobbies',
+          '117': 'home',
+          '118': 'auto',
+          '119': 'school',
+          '199': 'other',
+        };
+        return mapping[categoryId] || 'event';
+      }
+
+      function normalizeEventbriteEvent(event) {
+        try {
+          if (!event.id || !event.name?.text || !event.start?.local) return null;
+          // Coordinates
+          let coordinates: [number, number] | undefined = undefined;
+          if (event.venue?.longitude && event.venue?.latitude) {
+            const lon = parseFloat(event.venue.longitude);
+            const lat = parseFloat(event.venue.latitude);
+            if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
+              coordinates = [lon, lat];
+            }
+          }
+          // Price
+          let price: string | undefined = undefined;
+          if (event.is_free) {
+            price = 'Free';
+          } else if (event.ticket_classes && Array.isArray(event.ticket_classes) && event.ticket_classes.length > 0) {
+            const paid = event.ticket_classes.find(tc => tc.free === false && tc.cost);
+            if (paid && paid.cost) price = `${paid.cost.display}`;
+          }
+          // Image
+          const image = event.logo?.original?.url || event.logo?.url || '/placeholder.svg';
+          // Category
+          const category = event.category_id ? mapEventbriteCategory(event.category_id) : 'event';
+          // Date/time
+          const [date, time] = event.start.local.split('T');
+            // Convert to 12-hour format
+            const time12 = time ? to12Hour(time) : 'N/A';
+          return {
+            id: `eventbrite-${event.id}`,
+            source: 'eventbrite',
+            title: event.name.text,
+            description: event.description?.text || '',
+            date: date,
+            time: time12,
+            location: event.venue?.address?.localized_address_display || event.venue?.name || 'Online or TBD',
+            venue: event.venue?.name,
+            category,
+            image,
+            coordinates,
+            url: event.url,
+            price,
+          };
+        } catch (error) {
+          return null;
+        }
+      }
+
+      const eventbriteEventsNormalized = eventbriteEvents.map(normalizeEventbriteEvent).filter(e => e !== null) || [];
+      allEvents = [...allEvents, ...eventbriteEventsNormalized];
+      eventbriteCount = eventbriteEventsNormalized.length;
     } catch (err) {
       eventbriteError = err instanceof Error ? err.message : String(err);
       console.error('Eventbrite API error:', eventbriteError);
