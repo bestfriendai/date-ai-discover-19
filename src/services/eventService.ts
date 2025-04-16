@@ -30,7 +30,7 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
     
     // Call Supabase function to fetch events from multiple sources
     const { data, error } = await supabase.functions.invoke('search-events', {
-      body: JSON.stringify(searchParams)
+      body: searchParams
     });
     
     if (error) throw error;
