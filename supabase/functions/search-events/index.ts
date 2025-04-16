@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { normalizeTicketmasterEvent, normalizeSerpApiEvent } from '../../src/utils/eventNormalizers.ts'
 
 // Define the Event interface matching the frontend type
 interface Event {
@@ -124,6 +125,26 @@ serve(async (req) => {
       }
     }
 
+    // ENFORCE: Do not fetch events unless a valid location or coordinates are provided
+    const hasValidLocation = (
+      (typeof location === 'string' && location.trim().length > 0) ||
+      (userLat && userLng && !isNaN(Number(userLat)) && !isNaN(Number(userLng)))
+    );
+    if (!hasValidLocation) {
+      return new Response(JSON.stringify({
+        error: 'A valid location (city or coordinates) is required to search for events.',
+        events: [],
+        sourceStats: {
+          ticketmaster: { count: 0, error: 'No location provided' },
+          eventbrite: { count: 0, error: 'No location provided' },
+          serpapi: { count: 0, error: 'No location provided' }
+        }
+      }), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 400,
+      });
+    }
+
     // Prepare results array
     let allEvents: Event[] = []
     // Track per-source stats
@@ -139,48 +160,50 @@ serve(async (req) => {
       let ticketmasterTotalPages = 1;
       const ticketmasterMaxPages = 1; // Limit to 200 events as requested
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
+        // Use a stricter radius for more local results (default 25 miles)
+        const effectiveRadius = Math.max(1, Math.min(Number(radius) || 25, 100));
         let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
+
+        // Add location parameters
+        if (userLat && userLng) {
+          ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${effectiveRadius}&unit=miles`
+        } else if (location) {
+          ticketmasterUrl += `&city=${encodeURIComponent(location)}`
+        }
+
+        // Add date range
+        if (startDate) {
+          ticketmasterUrl += `&startDateTime=${startDate}T00:00:00Z`
+        }
+        if (endDate) {
+          ticketmasterUrl += `&endDateTime=${endDate}T23:59:59Z`
+        }
+
+        // Add keyword
+        if (keyword) {
+          ticketmasterUrl += `&keyword=${encodeURIComponent(keyword)}`
+        }
+
+        // Add categories
+        if (categories.length > 0) {
+          // Map our categories to Ticketmaster's segmentId
+          const categoryMap = {
+            'music': 'KZFzniwnSyZfZ7v7nJ',
+            'sports': 'KZFzniwnSyZfZ7v7nE',
+            'arts': 'KZFzniwnSyZfZ7v7na',
+            'family': 'KZFzniwnSyZfZ7v7n1',
+            'food': 'KZFzniwnSyZfZ7v7l1'
+          }
+
+          const segmentIds = categories
+            .map(cat => categoryMap[cat])
+            .filter(Boolean)
+
+          if (segmentIds.length > 0) {
+            ticketmasterUrl += `&segmentId=${segmentIds.join(',')}`
+          }
+        }
         console.log('[DEBUG] Ticketmaster API URL:', ticketmasterUrl);
-
-      // Add location parameters
-      if (userLat && userLng) {
-        ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${radius}&unit=miles`
-      } else if (location) {
-        ticketmasterUrl += `&city=${encodeURIComponent(location)}`
-      }
-
-      // Add date range
-      if (startDate) {
-        ticketmasterUrl += `&startDateTime=${startDate}T00:00:00Z`
-      }
-      if (endDate) {
-        ticketmasterUrl += `&endDateTime=${endDate}T23:59:59Z`
-      }
-
-      // Add keyword
-      if (keyword) {
-        ticketmasterUrl += `&keyword=${encodeURIComponent(keyword)}`
-      }
-
-      // Add categories
-      if (categories.length > 0) {
-        // Map our categories to Ticketmaster's segmentId
-        const categoryMap = {
-          'music': 'KZFzniwnSyZfZ7v7nJ',
-          'sports': 'KZFzniwnSyZfZ7v7nE',
-          'arts': 'KZFzniwnSyZfZ7v7na',
-          'family': 'KZFzniwnSyZfZ7v7n1',
-          'food': 'KZFzniwnSyZfZ7v7l1'
-        }
-
-        const segmentIds = categories
-          .map(cat => categoryMap[cat])
-          .filter(Boolean)
-
-        if (segmentIds.length > 0) {
-          ticketmasterUrl += `&segmentId=${segmentIds.join(',')}`
-        }
-      }
 
         const response = await fetch(ticketmasterUrl)
         const data = await response.json()
@@ -199,35 +222,17 @@ serve(async (req) => {
         ticketmasterPage++;
       }
 
-      // Transform Ticketmaster events
-      const ticketmasterEventsNormalized = ticketmasterEvents.map(event => {
-        let coordinates: [number, number] | undefined = undefined;
-        const venue = event._embedded?.venues?.[0];
-        if (venue?.location?.longitude && venue?.location?.latitude) {
-          const lon = parseFloat(venue.location.longitude);
-          const lat = parseFloat(venue.location.latitude);
-          if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
-            coordinates = [lon, lat];
+      // Transform Ticketmaster events using normalization utility
+      const ticketmasterEventsNormalized = ticketmasterEvents
+        .map(event => {
+          try {
+            return normalizeTicketmasterEvent(event);
+          } catch (e) {
+            console.warn('Failed to normalize Ticketmaster event:', event?.id, e);
+            return null;
           }
-        }
-        return {
-          id: `ticketmaster-${event.id}`,
-          source: 'ticketmaster',
-          title: event.name,
-          description: event.description || event.info || '',
-          date: event.dates.start.localDate,
-          time: event.dates.start.localTime,
-          location: venue?.name || '',
-          venue: venue?.name,
-          category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
-          image: event.images?.[0]?.url || '/placeholder.svg',
-          coordinates,
-          url: event.url,
-          price: event.priceRanges ?
-            `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` :
-            undefined
-        };
-      }) || [];
+        })
+        .filter(Boolean) || [];
 
       allEvents = [...allEvents, ...ticketmasterEventsNormalized]
       ticketmasterCount = ticketmasterEventsNormalized.length
@@ -376,90 +381,27 @@ serve(async (req) => {
         }
 
         // Transform SerpAPI events
-        const serpEventsNormalized = serpEvents.map(event => {
-          // Try to extract coordinates from the event
-          let coordinates: [number, number] | undefined = undefined;
-
-          // If we have user coordinates and no event-specific coordinates, use the user's coordinates
-          // This ensures events show up on the map near the user's location
-          if (userLng && userLat) {
-            // Add a tiny random offset (±0.01) to prevent all events from stacking at the same point
-            const randomLngOffset = (Math.random() * 0.02) - 0.01;
-            const randomLatOffset = (Math.random() * 0.02) - 0.01;
-            coordinates = [
-              Number(userLng) + randomLngOffset,
-              Number(userLat) + randomLatOffset
-            ];
-          }
-
-          // Robust fallback/defaults for all fields
-          // Create a safe ID without using base64 encoding to avoid character encoding issues
-          const id = event.title ?
-            `serpapi-${Date.now()}-${event.title.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10)}` :
-            `serpapi-${Date.now()}`;
-          const title = event.title || 'Untitled Event';
-          // Normalize date to ISO 8601 if possible
-          let date = event.date?.start_date || '';
-          if (date && isNaN(Date.parse(date))) {
-            // Try to parse non-ISO date
-            const parsed = Date.parse(date.replace(/(\d{2})\.(\d{2})\.(\d{4})/, '$3-$2-$1'));
-            if (!isNaN(parsed)) {
-              date = new Date(parsed).toISOString();
+        // Use normalization utility and assign coordinates after normalization
+        const serpEventsNormalized = serpEvents
+          .map(event => {
+            try {
+              const normalized = normalizeSerpApiEvent(event);
+              // Assign coordinates near user location if available
+              if (userLng && userLat) {
+                const randomLngOffset = (Math.random() * 0.02) - 0.01;
+                const randomLatOffset = (Math.random() * 0.02) - 0.01;
+                normalized.coordinates = [
+                  Number(userLng) + randomLngOffset,
+                  Number(userLat) + randomLatOffset
+                ];
+              }
+              return normalized;
+            } catch (e) {
+              console.warn('Failed to normalize SerpAPI event:', event?.title, e);
+              return null;
             }
-          }
-          const time = event.date?.when?.split(' ').pop() || '';
-          // Convert to 12-hour format
-          const time12 = time ? to12Hour(time) : '';
-          const location = Array.isArray(event.address) ? event.address.join(', ') : (event.address || '');
-          const venue = event.venue?.name || '';
-          // Try to get a higher quality image
-          let image = '/placeholder.svg';
-          // Check all possible image fields in SerpAPI response
-          if (event.image) {
-            // Use the full-size image if available
-            image = event.image;
-          } else if (event.images && event.images.length > 0) {
-            // Use the first image from the images array if available
-            image = event.images[0];
-          } else if (event.thumbnail) {
-            // If no full-size image, use the thumbnail
-            image = event.thumbnail;
-          } else if (event.thumbnails && event.thumbnails.length > 0) {
-            // Use the first thumbnail from the thumbnails array if available
-            image = event.thumbnails[0];
-          }
-
-          // If the image URL is a relative URL, convert it to an absolute URL
-          if (image && image.startsWith('/')) {
-            if (image === '/placeholder.svg') {
-              // Keep the placeholder as is
-            } else {
-              // Convert relative URL to absolute URL
-              image = `https://www.google.com${image}`;
-            }
-          }
-          const url = event.link || '';
-          const price = event.ticket_info?.[0]?.price || undefined;
-          const description = event.description || '';
-          // Use a more specific category if possible, otherwise default to 'event'
-          const category = event.type || 'event';
-
-          return {
-            id,
-            source: 'serpapi',
-            title,
-            description,
-            date,
-            time: time12,
-            location,
-            venue,
-            category,
-            image,
-            coordinates,
-            url,
-            price
-          };
-        }) || [];
+          })
+          .filter(Boolean) || [];
 
         allEvents = [...allEvents, ...serpEventsNormalized];
         serpapiCount = serpEventsNormalized.length;

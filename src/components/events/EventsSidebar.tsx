@@ -84,7 +84,8 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
       aria-label="Events Sidebar"
       tabIndex={0}
     >
-      <div className="p-4 border-b border-[hsl(var(--sidebar-border))]">
+      {/* Sticky header with animated transition */}
+      <div className="sticky top-0 z-10 bg-[hsl(var(--sidebar-background))]/95 backdrop-blur-md border-b border-[hsl(var(--sidebar-border))] p-4 transition-all duration-300">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
             <h2 className="text-xl font-bold text-[hsl(var(--sidebar-primary))]">Events</h2>
@@ -94,7 +95,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-md hover:bg-[hsl(var(--sidebar-accent))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
+            className="p-2 rounded-md hover:bg-[hsl(var(--sidebar-accent))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))] transition"
             aria-label="Close sidebar"
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
@@ -198,14 +199,39 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                   />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-sm mb-1 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
+                  <h3 className="font-semibold text-base mb-0.5 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
+                  {/* Description snippet */}
+                  {event.description && (
+                    <div className="text-xs text-[hsl(var(--sidebar-foreground))]/80 mb-1 line-clamp-2">
+                      {event.description.slice(0, 100)}
+                      {event.description.length > 100 ? '…' : ''}
+                    </div>
+                  )}
                   <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/70 mb-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                     {event.date} • <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 mr-1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     {event.time}
                   </div>
-                  <div className="flex items-center">
-                    <div className="text-xs bg-[hsl(var(--sidebar-accent))] rounded px-1.5 py-0.5 mr-1 capitalize">{event.category}</div>
+                  <div className="flex items-center gap-1">
+                    {/* Category badge with color */}
+                    <div className={`
+                      text-xs rounded px-1.5 py-0.5 capitalize font-medium mr-1
+                      ${event.category?.toLowerCase() === 'music' ? 'bg-blue-500/80 text-white'
+                        : event.category?.toLowerCase() === 'sports' ? 'bg-green-500/80 text-white'
+                        : event.category?.toLowerCase() === 'arts' || event.category?.toLowerCase() === 'theatre' ? 'bg-pink-500/80 text-white'
+                        : event.category?.toLowerCase() === 'family' ? 'bg-yellow-400/80 text-gray-900'
+                        : event.category?.toLowerCase() === 'food' || event.category?.toLowerCase() === 'restaurant' ? 'bg-orange-500/80 text-white'
+                        : 'bg-gray-700/80 text-white'
+                      }
+                    `}>
+                      {event.category}
+                    </div>
+                    {/* Price */}
+                    {event.price && (
+                      <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">
+                        {event.price}
+                      </div>
+                    )}
                     <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/60 ml-auto">
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                       <span className="truncate max-w-[120px]">{event.location}</span>

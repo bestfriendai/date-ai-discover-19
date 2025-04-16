@@ -23,12 +23,12 @@ const mockEvent = {
 const MapView = () => {
   const [leftSidebarOpen, setLeftSidebarOpen] = useState(true);
   const [rightSidebarOpen, setRightSidebarOpen] = useState(false);
-  const [selectedEvent, setSelectedEvent] = useState<any>(null);
+  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [isEventsLoading, setIsEventsLoading] = useState(true);
-  const [events, setEvents] = useState<Event[]>([]); // Add state for events data
+  const [events, setEvents] = useState<Event[]>([]);
 
   // Function to handle event selection
-  const handleEventSelect = (event: any) => {
+  const handleEventSelect = (event: Event) => {
     setSelectedEvent(event);
     setRightSidebarOpen(true);
   };

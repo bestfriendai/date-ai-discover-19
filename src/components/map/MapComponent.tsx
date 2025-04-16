@@ -106,6 +106,22 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   // --- Event Fetching ---
   // Increase radius to 100 to maximize event fetching
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 100, currentFilters: EventFilters = {}) => {
+    // Validate coordinates before fetching
+    const isValidCoord = (
+      typeof latitude === 'number' && typeof longitude === 'number' &&
+      !isNaN(latitude) && !isNaN(longitude) &&
+      latitude >= -90 && latitude <= 90 &&
+      longitude >= -180 && longitude <= 180
+    );
+    if (!isValidCoord) {
+      setEvents([]);
+      onEventsChange?.([]);
+      setMapError("Please provide a valid location before searching for events.");
+      setLoading(false);
+      onLoadingChange?.(false);
+      return;
+    }
+
     setLoading(true);
     onLoadingChange?.(true);
 

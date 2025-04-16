@@ -33,26 +33,48 @@ const EventMarker = ({ event, isSelected = false, onClick }: EventMarkerProps) =
 
   const IconComponent = getCategoryIcon(event.category);
 
+  // Category-based background color
+  const getCategoryBg = (category: string, isSelected: boolean) => {
+    if (isSelected) return "bg-primary/40 ring-2 ring-primary shadow-lg shadow-primary/30";
+    switch (category?.toLowerCase()) {
+      case 'music':
+        return "bg-blue-500/80";
+      case 'sports':
+        return "bg-green-500/80";
+      case 'arts':
+      case 'theatre':
+        return "bg-pink-500/80";
+      case 'family':
+        return "bg-yellow-400/80";
+      case 'food':
+      case 'restaurant':
+        return "bg-orange-500/80";
+      default:
+        return "bg-gray-700/80";
+    }
+  };
 
   return (
     <button
       type="button"
       onClick={onClick}
       className={cn(
-        "cursor-pointer transition-transform duration-150 ease-in-out hover:scale-110 focus:outline-none p-1 rounded-full flex items-center justify-center", // Added padding, rounded, flex for centering
-        isSelected ? "scale-110 bg-primary/30 ring-2 ring-primary" : "scale-100 bg-background/80 backdrop-blur-sm shadow-md border border-border/50" // Added background, shadow, border for better visibility
+        "cursor-pointer transition-transform duration-150 ease-in-out hover:scale-110 focus:outline-none p-1 rounded-full flex items-center justify-center border border-border/50 shadow-md backdrop-blur-sm",
+        getCategoryBg(event.category, isSelected),
+        isSelected ? "scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "scale-100"
       )}
-      aria-label={`Event: ${event.title}`} // More descriptive aria-label
-      title={event.title} // Add tooltip with event title
+      aria-label={`Event: ${event.title}`}
+      title={event.title}
+      style={isSelected ? { zIndex: 10 } : {}}
     >
-      <IconComponent // Use dynamic icon component
+      <IconComponent
         className={cn(
-          "h-4 w-4", // Slightly smaller icon inside the button
+          "h-4 w-4",
           isSelected
             ? "text-primary"
-            : "text-foreground/80" // Use foreground color for better theme compatibility
+            : "text-white"
         )}
-        strokeWidth={2} // Slightly thicker stroke
+        strokeWidth={2}
       />
     </button>
   );
