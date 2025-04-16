@@ -105,11 +105,11 @@ serve(async (req) => {
 
     // Fetch from Ticketmaster API
     try {
-      // Fetch up to 1000 events from Ticketmaster using pagination (max size=200 per page)
+      // Fetch up to 200 events from Ticketmaster (no pagination)
       let ticketmasterEvents: any[] = [];
       let ticketmasterPage = 0;
       let ticketmasterTotalPages = 1;
-      const ticketmasterMaxPages = 5; // 5*200=1000 events max
+      const ticketmasterMaxPages = 1; // Limit to 200 events as requested
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
         let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
         console.log('[DEBUG] Ticketmaster API URL:', ticketmasterUrl);
@@ -208,149 +208,9 @@ serve(async (req) => {
       console.error('Ticketmaster API error:', ticketmasterError)
     }
 
-    // Fetch from Eventbrite API
-    try {
-      // Use public Eventbrite event search endpoint for public events
-      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
-      const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
-      const eventbriteAuthToken = EVENTBRITE_TOKEN || EVENTBRITE_API_KEY;
-
-      if (!eventbriteAuthToken) {
-        eventbriteError = 'Eventbrite API key or token is not set';
-        throw new Error(eventbriteError);
-      }
-
-      // Build base URL for public event search
-      let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?expand=venue`;
-
-      // Add filters as query parameters
-      const eventbriteParams: string[] = [];
-      if (keyword) eventbriteParams.push(`q=${encodeURIComponent(keyword)}`);
-      if (location) eventbriteParams.push(`location.address=${encodeURIComponent(location)}`);
-      if (userLat && userLng) {
-        eventbriteParams.push(`location.latitude=${userLat}`);
-        eventbriteParams.push(`location.longitude=${userLng}`);
-      }
-      if (radius) eventbriteParams.push(`location.within=${radius}mi`);
-      if (startDate) eventbriteParams.push(`start_date.range_start=${startDate}T00:00:00Z`);
-      if (endDate) eventbriteParams.push(`start_date.range_end=${endDate}T23:59:59Z`);
-      if (categories.length > 0) eventbriteParams.push(`categories=${categories.join(',')}`);
-
-      // Pagination setup
-      let eventbriteEvents: any[] = [];
-      let ebPage = 1;
-      const ebPageSize = 50;
-      let ebTotalPages = 1;
-      const ebMaxPages = 10; // 10*50=500 events max
-
-      do {
-        let pagedUrl = eventbriteUrl + `&page=${ebPage}&page_size=${ebPageSize}`;
-        if (eventbriteParams.length > 0) {
-          pagedUrl += '&' + eventbriteParams.join('&');
-        }
-        console.log('[DEBUG] Eventbrite API URL:', pagedUrl);
-        const ebResp = await fetch(pagedUrl, {
-          headers: {
-            'Authorization': `Bearer ${eventbriteAuthToken}`
-          }
-        });
-        const ebData = await ebResp.json();
-        console.log('[DEBUG] Eventbrite API response:', {
-          pagination: ebData.pagination,
-          eventsCount: ebData.events?.length || 0,
-          error: ebData.error || null
-        });
-        if (ebData.events && Array.isArray(ebData.events)) {
-          eventbriteEvents = [...eventbriteEvents, ...ebData.events];
-        }
-        if (ebData.pagination?.page_count) {
-          ebTotalPages = ebData.pagination.page_count;
-        }
-        ebPage++;
-      } while (ebPage <= ebTotalPages && ebPage <= ebMaxPages);
-
-      // Robust Eventbrite normalization
-      function mapEventbriteCategory(categoryId) {
-        const mapping = {
-          '103': 'music',
-          '101': 'business',
-          '110': 'food',
-          '105': 'arts',
-          '104': 'film',
-          '108': 'sports',
-          '107': 'health',
-          '102': 'science',
-          '109': 'travel',
-          '111': 'charity',
-          '113': 'spirituality',
-          '114': 'family',
-          '115': 'holiday',
-          '116': 'government',
-          '112': 'fashion',
-          '106': 'hobbies',
-          '117': 'home',
-          '118': 'auto',
-          '119': 'school',
-          '199': 'other',
-        };
-        return mapping[categoryId] || 'event';
-      }
-
-      function normalizeEventbriteEvent(event) {
-        try {
-          if (!event.id || !event.name?.text || !event.start?.local) return null;
-          // Coordinates
-          let coordinates: [number, number] | undefined = undefined;
-          if (event.venue?.longitude && event.venue?.latitude) {
-            const lon = parseFloat(event.venue.longitude);
-            const lat = parseFloat(event.venue.latitude);
-            if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
-              coordinates = [lon, lat];
-            }
-          }
-          // Price
-          let price: string | undefined = undefined;
-          if (event.is_free) {
-            price = 'Free';
-          } else if (event.ticket_classes && Array.isArray(event.ticket_classes) && event.ticket_classes.length > 0) {
-            const paid = event.ticket_classes.find(tc => tc.free === false && tc.cost);
-            if (paid && paid.cost) price = `${paid.cost.display}`;
-          }
-          // Image
-          const image = event.logo?.original?.url || event.logo?.url || '/placeholder.svg';
-          // Category
-          const category = event.category_id ? mapEventbriteCategory(event.category_id) : 'event';
-          // Date/time
-          const [date, time] = event.start.local.split('T');
-            // Convert to 12-hour format
-            const time12 = time ? to12Hour(time) : 'N/A';
-          return {
-            id: `eventbrite-${event.id}`,
-            source: 'eventbrite',
-            title: event.name.text,
-            description: event.description?.text || '',
-            date: date,
-            time: time12,
-            location: event.venue?.address?.localized_address_display || event.venue?.name || 'Online or TBD',
-            venue: event.venue?.name,
-            category,
-            image,
-            coordinates,
-            url: event.url,
-            price,
-          };
-        } catch (error) {
-          return null;
-        }
-      }
-
-      const eventbriteEventsNormalized = eventbriteEvents.map(normalizeEventbriteEvent).filter(e => e !== null) || [];
-      allEvents = [...allEvents, ...eventbriteEventsNormalized];
-      eventbriteCount = eventbriteEventsNormalized.length;
-    } catch (err) {
-      eventbriteError = err instanceof Error ? err.message : String(err);
-      console.error('Eventbrite API error:', eventbriteError);
-    }
+    // No Eventbrite API integration - removed as requested
+    eventbriteCount = 0;
+    eventbriteError = null;
 
     // SerpApi Google Events API integration - Enhanced to replace Eventbrite
     // Docs: https://serpapi.com/google-events-api
@@ -369,10 +229,7 @@ serve(async (req) => {
           serpQuery += (serpQuery !== 'events' ? ' ' : '') + categories.join(' ') + ' events';
         }
 
-        // Add 'eventbrite' to the query to help find Eventbrite events through Google
-        if (!serpQuery.toLowerCase().includes('eventbrite')) {
-          serpQuery += ' eventbrite';
-        }
+        // Remove Eventbrite reference as requested
 
         // Build SerpApi params
         const serpParams: Record<string, string> = {};
@@ -473,8 +330,10 @@ serve(async (req) => {
           const coordinates: [number, number] | undefined = undefined;
 
           // Robust fallback/defaults for all fields
-          // Use btoa for base64 encoding in Deno instead of Node.js Buffer
-          const id = event.title ? `serpapi-${btoa(event.title).slice(0, 10)}` : `serpapi-${Date.now()}`;
+          // Create a safe ID without using base64 encoding to avoid character encoding issues
+          const id = event.title ?
+            `serpapi-${Date.now()}-${event.title.replace(/[^a-zA-Z0-9]/g, '').substring(0, 10)}` :
+            `serpapi-${Date.now()}`;
           const title = event.title || 'Untitled Event';
           // Normalize date to ISO 8601 if possible
           let date = event.date?.start_date || '';
