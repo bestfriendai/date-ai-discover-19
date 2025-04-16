@@ -374,8 +374,20 @@ serve(async (req) => {
 
         // Transform SerpAPI events
         const serpEventsNormalized = serpEvents.map(event => {
-          // SerpApi does not provide coordinates; geocoding could be added here in the future
-          const coordinates: [number, number] | undefined = undefined;
+          // Try to extract coordinates from the event
+          let coordinates: [number, number] | undefined = undefined;
+
+          // If we have user coordinates and no event-specific coordinates, use the user's coordinates
+          // This ensures events show up on the map near the user's location
+          if (userLng && userLat) {
+            // Add a tiny random offset (±0.01) to prevent all events from stacking at the same point
+            const randomLngOffset = (Math.random() * 0.02) - 0.01;
+            const randomLatOffset = (Math.random() * 0.02) - 0.01;
+            coordinates = [
+              Number(userLng) + randomLngOffset,
+              Number(userLat) + randomLatOffset
+            ];
+          }
 
           // Robust fallback/defaults for all fields
           // Create a safe ID without using base64 encoding to avoid character encoding issues
@@ -401,7 +413,8 @@ serve(async (req) => {
           const url = event.link || '';
           const price = event.ticket_info?.[0]?.price || undefined;
           const description = event.description || '';
-          const category = 'event';
+          // Use a more specific category if possible, otherwise default to 'event'
+          const category = event.type || 'event';
 
           return {
             id,
