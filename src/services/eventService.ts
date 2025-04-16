@@ -35,6 +35,17 @@ export async function searchEvents(params: SearchParams): Promise<Event[]> {
     
     if (error) throw error;
     
+    if (data?.sourceStats) {
+      console.log(
+        `[Events] Ticketmaster: ${data.sourceStats.ticketmaster.count} ${data.sourceStats.ticketmaster.error ? `(Error: ${data.sourceStats.ticketmaster.error})` : ''}`
+      );
+      console.log(
+        `[Events] Eventbrite: ${data.sourceStats.eventbrite.count} ${data.sourceStats.eventbrite.error ? `(Error: ${data.sourceStats.eventbrite.error})` : ''}`
+      );
+      console.log(
+        `[Events] Serpapi: ${data.sourceStats.serpapi.count} ${data.sourceStats.serpapi.error ? `(Error: ${data.sourceStats.serpapi.error})` : ''}`
+      );
+    }
     return data?.events || [];
   } catch (error) {
     console.error('Error searching events:', error);

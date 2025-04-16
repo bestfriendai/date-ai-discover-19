@@ -270,11 +270,17 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
         map.current.addControl(new mapboxgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, showUserHeading: true }), 'bottom-right');
 
         map.current.on('load', () => {
-          if (!isMounted || !map.current) return;
-          setMapLoaded(true);
-          setupMapFeatures(); // Setup sources, layers, interactions
-          fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
-        });
+  if (!isMounted || !map.current) return;
+  setMapLoaded(true);
+  setupMapFeatures(); // Setup sources, layers, interactions
+  fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
+});
+
+// Ensure sources/layers are re-added after style changes
+map.current.on('style.load', () => {
+  if (!isMounted || !map.current) return;
+  setupMapFeatures();
+});
 
         map.current.on('move', (e) => {
           if (!map.current) return;

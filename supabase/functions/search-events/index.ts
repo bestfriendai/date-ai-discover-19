@@ -57,6 +57,10 @@ serve(async (req) => {
 
     // Prepare results array
     let allEvents: Event[] = []
+    // Track per-source stats
+    let ticketmasterCount = 0, ticketmasterError: string | null = null
+    let eventbriteCount = 0, eventbriteError: string | null = null
+    let serpapiCount = 0, serpapiError: string | null = null
 
     // Fetch from Ticketmaster API
     try {
@@ -128,8 +132,45 @@ serve(async (req) => {
       })) || []
 
       allEvents = [...allEvents, ...ticketmasterEvents]
-    } catch (ticketmasterError) {
+      ticketmasterCount = ticketmasterEvents.length
+    } catch (err) {
+      ticketmasterError = err instanceof Error ? err.message : String(err)
       console.error('Ticketmaster API error:', ticketmasterError)
+    }
+
+    // Fetch from Eventbrite API
+    try {
+      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN')
+      if (!EVENTBRITE_TOKEN) throw new Error('EVENTBRITE_TOKEN is not set')
+      let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?token=${EVENTBRITE_TOKEN}&expand=venue`
+      if (userLat && userLng) {
+        eventbriteUrl += `&location.latitude=${userLat}&location.longitude=${userLng}&location.within=${radius}mi`
+      } else if (location) {
+        eventbriteUrl += `&location.address=${encodeURIComponent(location)}`
+      }
+      if (keyword) eventbriteUrl += `&q=${encodeURIComponent(keyword)}`
+      if (startDate) eventbriteUrl += `&start_date.range_start=${startDate}T00:00:00Z`
+      if (endDate) eventbriteUrl += `&start_date.range_end=${endDate}T23:59:59Z`
+      // Note: Eventbrite category mapping can be added here if needed
+
+      const ebResp = await fetch(eventbriteUrl)
+      const ebData = await ebResp.json()
+      const eventbriteEvents = ebData.events?.map(event => ({
+        title: event.name?.text || '',
+        date: event.start?.local || '',
+        url: event.url,
+        description: event.description?.text || '',
+        venue: event.venue?.name || '',
+        coordinates: event.venue?.longitude && event.venue?.latitude
+          ? [parseFloat(event.venue.longitude), parseFloat(event.venue.latitude)]
+          : null,
+        source: 'eventbrite'
+      })) || []
+      allEvents = [...allEvents, ...eventbriteEvents]
+      eventbriteCount = eventbriteEvents.length
+    } catch (err) {
+      eventbriteError = err instanceof Error ? err.message : String(err)
+      console.error('Eventbrite API error:', eventbriteError)
     }
 
     // Fetch from SerpAPI if key is available
@@ -187,8 +228,10 @@ serve(async (req) => {
         }) || []
 
         allEvents = [...allEvents, ...serpEvents]
-      } catch (serpError) {
-        console.error('SerpAPI error:', serpError)
+        serpapiCount = serpEvents.length
+      } catch (err) {
+        serpapiError = err instanceof Error ? err.message : String(err)
+        console.error('SerpAPI error:', serpapiError)
       }
     }
 
@@ -204,7 +247,14 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ events: uniqueEvents }), {
+    return new Response(JSON.stringify({
+      events: uniqueEvents,
+      sourceStats: {
+        ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
+        eventbrite: { count: eventbriteCount, error: eventbriteError },
+        serpapi: { count: serpapiCount, error: serpapiError }
+      }
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200,
     })
