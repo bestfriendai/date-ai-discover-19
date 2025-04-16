@@ -29,8 +29,23 @@ serve(async (req) => {
   }
 
   try {
-    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY')
-    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY')
+    // Use the exact secret names as set in Supabase
+    const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN');
+    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
+    const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+    // Try all possible Eventbrite token env var names (including typo variant)
+    const EVENTBRITE_TOKEN =
+      Deno.env.get('EVENTBRITE_TOKEN') ||
+      Deno.env.get('EVENTBRITE_PRIVATE_TOKEN') ||
+      Deno.env.get('EVENTBRITE_API_KEY') ||
+      Deno.env.get('EVENTBRITE_CLIENT_SECRET') ||
+      Deno.env.get('EVENTBRITE_PUBLIC_TOKEN') ||
+      Deno.env.get('VENTBRITE_PUBLIC_TOKEN'); // typo variant
+    // Debug: Log the presence of API keys (masking sensitive parts)
+    console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] EVENTBRITE_TOKEN:', EVENTBRITE_TOKEN ? EVENTBRITE_TOKEN.slice(0,4) + '...' : 'NOT SET');
 
     if (!TICKETMASTER_KEY) {
       throw new Error('TICKETMASTER_KEY is not set')
@@ -71,6 +86,7 @@ serve(async (req) => {
       const ticketmasterMaxPages = 5; // 5*200=1000 events max
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
         let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
+        console.log('[DEBUG] Ticketmaster API URL:', ticketmasterUrl);
 
       // Add location parameters
       if (userLat && userLng) {
@@ -114,6 +130,11 @@ serve(async (req) => {
 
         const response = await fetch(ticketmasterUrl)
         const data = await response.json()
+        console.log('[DEBUG] Ticketmaster API response:', {
+          page: data.page,
+          eventsCount: data._embedded?.events?.length || 0,
+          error: data.errors || null
+        });
         if (data._embedded?.events) {
           ticketmasterEvents = [...ticketmasterEvents, ...data._embedded.events];
         }
@@ -163,9 +184,28 @@ serve(async (req) => {
 
     // Fetch from Eventbrite API
     try {
-      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN')
-      if (!EVENTBRITE_TOKEN) throw new Error('EVENTBRITE_TOKEN is not set')
-      let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?token=${EVENTBRITE_TOKEN}&expand=venue`
+      // Try multiple possible Eventbrite token environment variables
+      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN') ||
+                              Deno.env.get('EVENTBRITE_PRIVATE_TOKEN') ||
+                              Deno.env.get('VITE_EVENTBRITE_TOKEN') ||
+                              Deno.env.get('VITE_EVENTBRITE_PRIVATE_TOKEN');
+
+      const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY') ||
+                               Deno.env.get('VITE_EVENTBRITE_API_KEY');
+
+      console.log('[DEBUG] Eventbrite tokens available:', {
+        EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN,
+        EVENTBRITE_API_KEY: !!EVENTBRITE_API_KEY
+      });
+
+      if (!EVENTBRITE_TOKEN && !EVENTBRITE_API_KEY) {
+        console.log('[DEBUG] No Eventbrite tokens available');
+        throw new Error('No Eventbrite tokens available');
+      }
+
+      // Prefer the token over the API key
+      const authToken = EVENTBRITE_TOKEN || EVENTBRITE_API_KEY;
+      let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?token=${authToken}&expand=venue`
       if (userLat && userLng) {
         eventbriteUrl += `&location.latitude=${userLat}&location.longitude=${userLng}&location.within=${radius}mi`
       } else if (location) {
@@ -184,8 +224,14 @@ serve(async (req) => {
       const ebMaxPages = 10; // 10*50=500 events max
       do {
         let pagedUrl = eventbriteUrl + `&page=${ebPage}&page_size=${ebPageSize}`;
+        console.log('[DEBUG] Eventbrite API URL:', pagedUrl);
         const ebResp = await fetch(pagedUrl)
         const ebData = await ebResp.json()
+        console.log('[DEBUG] Eventbrite API response:', {
+          pagination: ebData.pagination,
+          eventsCount: ebData.events?.length || 0,
+          error: ebData.error || null
+        });
         if (ebData.events && Array.isArray(ebData.events)) {
           eventbriteEvents = [...eventbriteEvents, ...ebData.events];
         }
