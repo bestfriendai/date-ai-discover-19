@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite } from 'lucide-react';
+import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
@@ -23,14 +23,15 @@ export interface EventFilters {
 
 interface MapControlsProps {
   onViewChange: (view: 'list' | 'grid') => void;
-  // onToggleFilters: () => void; // Replaced by Popover
   onLocationSearch: (location: string) => void;
   onSearchClear?: () => void;
   currentView: 'list' | 'grid';
   filters: EventFilters;
   onFiltersChange: (newFilters: Partial<EventFilters>) => void;
-  currentMapStyle: string; // Add current style prop
-  onMapStyleChange: (styleUrl: string) => void; // Add style change handler prop
+  currentMapStyle: string;
+  onMapStyleChange: (styleUrl: string) => void;
+  onFindMyLocation: () => void;
+  locationRequested: boolean;
 }
 
 export const MapControls = ({
@@ -42,7 +43,9 @@ export const MapControls = ({
   filters,
   onFiltersChange,
   currentMapStyle, // Destructure style props
-  onMapStyleChange // Destructure style props
+  onMapStyleChange, // Destructure style props
+  onFindMyLocation,
+  locationRequested,
 }: MapControlsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -72,42 +75,57 @@ export const MapControls = ({
 
   return (
     <motion.div
-      className="absolute top-4 left-4 right-4 z-10 flex flex-wrap items-center gap-2" // Added flex-wrap for smaller screens
-      initial={{ y: -20, opacity: 0 }}
+      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center gap-2 max-w-2xl w-full px-2"
+      initial={{ y: 20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.3 }}
     >
-      <div className="flex-1 relative">
+      <div className="flex-1 relative flex items-center gap-2 bg-background/90 backdrop-blur-xl border border-border/50 rounded-full px-3 py-2 shadow-lg">
         <Input
           type="text"
-          placeholder="Search location or address..." // More specific placeholder
-          className="w-full pl-10 pr-20 bg-background/80 backdrop-blur-xl border-border/50 rounded-full h-10" // Added pr padding, explicit height
+          placeholder="Search location or address..."
+          className="w-full pl-10 pr-20 bg-transparent border-none outline-none shadow-none h-10"
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           onKeyDown={handleKeyDown}
         />
-        <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <MapPin className="absolute left-6 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Button
           variant="ghost"
           size="icon"
-          className="absolute right-10 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground rounded-full" // Added rounded-full
+          className="absolute right-14 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
           onClick={handleSearch}
           aria-label="Search"
         >
           <Search className="h-4 w-4" />
         </Button>
-         {/* Clear Button */}
-         {searchTerm && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
-              onClick={handleClearSearch}
-              aria-label="Clear search"
-            >
-              <X className="h-4 w-4" />
-            </Button>
+        {/* Clear Button */}
+        {searchTerm && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-5 top-1/2 -translate-y-1/2 h-8 w-8 text-muted-foreground hover:text-foreground rounded-full"
+            onClick={handleClearSearch}
+            aria-label="Clear search"
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        )}
+        {/* Find My Location Button */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="ml-2 rounded-full h-8 w-8"
+          onClick={onFindMyLocation}
+          disabled={locationRequested}
+          aria-label="Find My Location"
+        >
+          {locationRequested ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <MapPin className="h-4 w-4" />
           )}
+        </Button>
       </div>
 
       {/* Group View Toggle and Filters */}

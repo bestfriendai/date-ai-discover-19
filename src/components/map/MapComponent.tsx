@@ -88,7 +88,8 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const map = useRef<mapboxgl.Map | null>(null);
   const hoverPopup = useRef<mapboxgl.Popup | null>(null);
   const isProgrammaticMove = useRef(false);
-  const [viewState, setViewState] = useState({ longitude: -73.9712, latitude: 40.7831, zoom: 14 });
+  // Center on the US/globe by default
+  const [viewState, setViewState] = useState({ longitude: -98.5795, latitude: 39.8283, zoom: 3.5 });
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
@@ -103,7 +104,8 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const [mapError, setMapError] = useState<string | null>(null);
 
   // --- Event Fetching ---
-  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
+  // Increase radius to 100 to maximize event fetching
+  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 100, currentFilters: EventFilters = {}) => {
     setLoading(true);
     onLoadingChange?.(true);
 
@@ -508,6 +510,8 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
           onSearchClear={handleClearSearch}
           currentMapStyle={mapStyle}
           onMapStyleChange={handleMapStyleChange}
+          onFindMyLocation={handleGetUserLocation}
+          locationRequested={locationRequested}
         />
       )}
 
@@ -553,21 +557,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
         />
       )}
 
-      {mapLoaded && (
-        <div className="absolute bottom-4 right-20 z-10 bg-background/90 backdrop-blur-sm border border-border/50 shadow-lg rounded-full px-4 py-2 flex items-center gap-3">
-          <span className="text-xs text-muted-foreground hidden sm:inline">Location: {currentLocation}</span>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleGetUserLocation}
-            disabled={locationRequested}
-            className="rounded-full h-8 w-8"
-            aria-label="Get Current Location"
-          >
-            {locationRequested ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-          </Button>
-        </div>
-      )}
+      {/* Location button moved into MapControls */}
     </div>
   );
 };
