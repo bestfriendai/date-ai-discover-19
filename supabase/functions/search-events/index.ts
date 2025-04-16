@@ -16,6 +16,7 @@ interface Event {
   url?: string;
   price?: string;
 }
+
 // Utility: Convert 24-hour time (e.g., '14:30') to 12-hour format with AM/PM
 function to12Hour(time24: string): string {
   if (!time24 || typeof time24 !== 'string') return '';
@@ -28,7 +29,6 @@ function to12Hour(time24: string): string {
   if (hour === 0) hour = 12;
   return `${hour}:${minute} ${ampm}`;
 }
-
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,13 +47,26 @@ serve(async (req) => {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
     const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-    // Try all possible Eventbrite token env var names (including typo variant)
-    const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
+    
+    // Get Eventbrite tokens - check all possible env var names
+    const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN') || Deno.env.get('EVENTBRITE_PRIVATE_TOKEN');
     const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
+    const EVENTBRITE_CLIENT_SECRET = Deno.env.get('EVENTBRITE_CLIENT_SECRET');
+    const EVENTBRITE_PUBLIC_TOKEN = Deno.env.get('EVENTBRITE_PUBLIC_TOKEN');
+    
     // Debug: Log the presence of API keys (masking sensitive parts)
     console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_TOKEN:', EVENTBRITE_TOKEN ? EVENTBRITE_TOKEN.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] EVENTBRITE_API_KEY:', EVENTBRITE_API_KEY ? EVENTBRITE_API_KEY.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] EVENTBRITE_PUBLIC_TOKEN:', EVENTBRITE_PUBLIC_TOKEN ? EVENTBRITE_PUBLIC_TOKEN.slice(0,4) + '...' : 'NOT SET');
+    
+    // Debug Eventbrite tokens availability
+    console.log('[DEBUG] Eventbrite tokens available:', { 
+      EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN, 
+      EVENTBRITE_API_KEY: !!EVENTBRITE_API_KEY,
+      EVENTBRITE_PUBLIC_TOKEN: !!EVENTBRITE_PUBLIC_TOKEN
+    });
 
     if (!TICKETMASTER_KEY) {
       return new Response(JSON.stringify({ error: 'TICKETMASTER_KEY is not set' }), {
@@ -74,8 +87,7 @@ serve(async (req) => {
       radius = 10,
       startDate,
       endDate,
-      categories = []
-,
+      categories = [],
       eventType = '',
       serpDate = ''
     } = params
@@ -199,14 +211,16 @@ serve(async (req) => {
     // Fetch from Eventbrite API
     try {
       // Use public Eventbrite event search endpoint for public events
-      const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
-      const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
-      const eventbriteAuthToken = EVENTBRITE_TOKEN || EVENTBRITE_API_KEY;
+      const eventbriteAuthToken = EVENTBRITE_TOKEN || EVENTBRITE_API_KEY || EVENTBRITE_PUBLIC_TOKEN;
 
       if (!eventbriteAuthToken) {
         eventbriteError = 'Eventbrite API key or token is not set';
+        console.log('[DEBUG] Missing Eventbrite tokens');
         throw new Error(eventbriteError);
       }
+
+      // Debug token being used
+      console.log('[DEBUG] Using Eventbrite token:', eventbriteAuthToken.slice(0,4) + '...');
 
       // Build base URL for public event search
       let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?expand=venue`;

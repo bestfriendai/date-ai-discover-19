@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { Event } from '@/types';
 import { normalizeTicketmasterEvent, normalizeSerpApiEvent } from '@/utils/eventNormalizers';
@@ -66,12 +67,20 @@ export async function getEventById(id: string): Promise<Event | null> {
       let coordinates: [number, number] | undefined;
       
       if (localEvent.location_coordinates) {
-        const coordStr = localEvent.location_coordinates as string;
+        const coordStr = typeof localEvent.location_coordinates === 'string' 
+          ? localEvent.location_coordinates 
+          : '';
+          
         const matches = coordStr.match(/\(([-\d.]+)\s+([-\d.]+)\)/);
         if (matches) {
           coordinates = [parseFloat(matches[1]), parseFloat(matches[2])];
         }
       }
+
+      const metadata = localEvent.metadata || {};
+      const price = typeof metadata === 'object' && 'price' in metadata 
+        ? metadata.price as string 
+        : undefined;
 
       return {
         id: localEvent.external_id,
@@ -86,7 +95,7 @@ export async function getEventById(id: string): Promise<Event | null> {
         image: localEvent.image_url,
         url: localEvent.url,
         coordinates,
-        price: typeof localEvent.metadata === 'object' ? localEvent.metadata.price : undefined
+        price
       };
     }
     
@@ -120,9 +129,34 @@ export async function getFavoriteEvents(): Promise<Event[]> {
       .eq('user_id', user.id);
       
     if (error) throw error;
+    if (!data) return [];
     
     return data.map(favorite => {
       const event = favorite.events;
+      if (!event) return null;
+      
+      // Safe parsing of coordinates
+      let coordinates: [number, number] | undefined = undefined;
+      if (event.location_coordinates && typeof event.location_coordinates === 'string') {
+        try {
+          const coordParts = event.location_coordinates.split('(')[1]?.split(')')[0]?.split(' ');
+          if (coordParts && coordParts.length >= 2) {
+            coordinates = [
+              parseFloat(coordParts[0]),
+              parseFloat(coordParts[1])
+            ];
+          }
+        } catch (e) {
+          console.error('Error parsing coordinates:', e);
+        }
+      }
+      
+      // Safe handling of metadata
+      const metadata = event.metadata || {};
+      const price = typeof metadata === 'object' && 'price' in metadata 
+        ? metadata.price as string 
+        : undefined;
+
       return {
         id: event.external_id,
         source: event.source,
@@ -135,14 +169,10 @@ export async function getFavoriteEvents(): Promise<Event[]> {
         category: event.category,
         image: event.image_url,
         url: event.url,
-        coordinates: event.location_coordinates ? 
-          [
-            parseFloat(event.location_coordinates.split('(')[1].split(' ')[0]),
-            parseFloat(event.location_coordinates.split(' ')[1].split(')')[0])
-          ] : undefined,
-        price: event.metadata?.price
+        coordinates,
+        price
       };
-    });
+    }).filter(Boolean) as Event[];
   } catch (error) {
     console.error('Error getting favorite events:', error);
     return [];

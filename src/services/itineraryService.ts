@@ -1,6 +1,10 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import type { Itinerary, ItineraryItem } from '@/types';
 
+/**
+ * Get all itineraries for the current user
+ */
 export async function getItineraries(): Promise<Itinerary[]> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
@@ -8,130 +12,176 @@ export async function getItineraries(): Promise<Itinerary[]> {
 
     const { data, error } = await supabase
       .from('itineraries')
-      .select(`
-        *,
-        items (*)
-      `)
+      .select('*')
       .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
+      .order('date', { ascending: true });
 
     if (error) throw error;
+    if (!data) return [];
 
-    return data.map(itinerary => ({
-      id: itinerary.id,
-      name: itinerary.name,
-      description: itinerary.description || '',
-      date: itinerary.date,
-      items: (itinerary.items || []).map(item => {
-        let coords: [number, number] | undefined;
-        if (item.coordinates && Array.isArray(item.coordinates) && item.coordinates.length === 2) {
-          coords = [item.coordinates[0], item.coordinates[1]];
-        }
-        
-        return {
-          id: item.id,
-          eventId: item.event_id,
-          title: item.title,
-          description: item.description || '',
-          startTime: item.start_time,
-          endTime: item.end_time,
-          location: item.location || '',
-          coordinates: coords,
-          notes: item.notes || '',
-          type: item.type,
-          order: item.order || 0
-        };
-      }).sort((a, b) => a.order - b.order),
-      isPublic: itinerary.is_public || false,
-      createdAt: itinerary.created_at,
-      updatedAt: itinerary.updated_at
-    }));
+    // Get items for each itinerary
+    const itinerariesWithItems: Itinerary[] = [];
+    
+    for (const itinerary of data) {
+      const { data: items, error: itemsError } = await supabase
+        .from('itinerary_items')
+        .select('*')
+        .eq('itinerary_id', itinerary.id)
+        .order('order', { ascending: true });
+      
+      if (itemsError) {
+        console.error('Error fetching itinerary items:', itemsError);
+        continue;
+      }
+
+      const formattedItems: ItineraryItem[] = (items || []).map(item => ({
+        id: item.id,
+        eventId: item.event_id,
+        title: item.title,
+        description: item.description,
+        startTime: item.start_time,
+        endTime: item.end_time,
+        location: item.location,
+        coordinates: item.coordinates,
+        notes: item.notes,
+        type: item.type,
+        order: item.order
+      }));
+
+      itinerariesWithItems.push({
+        id: itinerary.id,
+        name: itinerary.name,
+        description: itinerary.description,
+        date: itinerary.date,
+        items: formattedItems,
+        isPublic: itinerary.is_public,
+        createdAt: itinerary.created_at,
+        updatedAt: itinerary.updated_at
+      });
+    }
+
+    return itinerariesWithItems;
   } catch (error) {
     console.error('Error getting itineraries:', error);
     return [];
   }
 }
 
-export async function getItineraryById(id: string): Promise<Itinerary | null> {
+/**
+ * Get a specific itinerary by ID
+ */
+export async function getItinerary(id: string): Promise<Itinerary | null> {
   try {
     const { data, error } = await supabase
       .from('itineraries')
-      .select(`
-        *,
-        items (*)
-      `)
+      .select('*')
       .eq('id', id)
       .single();
 
-    if (error) {
-      console.error('Error getting itinerary by ID:', error);
-      return null;
-    }
-
+    if (error) throw error;
     if (!data) return null;
+
+    const { data: items, error: itemsError } = await supabase
+      .from('itinerary_items')
+      .select('*')
+      .eq('itinerary_id', id)
+      .order('order', { ascending: true });
+
+    if (itemsError) throw itemsError;
+
+    const formattedItems: ItineraryItem[] = (items || []).map(item => ({
+      id: item.id,
+      eventId: item.event_id,
+      title: item.title,
+      description: item.description,
+      startTime: item.start_time,
+      endTime: item.end_time,
+      location: item.location,
+      coordinates: item.coordinates,
+      notes: item.notes,
+      type: item.type,
+      order: item.order
+    }));
 
     return {
       id: data.id,
       name: data.name,
-      description: data.description || '',
+      description: data.description,
       date: data.date,
-      items: (data.items || []).map(item => {
-        let coords: [number, number] | undefined;
-        if (item.coordinates && Array.isArray(item.coordinates) && item.coordinates.length === 2) {
-          coords = [item.coordinates[0], item.coordinates[1]];
-        }
-        return {
-          id: item.id,
-          eventId: item.event_id,
-          title: item.title,
-          description: item.description || '',
-          startTime: item.start_time,
-          endTime: item.end_time,
-          location: item.location || '',
-          coordinates: coords,
-          notes: item.notes || '',
-          type: item.type,
-          order: item.order || 0
-        };
-      }).sort((a, b) => a.order - b.order),
-      isPublic: data.is_public || false,
+      items: formattedItems,
+      isPublic: data.is_public,
       createdAt: data.created_at,
       updatedAt: data.updated_at
     };
   } catch (error) {
-    console.error('Error getting itinerary by ID:', error);
+    console.error('Error getting itinerary:', error);
     return null;
   }
 }
 
-export async function createItinerary(itinerary: Omit<Itinerary, 'id' | 'createdAt' | 'updatedAt'>): Promise<Itinerary | null> {
+/**
+ * Create a new itinerary
+ */
+export async function createItinerary(data: {
+  name: string;
+  description?: string;
+  date: string;
+  items?: ItineraryItem[];
+  isPublic?: boolean;
+}): Promise<Itinerary | null> {
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error('User not authenticated');
 
-    const { data, error } = await supabase
+    const { data: itinerary, error } = await supabase
       .from('itineraries')
       .insert({
-        user_id: user.id,
-        name: itinerary.name,
-        description: itinerary.description,
-        date: itinerary.date,
-        is_public: itinerary.isPublic,
+        name: data.name,
+        description: data.description || '',
+        date: data.date,
+        is_public: data.isPublic || false,
+        user_id: user.id
       })
       .select()
       .single();
 
     if (error) throw error;
+    if (!itinerary) return null;
+
+    // Insert items if provided
+    if (data.items && data.items.length > 0) {
+      const itemsToInsert = data.items.map((item, index) => ({
+        itinerary_id: itinerary.id,
+        event_id: item.eventId,
+        title: item.title,
+        description: item.description || '',
+        start_time: item.startTime,
+        end_time: item.endTime,
+        location: item.location || '',
+        coordinates: item.coordinates,
+        notes: item.notes || '',
+        type: item.type,
+        order: index
+      }));
+
+      const { error: itemsError } = await supabase
+        .from('itinerary_items')
+        .insert(itemsToInsert);
+
+      if (itemsError) {
+        console.error('Error creating itinerary items:', itemsError);
+      }
+    }
 
     return {
-      id: data.id,
-      name: data.name,
-      description: data.description || '',
-      date: data.date,
-      items: [],
-      isPublic: data.is_public || false,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
+      id: itinerary.id,
+      name: itinerary.name,
+      description: itinerary.description,
+      date: itinerary.date,
+      items: data.items || [],
+      isPublic: itinerary.is_public,
+      createdAt: itinerary.created_at,
+      updatedAt: itinerary.updated_at
     };
   } catch (error) {
     console.error('Error creating itinerary:', error);
@@ -139,138 +189,122 @@ export async function createItinerary(itinerary: Omit<Itinerary, 'id' | 'created
   }
 }
 
-export async function updateItinerary(id: string, updates: Partial<Itinerary>): Promise<Itinerary | null> {
+/**
+ * Update an existing itinerary
+ */
+export async function updateItinerary(
+  id: string,
+  data: {
+    name?: string;
+    description?: string;
+    date?: string;
+    items?: ItineraryItem[];
+    isPublic?: boolean;
+  }
+): Promise<Itinerary | null> {
   try {
-    const { data, error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // First, get the current itinerary to verify ownership
+    const { data: currentItinerary, error: getError } = await supabase
       .from('itineraries')
-      .update(updates)
+      .select('*')
       .eq('id', id)
-      .select()
+      .eq('user_id', user.id)
       .single();
 
-    if (error) throw error;
+    if (getError || !currentItinerary) {
+      throw new Error('Itinerary not found or access denied');
+    }
 
-    if (!data) return null;
+    // Update the itinerary
+    const updateData: Record<string, any> = {};
+    if (data.name !== undefined) updateData.name = data.name;
+    if (data.description !== undefined) updateData.description = data.description;
+    if (data.date !== undefined) updateData.date = data.date;
+    if (data.isPublic !== undefined) updateData.is_public = data.isPublic;
+    updateData.updated_at = new Date().toISOString();
 
-    return {
-      id: data.id,
-      name: data.name,
-      description: data.description || '',
-      date: data.date,
-      items: [],
-      isPublic: data.is_public || false,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at
-    };
+    if (Object.keys(updateData).length > 0) {
+      const { error: updateError } = await supabase
+        .from('itineraries')
+        .update(updateData)
+        .eq('id', id);
+
+      if (updateError) throw updateError;
+    }
+
+    // Update items if provided
+    if (data.items !== undefined) {
+      // First, delete all existing items
+      const { error: deleteError } = await supabase
+        .from('itinerary_items')
+        .delete()
+        .eq('itinerary_id', id);
+
+      if (deleteError) throw deleteError;
+
+      // Then insert the new items
+      if (data.items.length > 0) {
+        const itemsToInsert = data.items.map((item, index) => ({
+          itinerary_id: id,
+          event_id: item.eventId,
+          title: item.title,
+          description: item.description || '',
+          start_time: item.startTime,
+          end_time: item.endTime,
+          location: item.location || '',
+          coordinates: item.coordinates,
+          notes: item.notes || '',
+          type: item.type,
+          order: item.order !== undefined ? item.order : index
+        }));
+
+        const { error: insertError } = await supabase
+          .from('itinerary_items')
+          .insert(itemsToInsert);
+
+        if (insertError) throw insertError;
+      }
+    }
+
+    // Get the updated itinerary with items
+    return await getItinerary(id);
   } catch (error) {
     console.error('Error updating itinerary:', error);
     return null;
   }
 }
 
+/**
+ * Delete an itinerary
+ */
 export async function deleteItinerary(id: string): Promise<boolean> {
   try {
-    const { error } = await supabase
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    // First, delete all items (will cascade, but let's be explicit)
+    const { error: deleteItemsError } = await supabase
+      .from('itinerary_items')
+      .delete()
+      .eq('itinerary_id', id);
+
+    if (deleteItemsError) throw deleteItemsError;
+
+    // Then delete the itinerary
+    const { error: deleteItineraryError } = await supabase
       .from('itineraries')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .eq('user_id', user.id);
 
-    if (error) throw error;
+    if (deleteItineraryError) throw deleteItineraryError;
 
     return true;
   } catch (error) {
     console.error('Error deleting itinerary:', error);
-    return false;
-  }
-}
-
-export async function addItineraryItem(itineraryId: string, item: Omit<ItineraryItem, 'id'>): Promise<ItineraryItem | null> {
-  try {
-    const { data, error } = await supabase
-      .from('items')
-      .insert({
-        itinerary_id: itineraryId,
-        event_id: item.eventId,
-        title: item.title,
-        description: item.description,
-        start_time: item.startTime,
-        end_time: item.endTime,
-        location: item.location,
-        coordinates: item.coordinates,
-        notes: item.notes,
-        type: item.type,
-        order: item.order
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    if (!data) return null;
-
-    return {
-      id: data.id,
-      eventId: data.event_id,
-      title: data.title,
-      description: data.description || '',
-      startTime: data.start_time,
-      endTime: data.end_time,
-      location: data.location || '',
-      coordinates: data.coordinates,
-      notes: data.notes || '',
-      type: data.type,
-      order: data.order || 0
-    };
-  } catch (error) {
-    console.error('Error adding itinerary item:', error);
-    return null;
-  }
-}
-
-export async function updateItineraryItem(id: string, updates: Partial<ItineraryItem>): Promise<ItineraryItem | null> {
-  try {
-    const { data, error } = await supabase
-      .from('items')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-     if (!data) return null;
-
-    return {
-      id: data.id,
-      eventId: data.event_id,
-      title: data.title,
-      description: data.description || '',
-      startTime: data.start_time,
-      endTime: data.end_time,
-      location: data.location || '',
-      coordinates: data.coordinates,
-      notes: data.notes || '',
-      type: data.type,
-      order: data.order || 0
-    };
-  } catch (error) {
-    console.error('Error updating itinerary item:', error);
-    return null;
-  }
-}
-
-export async function deleteItineraryItem(id: string): Promise<boolean> {
-  try {
-    const { error } = await supabase
-      .from('items')
-      .delete()
-      .eq('id', id);
-
-    if (error) throw error;
-
-    return true;
-  } catch (error) {
-    console.error('Error deleting itinerary item:', error);
     return false;
   }
 }

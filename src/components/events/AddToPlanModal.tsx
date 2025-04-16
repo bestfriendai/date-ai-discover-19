@@ -1,3 +1,4 @@
+
 import { useEffect, useState } from 'react';
 import { getItineraries, updateItinerary } from '@/services/itineraryService';
 import type { Itinerary, Event } from '@/types';
