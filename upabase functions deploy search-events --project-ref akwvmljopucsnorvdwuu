@@ -1,0 +1,187 @@
+src/components/map/MapComponent.tsx:42: trailing whitespace.
+[32m+[m[41m  [m
+src/components/map/MapComponent.tsx:57: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:62: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:76: trailing whitespace.
+[32m+[m[41m  [m
+src/components/map/MapComponent.tsx:79: trailing whitespace.
+[32m+[m[41m  [m
+src/components/map/MapComponent.tsx:107: leftover conflict marker
+src/components/map/MapComponent.tsx:145: leftover conflict marker
+src/components/map/MapComponent.tsx:148: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:152: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:153: trailing whitespace.
+[32m+[m[32m      const rawResponse = await searchEvents({[m[41m [m
+src/components/map/MapComponent.tsx:154: trailing whitespace.
+[32m+[m[32m        latitude,[m[41m [m
+src/components/map/MapComponent.tsx:155: trailing whitespace.
+[32m+[m[32m        longitude,[m[41m [m
+src/components/map/MapComponent.tsx:156: trailing whitespace.
+[32m+[m[32m        radius,[m[41m [m
+src/components/map/MapComponent.tsx:157: trailing whitespace.
+[32m+[m[32m        startDate,[m[41m [m
+src/components/map/MapComponent.tsx:158: trailing whitespace.
+[32m+[m[32m        endDate,[m[41m [m
+src/components/map/MapComponent.tsx:159: trailing whitespace.
+[32m+[m[32m        categories: currentFilters.categories[m[41m [m
+src/components/map/MapComponent.tsx:161: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:163: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:165: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:168: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:172: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:174: trailing whitespace.
+[32m+[m[32m    } catch (error) {[m[41m [m
+src/components/map/MapComponent.tsx:175: trailing whitespace.
+[32m+[m[32m      console.error('Error fetching events:', error);[m[41m [m
+src/components/map/MapComponent.tsx:176: trailing whitespace.
+[32m+[m[32m      toast({[m[41m [m
+src/components/map/MapComponent.tsx:177: trailing whitespace.
+[32m+[m[32m        title: "Error",[m[41m [m
+src/components/map/MapComponent.tsx:178: trailing whitespace.
+[32m+[m[32m        description: "Failed to fetch events.",[m[41m [m
+src/components/map/MapComponent.tsx:179: trailing whitespace.
+[32m+[m[32m        variant: "destructive"[m[41m [m
+src/components/map/MapComponent.tsx:182: trailing whitespace.
+[32m+[m[32m    } finally {[m[41m [m
+src/components/map/MapComponent.tsx:183: trailing whitespace.
+[32m+[m[32m      setLoading(false);[m[41m [m
+src/components/map/MapComponent.tsx:184: trailing whitespace.
+[32m+[m[32m      onLoadingChange?.(false);[m[41m [m
+src/components/map/MapComponent.tsx:185: leftover conflict marker
+src/components/map/MapComponent.tsx:200: leftover conflict marker
+src/components/map/MapComponent.tsx:352: leftover conflict marker
+src/components/map/MapComponent.tsx:353: leftover conflict marker
+src/components/map/MapComponent.tsx:357: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:361: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:367: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:397: trailing whitespace.
+[32m+[m[41m          [m
+src/components/map/MapComponent.tsx:404: trailing whitespace.
+[32m+[m[41m          [m
+src/components/map/MapComponent.tsx:411: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:419: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:436: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:439: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:444: trailing whitespace.
+[32m+[m[41m          [m
+src/components/map/MapComponent.tsx:450: trailing whitespace.
+[32m+[m[41m          [m
+src/components/map/MapComponent.tsx:500: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:504: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:509: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:514: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:519: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:521: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:529: trailing whitespace.
+[32m+[m[41m          [m
+src/components/map/MapComponent.tsx:533: trailing whitespace.
+[32m+[m[41m          [m
+src/components/map/MapComponent.tsx:553: trailing whitespace.
+[32m+[m[41m    [m
+src/components/map/MapComponent.tsx:556: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:558: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:560: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:564: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:568: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:570: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:574: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:585: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:590: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:598: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:602: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:604: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:607: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:611: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:615: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:617: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:620: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:624: trailing whitespace.
+[32m+[m[41m        [m
+src/components/map/MapComponent.tsx:637: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:641: trailing whitespace.
+[32m+[m[41m      [m
+src/components/map/MapComponent.tsx:646: leftover conflict marker
+src/components/map/MapComponent.tsx:662: leftover conflict marker
+src/components/map/MapComponent.tsx:668: leftover conflict marker
+src/components/map/MapComponent.tsx:702: trailing whitespace.
+[32m+[m[32m        <motion.div[m[41m [m
+src/components/map/MapComponent.tsx:703: trailing whitespace.
+[32m+[m[32m          className="absolute top-20 left-1/2 -translate-x-1/2 z-10"[m[41m [m
+src/components/map/MapComponent.tsx:704: trailing whitespace.
+[32m+[m[32m          initial={{ y: -20, opacity: 0 }}[m[41m [m
+src/components/map/MapComponent.tsx:705: trailing whitespace.
+[32m+[m[32m          animate={{ y: 0, opacity: 1 }}[m[41m [m
+src/components/map/MapComponent.tsx:708: trailing whitespace.
+[32m+[m[32m          <Button[m[41m [m
+src/components/map/MapComponent.tsx:709: trailing whitespace.
+[32m+[m[32m            onClick={handleSearchThisArea}[m[41m [m
+src/components/map/MapComponent.tsx:727: trailing whitespace.
+[32m+[m[32m        <MapPopup[m[41m [m
+src/components/map/MapComponent.tsx:728: trailing whitespace.
+[32m+[m[32m          map={map.current}[m[41m [m
+src/components/map/MapComponent.tsx:729: trailing whitespace.
+[32m+[m[32m          event={selectedEvent}[m[41m [m
+src/components/map/MapComponent.tsx:730: trailing whitespace.
+[32m+[m[32m          onClose={() => setSelectedEvent(null)}[m[41m [m
+src/components/map/MapComponent.tsx:731: trailing whitespace.
+[32m+[m[32m          onViewDetails={onEventSelect}[m[41m [m
+src/components/map/MapComponent.tsx:736: trailing whitespace.
+[32m+[m[32m        <CoordinatesDisplay[m[41m [m
+src/components/map/MapComponent.tsx:737: trailing whitespace.
+[32m+[m[32m          latitude={viewState.latitude}[m[41m [m
+src/components/map/MapComponent.tsx:738: trailing whitespace.
+[32m+[m[32m          longitude={viewState.longitude}[m[41m [m
+src/components/map/MapComponent.tsx:739: trailing whitespace.
+[32m+[m[32m          zoom={viewState.zoom}[m[41m [m
+src/components/map/MapComponent.tsx:746: trailing whitespace.
+[32m+[m[32m          <Button[m[41m [m
+src/components/map/MapComponent.tsx:747: trailing whitespace.
+[32m+[m[32m            variant="ghost"[m[41m [m
+src/components/map/MapComponent.tsx:748: trailing whitespace.
+[32m+[m[32m            size="icon"[m[41m [m
+src/components/map/MapComponent.tsx:749: trailing whitespace.
+[32m+[m[32m            onClick={handleGetUserLocation}[m[41m [m
+src/components/map/MapComponent.tsx:750: trailing whitespace.
+[32m+[m[32m            disabled={locationRequested}[m[41m [m
+src/components/map/MapComponent.tsx:751: trailing whitespace.
+[32m+[m[32m            className="rounded-full h-8 w-8"[m[41m [m

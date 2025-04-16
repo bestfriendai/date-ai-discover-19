@@ -64,7 +64,13 @@ serve(async (req) => {
 
     // Fetch from Ticketmaster API
     try {
-      let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=20`
+      // Fetch up to 1000 events from Ticketmaster using pagination (max size=200 per page)
+      let ticketmasterEvents: any[] = [];
+      let ticketmasterPage = 0;
+      let ticketmasterTotalPages = 1;
+      const ticketmasterMaxPages = 5; // 5*200=1000 events max
+      while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
+        let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
 
       // Add location parameters
       if (userLat && userLng) {
@@ -106,11 +112,20 @@ serve(async (req) => {
         }
       }
 
-      const response = await fetch(ticketmasterUrl)
-      const data = await response.json()
+        const response = await fetch(ticketmasterUrl)
+        const data = await response.json()
+        if (data._embedded?.events) {
+          ticketmasterEvents = [...ticketmasterEvents, ...data._embedded.events];
+        }
+        // Update totalPages from API response
+        if (data.page?.totalPages) {
+          ticketmasterTotalPages = data.page.totalPages;
+        }
+        ticketmasterPage++;
+      }
 
       // Transform Ticketmaster events
-      const ticketmasterEvents = data._embedded?.events?.map(event => {
+      const ticketmasterEventsNormalized = ticketmasterEvents.map(event => {
         let coordinates: [number, number] | undefined = undefined;
         const venue = event._embedded?.venues?.[0];
         if (venue?.location?.longitude && venue?.location?.latitude) {
@@ -118,9 +133,6 @@ serve(async (req) => {
           const lat = parseFloat(venue.location.latitude);
           if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
             coordinates = [lon, lat];
-          } else {
-            // Optionally log invalid coordinates
-            // console.warn(`Invalid coordinates for Ticketmaster event ${event.id}:`, venue.location.longitude, venue.location.latitude);
           }
         }
         return {
@@ -142,8 +154,8 @@ serve(async (req) => {
         };
       }) || [];
 
-      allEvents = [...allEvents, ...ticketmasterEvents]
-      ticketmasterCount = ticketmasterEvents.length
+      allEvents = [...allEvents, ...ticketmasterEventsNormalized]
+      ticketmasterCount = ticketmasterEventsNormalized.length
     } catch (err) {
       ticketmasterError = err instanceof Error ? err.message : String(err)
       console.error('Ticketmaster API error:', ticketmasterError)
@@ -164,8 +176,25 @@ serve(async (req) => {
       if (endDate) eventbriteUrl += `&start_date.range_end=${endDate}T23:59:59Z`
       // Note: Eventbrite category mapping can be added here if needed
 
-      const ebResp = await fetch(eventbriteUrl)
-      const ebData = await ebResp.json()
+      // Fetch up to 500 events from Eventbrite using pagination (max page_size=50)
+      let eventbriteEvents: any[] = [];
+      let ebPage = 1;
+      const ebPageSize = 50;
+      let ebTotalPages = 1;
+      const ebMaxPages = 10; // 10*50=500 events max
+      do {
+        let pagedUrl = eventbriteUrl + `&page=${ebPage}&page_size=${ebPageSize}`;
+        const ebResp = await fetch(pagedUrl)
+        const ebData = await ebResp.json()
+        if (ebData.events && Array.isArray(ebData.events)) {
+          eventbriteEvents = [...eventbriteEvents, ...ebData.events];
+        }
+        if (ebData.pagination?.page_count) {
+          ebTotalPages = ebData.pagination.page_count;
+        }
+        ebPage++;
+      } while (ebPage <= ebTotalPages && ebPage <= ebMaxPages);
+
       // Robust Eventbrite normalization
       function mapEventbriteCategory(categoryId) {
         const mapping = {
@@ -239,9 +268,9 @@ serve(async (req) => {
         }
       }
 
-      const eventbriteEvents = ebData.events?.map(normalizeEventbriteEvent).filter(e => e !== null) || [];
-      allEvents = [...allEvents, ...eventbriteEvents];
-      eventbriteCount = eventbriteEvents.length;
+      const eventbriteEventsNormalized = eventbriteEvents.map(normalizeEventbriteEvent).filter(e => e !== null) || [];
+      allEvents = [...allEvents, ...eventbriteEventsNormalized];
+      eventbriteCount = eventbriteEventsNormalized.length;
     } catch (err) {
       eventbriteError = err instanceof Error ? err.message : String(err)
       console.error('Eventbrite API error:', eventbriteError)
@@ -251,7 +280,7 @@ serve(async (req) => {
     if (SERPAPI_KEY && (keyword || location)) {
       try {
         let serpQuery = keyword || '' // Start with keyword or empty string
-        let serpUrl = `https://serpapi.com/search.json?engine=google_events&api_key=${SERPAPI_KEY}`
+        let serpBaseUrl = `https://serpapi.com/search.json?engine=google_events&api_key=${SERPAPI_KEY}&hl=en&gl=us`
 
         // Add categories to the query if provided
         if (categories && categories.length > 0) {
@@ -263,7 +292,7 @@ serve(async (req) => {
 
         // Prioritize lat/lng for location if available
         if (userLat && userLng) {
-          serpUrl += `&ll=@${userLat},${userLng},11z` // Use ll parameter with coordinates and zoom level 11z
+          serpBaseUrl += `&ll=@${userLat},${userLng},11z` // Use ll parameter with coordinates and zoom level 11z
           // Optionally add location string for context if available
           if (location) {
              serpQuery += ` near ${location}` // Add location context
@@ -274,13 +303,29 @@ serve(async (req) => {
         }
 
         // Add the final query to the URL
-        serpUrl += `&q=${encodeURIComponent(serpQuery.trim())}` // Trim potential leading/trailing spaces
+        serpBaseUrl += `&q=${encodeURIComponent(serpQuery.trim())}` // Trim potential leading/trailing spaces
 
-        const response = await fetch(serpUrl)
-        const data = await response.json()
+        // Paginate SerpApi results (up to 100 events, 10 pages)
+        let serpEvents: any[] = [];
+        let serpStart = 0;
+        const serpPageSize = 10;
+        const serpMaxPages = 10;
+        let serpHasMore = true;
+        for (let serpPage = 0; serpPage < serpMaxPages && serpHasMore; serpPage++) {
+          let pagedSerpUrl = serpBaseUrl + `&start=${serpStart}`;
+          if (location) pagedSerpUrl += `&location=${encodeURIComponent(location)}`;
+          const response = await fetch(pagedSerpUrl);
+          const data = await response.json();
+          if (data.events_results && Array.isArray(data.events_results) && data.events_results.length > 0) {
+            serpEvents = [...serpEvents, ...data.events_results];
+            serpStart += serpPageSize;
+          } else {
+            serpHasMore = false;
+          }
+        }
 
         // Transform SerpAPI events
-        const serpEvents = data.events_results?.map(event => {
+        const serpEventsNormalized = serpEvents.map(event => {
           // SerpApi does not provide coordinates; geocoding could be added here in the future
           const coordinates: [number, number] | undefined = undefined;
 
@@ -314,8 +359,8 @@ serve(async (req) => {
           };
         }) || [];
 
-        allEvents = [...allEvents, ...serpEvents]
-        serpapiCount = serpEvents.length
+        allEvents = [...allEvents, ...serpEventsNormalized]
+        serpapiCount = serpEventsNormalized.length
       } catch (err) {
         serpapiError = err instanceof Error ? err.message : String(err)
         console.error('SerpAPI error:', serpapiError)
