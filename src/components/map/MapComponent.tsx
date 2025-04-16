@@ -175,11 +175,18 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   // --- Event Fetching ---
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
     setLoading(true); onLoadingChange?.(true);
+      if (fetchedEvents && fetchedEvents.sourceStats) {
+        console.log('[Events][SourceStats]', fetchedEvents.sourceStats);
+      }
     try {
       const startDate = currentFilters.dateRange?.from ? formatISO(currentFilters.dateRange.from, { representation: 'date' }) : undefined;
       const endDate = currentFilters.dateRange?.to ? formatISO(currentFilters.dateRange.to, { representation: 'date' }) : undefined;
-      const fetchedEvents = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
-      setEvents(fetchedEvents); onEventsChange?.(fetchedEvents);
+      const { events, sourceStats } = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
+setEvents(events);
+onEventsChange?.(events);
+if (sourceStats) {
+  console.log('[Events][SourceStats]', sourceStats);
+}
       // Optional: Add success/no results toast here
       setMapError(null); // Clear previous errors
 
@@ -220,6 +227,10 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
 
   // --- Map Setup and Source/Layer Management ---
   const setupMapFeatures = useCallback(() => {
+    // Debug: Log GeoJSON data and Mapbox source/layer state
+    const geojson = eventsToGeoJSON(events);
+    console.log('[Map][DEBUG] GeoJSON data:', geojson);
+
     if (!map.current) return;
     const currentMap = map.current;
 
@@ -229,6 +240,9 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
     } else {
       // Update data if source exists
        (currentMap.getSource('events') as mapboxgl.GeoJSONSource).setData(eventsToGeoJSON(events));
+    console.log('[Map][DEBUG] Source:', currentMap.getSource('events'));
+    console.log('[Map][DEBUG] Layer (unclustered-point):', currentMap.getLayer('unclustered-point'));
+
     }
 
     // Add Layers (or check if exists)

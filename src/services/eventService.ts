@@ -14,7 +14,7 @@ interface SearchParams {
 }
 
 // Fetch events from multiple sources
-export async function searchEvents(params: SearchParams): Promise<Event[]> {
+export async function searchEvents(params: SearchParams): Promise<{ events: Event[]; sourceStats?: any }> {
   try {
     // Prepare parameters for API calls
     const searchParams = {
@@ -46,7 +46,7 @@ export async function searchEvents(params: SearchParams): Promise<Event[]> {
         `[Events] Serpapi: ${data.sourceStats.serpapi.count} ${data.sourceStats.serpapi.error ? `(Error: ${data.sourceStats.serpapi.error})` : ''}`
       );
     }
-    return data?.events || [];
+    return { events: data?.events || [], sourceStats: data?.sourceStats };
   } catch (error) {
     console.error('Error searching events:', error);
     throw error;
