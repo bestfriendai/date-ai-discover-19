@@ -78,38 +78,73 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
   const skeletonCount = 5; // Number of skeletons to show while loading
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="p-4 border-b border-border">
+    <aside
+      className="h-full flex flex-col bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] shadow-lg rounded-r-xl"
+      role="complementary"
+      aria-label="Events Sidebar"
+      tabIndex={0}
+    >
+      <div className="p-4 border-b border-[hsl(var(--sidebar-border))]">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
-            <h2 className="text-xl font-bold">Events</h2>
-            <div className="ml-2 px-2 py-1 bg-blue-600/10 text-blue-600 rounded-full text-xs font-medium">
+            <h2 className="text-xl font-bold text-[hsl(var(--sidebar-primary))]">Events</h2>
+            <div className="ml-2 px-2 py-1 bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))] rounded-full text-xs font-medium">
               {isLoading ? '...' : events.length} Events
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-md hover:bg-muted">
+          <button
+            onClick={onClose}
+            className="p-2 rounded-md hover:bg-[hsl(var(--sidebar-accent))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
+            aria-label="Close sidebar"
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
           </button>
         </div>
 
-        <div className="text-sm text-muted-foreground mb-4">St. George Theatre</div>
+        {/* Search/filter input */}
+        <div className="mb-4">
+          <label htmlFor="event-search" className="sr-only">Search events</label>
+          <input
+            id="event-search"
+            type="text"
+            placeholder="Search events..."
+            className="w-full px-3 py-2 rounded-md border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))] transition"
+            aria-label="Search events"
+            // For demo: no search logic yet
+            disabled={isLoading}
+          />
+        </div>
 
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <button
               onClick={() => setView('list')}
-              className={`p-1.5 rounded ${view === 'list' ? 'bg-muted' : 'hover:bg-muted/50'}`}
+              className={`p-1.5 rounded ${view === 'list'
+                ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-primary))]'
+                : 'hover:bg-[hsl(var(--sidebar-accent))]/50 text-[hsl(var(--sidebar-foreground))]'
+              } focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]`}
+              aria-label="List view"
+              aria-pressed={view === 'list'}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-list"><line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/></svg>
             </button>
             <button
               onClick={() => setView('grid')}
-              className={`p-1.5 rounded ${view === 'grid' ? 'bg-muted' : 'hover:bg-muted/50'}`}
+              className={`p-1.5 rounded ${view === 'grid'
+                ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-primary))]'
+                : 'hover:bg-[hsl(var(--sidebar-accent))]/50 text-[hsl(var(--sidebar-foreground))]'
+              } focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]`}
+              aria-label="Grid view"
+              aria-pressed={view === 'grid'}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-grid"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
             </button>
           </div>
-          <button className="p-1.5 rounded-full bg-background/80 border border-border/50 hover:bg-muted/50">
+          <button
+            className="p-1.5 rounded-full bg-[hsl(var(--sidebar-accent))]/80 border border-[hsl(var(--sidebar-border))]/50 hover:bg-[hsl(var(--sidebar-accent))]/60 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
+            aria-label="Filter events"
+            tabIndex={0}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
           </button>
         </div>
@@ -119,7 +154,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
         {isLoading ? (
           // Show Skeletons while loading
           Array.from({ length: skeletonCount }).map((_, index) => (
-            <div key={index} className="p-4 border-b border-border">
+            <div key={index} className="p-4 border-b border-[hsl(var(--sidebar-border))]">
               <div className="flex">
                 <Skeleton className="w-16 h-16 rounded-md mr-3 flex-shrink-0" />
                 <div className="flex-1 space-y-2">
@@ -138,31 +173,40 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
           displayEvents.map(event => (
             <div
               key={event.id}
-              className="p-4 border-b border-border hover:bg-muted/50 cursor-pointer transition-colors"
+              className="p-4 border-b border-[hsl(var(--sidebar-border))] hover:bg-[hsl(var(--sidebar-accent))]/50 cursor-pointer transition-colors rounded-md focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
               onClick={() => onEventSelect && onEventSelect(event)}
+              tabIndex={0}
+              role="button"
+              aria-pressed="false"
+              aria-label={`View details for ${event.title}`}
+              onKeyDown={e => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  onEventSelect && onEventSelect(event);
+                }
+              }}
             >
               <div className="flex">
-                <div className="w-16 h-16 rounded-md overflow-hidden mr-3 bg-muted flex-shrink-0">
+                <div className="w-16 h-16 rounded-md overflow-hidden mr-3 bg-[hsl(var(--sidebar-accent))] flex-shrink-0">
                   <img
                     src={event.image}
                     alt={event.title}
                     className="w-full h-full object-cover"
-                    onError={(e) => { // Add fallback for sidebar image too
+                    onError={(e) => {
                       (e.target as HTMLImageElement).onerror = null;
                       (e.target as HTMLImageElement).src = '/placeholder.svg';
                     }}
                   />
                 </div>
                 <div className="flex-1">
-                  <h3 className="font-medium text-sm mb-1 line-clamp-2">{event.title}</h3>
-                  <div className="flex items-center text-xs text-muted-foreground mb-1">
+                  <h3 className="font-medium text-sm mb-1 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
+                  <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/70 mb-1">
                     <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
                     {event.date} • <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 mr-1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
                     {event.time}
                   </div>
                   <div className="flex items-center">
-                    <div className="text-xs bg-muted rounded px-1.5 py-0.5 mr-1 capitalize">{event.category}</div>
-                    <div className="flex items-center text-xs text-muted-foreground ml-auto">
+                    <div className="text-xs bg-[hsl(var(--sidebar-accent))] rounded px-1.5 py-0.5 mr-1 capitalize">{event.category}</div>
+                    <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/60 ml-auto">
                       <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                       <span className="truncate max-w-[120px]">{event.location}</span>
                     </div>
@@ -172,13 +216,15 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
             </div>
           ))
         ) : (
-           // Show empty state if not loading and no events
-           <div className="p-6 text-center text-muted-foreground">
-             No events found for the current view or filters.
-           </div>
+          // Show empty state if not loading and no events
+          <div className="p-8 flex flex-col items-center text-center text-[hsl(var(--sidebar-foreground))]/60">
+            <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-30" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 15h8M9 9h.01M15 9h.01"/></svg>
+            <span className="font-medium">No events found for the current view or filters.</span>
+            <span className="text-xs mt-2">Try adjusting your search or filter options.</span>
+          </div>
         )}
       </div>
-    </div>
+    </aside>
   );
 };
 

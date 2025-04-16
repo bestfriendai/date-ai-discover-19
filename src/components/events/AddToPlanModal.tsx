@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { getUserItineraries, saveItinerary } from '@/services/itineraryService';
+import { getItineraries, updateItinerary } from '@/services/itineraryService';
 import type { Itinerary, Event } from '@/types';
 import { Button } from '@/components/ui/button';
 import { toast } from '@/hooks/use-toast';
@@ -17,7 +17,7 @@ const AddToPlanModal = ({ event, open, onClose }: AddToPlanModalProps) => {
 
   useEffect(() => {
     if (open) {
-      getUserItineraries().then(setItineraries);
+      getItineraries().then(setItineraries);
     }
   }, [open]);
 
@@ -44,9 +44,10 @@ const AddToPlanModal = ({ event, open, onClose }: AddToPlanModalProps) => {
         coordinates: event.coordinates,
         notes: '',
         type: "EVENT" as const,
+        order: itinerary.items.length,
       };
       const updated = { ...itinerary, items: [...itinerary.items, newItem] };
-      await saveItinerary(updated);
+      await updateItinerary(itinerary.id, { items: updated.items });
       toast({ title: 'Added to Plan', description: `Added to "${itinerary.name}"` });
       onClose();
     } catch (error) {
@@ -59,17 +60,27 @@ const AddToPlanModal = ({ event, open, onClose }: AddToPlanModalProps) => {
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-      <div className="bg-background rounded-lg shadow-lg p-6 w-full max-w-md">
-        <h2 className="text-lg font-bold mb-4">Add to Plan</h2>
-        <div className="mb-4">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="add-to-plan-title"
+      tabIndex={-1}
+    >
+      <div className="bg-[hsl(var(--sidebar-background))] border border-[hsl(var(--sidebar-border))] rounded-xl shadow-2xl p-8 w-full max-w-md focus:outline-none"
+        tabIndex={0}
+      >
+        <h2 id="add-to-plan-title" className="text-xl font-bold mb-6 text-[hsl(var(--sidebar-primary))]">Add to Plan</h2>
+        <div className="mb-6">
           {itineraries.length === 0 ? (
-            <p className="text-muted-foreground">No itineraries found. Create one first.</p>
+            <p className="text-[hsl(var(--sidebar-foreground))]/70">No itineraries found. Create one first.</p>
           ) : (
             <select
-              className="w-full border rounded p-2 mb-2"
+              className="w-full border border-[hsl(var(--sidebar-border))] rounded-md px-3 py-2 mb-2 bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))] transition"
               value={selectedId || ''}
               onChange={e => setSelectedId(e.target.value)}
+              aria-label="Select an itinerary"
+              disabled={loading}
             >
               <option value="" disabled>Select an itinerary</option>
               {itineraries.map(it => (
@@ -78,9 +89,20 @@ const AddToPlanModal = ({ event, open, onClose }: AddToPlanModalProps) => {
             </select>
           )}
         </div>
-        <div className="flex gap-2 justify-end">
-          <Button variant="outline" onClick={onClose} disabled={loading}>Cancel</Button>
-          <Button onClick={handleAdd} disabled={!selectedId || loading}>
+        <div className="flex gap-3 justify-end">
+          <Button
+            variant="outline"
+            onClick={onClose}
+            disabled={loading}
+            className="border-[hsl(var(--sidebar-border))] text-[hsl(var(--sidebar-primary))] hover:bg-[hsl(var(--sidebar-accent))]/60 transition"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleAdd}
+            disabled={!selectedId || loading}
+            className="bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-primary))]/90 transition"
+          >
             {loading ? 'Adding...' : 'Add to Plan'}
           </Button>
         </div>
