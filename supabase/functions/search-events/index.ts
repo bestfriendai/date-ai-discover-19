@@ -245,7 +245,8 @@ serve(async (req) => {
     // Best practices: https://serpapi.com/blog/filter-and-scrape-google-events-with-python/
     // Node.js example: https://serpapi.com/blog/web-scraping-google-events-results-with-nodejs/
     // Note: SerpAPI can find events from multiple sources including Eventbrite
-    if (SERPAPI_KEY) {
+    // Only call SerpAPI if we have a location (either as a name or coordinates)
+    if (SERPAPI_KEY && (location || (userLat && userLng))) {
       try {
         console.log('[DEBUG] Using SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
         // Build a more effective query for local events
@@ -411,7 +412,32 @@ serve(async (req) => {
           const time12 = time ? to12Hour(time) : '';
           const location = Array.isArray(event.address) ? event.address.join(', ') : (event.address || '');
           const venue = event.venue?.name || '';
-          const image = event.thumbnail || '/placeholder.svg';
+          // Try to get a higher quality image
+          let image = '/placeholder.svg';
+          // Check all possible image fields in SerpAPI response
+          if (event.image) {
+            // Use the full-size image if available
+            image = event.image;
+          } else if (event.images && event.images.length > 0) {
+            // Use the first image from the images array if available
+            image = event.images[0];
+          } else if (event.thumbnail) {
+            // If no full-size image, use the thumbnail
+            image = event.thumbnail;
+          } else if (event.thumbnails && event.thumbnails.length > 0) {
+            // Use the first thumbnail from the thumbnails array if available
+            image = event.thumbnails[0];
+          }
+
+          // If the image URL is a relative URL, convert it to an absolute URL
+          if (image && image.startsWith('/')) {
+            if (image === '/placeholder.svg') {
+              // Keep the placeholder as is
+            } else {
+              // Convert relative URL to absolute URL
+              image = `https://www.google.com${image}`;
+            }
+          }
           const url = event.link || '';
           const price = event.ticket_info?.[0]?.price || undefined;
           const description = event.description || '';
