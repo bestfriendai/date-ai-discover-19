@@ -1,4 +1,6 @@
+
 import type { Event } from '@/types';
+
 // Partial type for Ticketmaster API event (expand as needed)
 interface TicketmasterEvent {
   id: string;
@@ -33,6 +35,7 @@ interface TicketmasterEvent {
     currency: string;
   }>;
 }
+
 // Partial type for SerpApi event (expand as needed)
 interface SerpApiEvent {
   title: string;
@@ -59,32 +62,54 @@ interface EventbriteEvent {
   end?: { local?: string };
   url?: string;
   logo?: { url?: string };
-  venue?: { name?: string; address?: { localized_address_display?: string } };
+  venue?: { 
+    name?: string; 
+    address?: { localized_address_display?: string };
+    longitude?: string;
+    latitude?: string;
+  };
   category_id?: string;
   is_free?: boolean;
   ticket_availability?: { minimum_ticket_price?: { major_value?: string; currency?: string } };
 }
 
+// Helper to safely parse coordinates
+function safeParseCoordinates(longitude?: string, latitude?: string): [number, number] | undefined {
+  if (!longitude || !latitude) return undefined;
+  
+  try {
+    const lon = parseFloat(longitude);
+    const lat = parseFloat(latitude);
+    
+    if (isNaN(lon) || isNaN(lat)) return undefined;
+    if (lon < -180 || lon > 180 || lat < -90 || lat > 90) return undefined;
+    
+    return [lon, lat];
+  } catch (e) {
+    console.warn("Error parsing coordinates:", e);
+    return undefined;
+  }
+}
 
-
-export function normalizeTicketmasterEvent(event: any): Event {
+export function normalizeTicketmasterEvent(event: TicketmasterEvent): Event {
+  const venue = event._embedded?.venues?.[0];
+  const coordinates = safeParseCoordinates(
+    venue?.location?.longitude,
+    venue?.location?.latitude
+  );
+  
   return {
     id: `ticketmaster-${event.id}`,
     source: 'ticketmaster',
     title: event.name,
-// Partial type for Eventbrite event (expand as needed)
-
     description: event.description || event.info || '',
     date: event.dates.start.localDate,
-    time: event.dates.start.localTime,
-    location: event._embedded?.venues?.[0]?.name || '',
-    venue: event._embedded?.venues?.[0]?.name,
+    time: event.dates.start.localTime || '',
+    location: venue?.name || '',
+    venue: venue?.name,
     category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
     image: event.images?.[0]?.url || '/placeholder.svg',
-    coordinates: event._embedded?.venues?.[0]?.location ? [
-      parseFloat(event._embedded?.venues?.[0]?.location?.longitude),
-      parseFloat(event._embedded?.venues?.[0]?.location?.latitude)
-    ] : undefined,
+    coordinates,
     url: event.url,
     price: event.priceRanges ? 
       `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` : 
@@ -92,23 +117,28 @@ export function normalizeTicketmasterEvent(event: any): Event {
   };
 }
 
-export function normalizeSerpApiEvent(event: any): Event {
-  // Extract coordinates (would need geocoding in real implementation)
+export function normalizeSerpApiEvent(event: SerpApiEvent): Event {
+  // SerpAPI doesn't provide coordinates
   const coordinates = undefined;
   
+  // Generate a stable ID based on the title
+  const id = event.title ? 
+    `serpapi-${btoa(event.title).slice(0, 10)}` : 
+    `serpapi-${Date.now()}`;
+  
   return {
-    id: `serpapi-${btoa(event.title).slice(0, 10)}`,
+    id,
     source: 'serpapi',
     title: event.title,
     description: event.description || '',
     date: event.date?.start_date || '',
     time: event.date?.when?.split(' ').pop() || '',
-    location: event.address?.join(', ') || '',
-    venue: event.venue?.name,
+    location: Array.isArray(event.address) ? event.address.join(', ') : (event.address || ''),
+    venue: event.venue?.name || '',
     category: 'event', // SerpAPI doesn't provide clear categories
     image: event.thumbnail || '/placeholder.svg',
     coordinates,
-    url: event.link,
+    url: event.link || '',
     price: event.ticket_info?.[0]?.price || undefined
   };
 }
@@ -138,8 +168,8 @@ function mapEventbriteCategory(categoryId: string): string {
   };
   return mapping[categoryId] || 'event';
 }
-export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
 
+export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
   try {
     // Validate required fields
     if (!event.id || !event.name?.text || !event.start?.local) {
@@ -147,10 +177,11 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
       return null;
     }
 
-    // Coordinates
-    // Coordinates extraction skipped: EventbriteEvent.venue does not have longitude/latitude by default.
-    // If you add geocoding or extend the type, restore this logic.
-    const coordinates: [number, number] | undefined = undefined;
+    // Extract coordinates using the safe parser
+    const coordinates = safeParseCoordinates(
+      event.venue?.longitude,
+      event.venue?.latitude
+    );
 
     // Price
     let price: string | undefined = undefined;
@@ -189,4 +220,3 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
     return null;
   }
 }
-

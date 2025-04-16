@@ -1,3 +1,4 @@
+
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import ReactDOMServer from 'react-dom/server';
@@ -18,6 +19,7 @@ import { formatISO } from 'date-fns';
 import * as GeoJSON from 'geojson';
 import bbox from '@turf/bbox';
 import { motion } from 'framer-motion';
+import { MapMarkers } from './components/MapMarkers';
 
 // Define map styles
 const MAP_STYLES = {
@@ -32,84 +34,12 @@ interface MapComponentProps {
   onEventsChange?: (events: Event[]) => void;
 }
 
-// --- Map Layer Definitions ---
-const clusterLayer: mapboxgl.CircleLayer = {
-  id: 'clusters',
-  type: 'circle',
-  source: 'events',
-  filter: ['has', 'point_count'],
-  paint: {
-    'circle-color': [
-      'step',
-      ['get', 'point_count'],
-      '#51bbd6', 10, '#f1f075', 100, '#f28cb1'
-    ],
-    'circle-radius': [
-      'step',
-      ['get', 'point_count'],
-      20, 10, 30, 100, 40
-    ],
-    'circle-stroke-width': [
-      'case',
-      ['boolean', ['feature-state', 'hover'], false],
-      2, 0
-    ],
-    'circle-stroke-color': '#fff'
-  }
-};
-
-const clusterCountLayer: mapboxgl.SymbolLayer = {
-  id: 'cluster-count',
-  type: 'symbol',
-  source: 'events',
-  filter: ['has', 'point_count'],
-  layout: {
-    'text-field': '{point_count_abbreviated}',
-    'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-    'text-size': 12
-  },
-  paint: { "text-color": "#ffffff" }
-};
-
-const unclusteredPointLayer: mapboxgl.CircleLayer = {
-  id: 'unclustered-point',
-  type: 'circle',
-  source: 'events',
-  filter: ['!', ['has', 'point_count']],
-  paint: {
-    'circle-color': [
-      'match',
-      ['get', 'category'],
-      'music', '#fbb03b',
-      'sports', '#223b53',
-      'arts', '#e55e5e',
-      'theatre', '#e55e5e',
-      'family', '#3bb2d0',
-      'food', '#3ca951',
-      'restaurant', '#3ca951',
-      '#cccccc'
-    ],
-    'circle-radius': 6,
-    'circle-stroke-width': [
-      'case',
-      ['boolean', ['feature-state', 'hover'], false],
-      2, 1
-    ],
-    'circle-stroke-color': '#ffffff',
-    'circle-opacity': [
-      'case',
-      ['boolean', ['feature-state', 'hover'], false],
-      1, 0.8
-    ]
-  }
-};
-// --- End Layer Definitions ---
-
 // Helper function to convert events to GeoJSON features
 const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Point> => {
   const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
   let skipped = 0;
   let missingCategory = 0;
+  
   events.forEach(event => {
     // Validate coordinates
     if (
@@ -124,10 +54,12 @@ const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Poi
       skipped++;
       return;
     }
+    
     // Validate category
     if (!event.category) {
       missingCategory++;
     }
+    
     features.push({
       type: 'Feature',
       properties: {
@@ -141,15 +73,15 @@ const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Poi
       }
     });
   });
+  
   // Debug logging
-  // eslint-disable-next-line no-console
   console.log(`[Map] eventsToGeoJSON: received=${events.length}, output=${features.length}, skipped_invalid_coords=${skipped}, missing_category=${missingCategory}`);
+  
   return {
     type: 'FeatureCollection',
     features
   };
 };
-
 
 const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
@@ -160,7 +92,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const [events, setEvents] = useState<Event[]>([]);
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
-  const [loading, setLoading] = useState(true); // Internal loading for map init/fetch
+  const [loading, setLoading] = useState(true);
   const [mapLoaded, setMapLoaded] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
   const [locationRequested, setLocationRequested] = useState(false);
@@ -168,207 +100,185 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const [filters, setFilters] = useState<EventFilters>({});
   const [mapHasMoved, setMapHasMoved] = useState(false);
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
-
-  // --- Error State for Alerts ---
   const [mapError, setMapError] = useState<string | null>(null);
-
 
   // --- Event Fetching ---
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
-    setLoading(true); onLoadingChange?.(true);
-      if (events && events.sourceStats) {
-        console.log('[Events][SourceStats]', events.sourceStats);
-      }
+    setLoading(true);
+    onLoadingChange?.(true);
+    
     try {
       const startDate = currentFilters.dateRange?.from ? formatISO(currentFilters.dateRange.from, { representation: 'date' }) : undefined;
       const endDate = currentFilters.dateRange?.to ? formatISO(currentFilters.dateRange.to, { representation: 'date' }) : undefined;
-      const rawResponse = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
-console.log('[Map][DEBUG] Raw backend response:', rawResponse);
-const { events, sourceStats } = rawResponse;
-setEvents(events);
-onEventsChange?.(events);
-if (sourceStats) {
-  console.log('[Events][SourceStats]', sourceStats);
-}
-      // Optional: Add success/no results toast here
-      setMapError(null); // Clear previous errors
-
+      
+      const rawResponse = await searchEvents({ 
+        latitude, 
+        longitude, 
+        radius, 
+        startDate, 
+        endDate, 
+        categories: currentFilters.categories 
+      });
+      
+      console.log('[Map][DEBUG] Raw backend response:', rawResponse);
+      
+      const { events: fetchedEvents, sourceStats } = rawResponse;
+      
+      setEvents(fetchedEvents);
+      onEventsChange?.(fetchedEvents);
+      
+      if (sourceStats) {
+        console.log('[Events][SourceStats]', sourceStats);
+      }
+      
+      setMapError(null);
+    } catch (error) { 
+      console.error('Error fetching events:', error); 
+      toast({ 
+        title: "Error", 
+        description: "Failed to fetch events.", 
+        variant: "destructive" 
+      });
       setMapError("Failed to fetch events.");
-
-    } catch (error) { console.error('Error fetching events:', error); toast({ title: "Error", description: "Failed to fetch events.", variant: "destructive" }); }
-    finally { setLoading(false); onLoadingChange?.(false); }
+    } finally { 
+      setLoading(false); 
+      onLoadingChange?.(false); 
+    }
   }, [onEventsChange, onLoadingChange]);
 
   // --- Filter Handling ---
   const handleFiltersChange = useCallback((newFilters: Partial<EventFilters>) => {
     const updatedFilters = { ...filters, ...newFilters };
-    setFilters(updatedFilters); setMapHasMoved(false);
+    setFilters(updatedFilters);
+    setMapHasMoved(false);
     fetchEvents(viewState.latitude, viewState.longitude, 30, updatedFilters);
   }, [filters, viewState.latitude, viewState.longitude, fetchEvents]);
 
   // --- Location Handling ---
-  // --- Location Handling ---
   const { getUserLocation } = useUserLocation();
-
-  // --- Map Setup and Source/Layer Management ---
-  const setupMapFeatures = useCallback(() => {
-    // Debug: Log GeoJSON data and Mapbox source/layer state
-    const geojson = eventsToGeoJSON(events);
-    console.log('[Map][DEBUG] GeoJSON data:', geojson);
-
-    if (!map.current) return;
-    const currentMap = map.current;
-
-    // Add Source (or check if exists)
-    if (!currentMap.getSource('events')) {
-      currentMap.addSource('events', { type: 'geojson', data: eventsToGeoJSON(events), cluster: true, clusterMaxZoom: 14, clusterRadius: 50 });
-    } else {
-      // Update data if source exists
-       (currentMap.getSource('events') as mapboxgl.GeoJSONSource).setData(eventsToGeoJSON(events));
-    console.log('[Map][DEBUG] Source:', currentMap.getSource('events'));
-    console.log('[Map][DEBUG] Layer (unclustered-point):', currentMap.getLayer('unclustered-point'));
-
-    }
-
-    // Add Layers (or check if exists)
-    if (!currentMap.getLayer('clusters')) {
-      currentMap.addLayer({ id: 'clusters', type: 'circle', source: 'events', filter: ['has', 'point_count'], paint: { 'circle-color': ['step', ['get', 'point_count'], '#51bbd6', 10, '#f1f075', 100, '#f28cb1'], 'circle-radius': ['step', ['get', 'point_count'], 20, 10, 30, 100, 40], 'circle-stroke-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2, 0], 'circle-stroke-color': '#fff' } });
-    }
-    if (!currentMap.getLayer('cluster-count')) {
-      currentMap.addLayer({ id: 'cluster-count', type: 'symbol', source: 'events', filter: ['has', 'point_count'], layout: { 'text-field': '{point_count_abbreviated}', 'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'], 'text-size': 12 }, paint: { "text-color": "#ffffff" } });
-    }
-    if (!currentMap.getLayer('unclustered-point')) {
-      currentMap.addLayer({ id: 'unclustered-point', type: 'circle', source: 'events', filter: ['!', ['has', 'point_count']], paint: { 'circle-color': ['match', ['get', 'category'], 'music', '#fbb03b', 'sports', '#223b53', 'arts', '#e55e5e', 'theatre', '#e55e5e', 'family', '#3bb2d0', 'food', '#3ca951', 'restaurant', '#3ca951', '#cccccc'], 'circle-radius': 6, 'circle-stroke-width': ['case', ['boolean', ['feature-state', 'hover'], false], 2, 1], 'circle-stroke-color': '#ffffff', 'circle-opacity': ['case', ['boolean', ['feature-state', 'hover'], false], 1, 0.8] } });
-    }
-
-    // --- Interactions (Re-attach after style change) ---
-    let hoveredFeatureId: string | number | undefined = undefined;
-    const setHoverState = (id: string | number | undefined, state: boolean) => { if (id !== undefined && currentMap?.getSource('events')) currentMap.setFeatureState({ source: 'events', id }, { hover: state }); };
-
-    // Remove existing listeners first
-    currentMap.off('mousemove', 'clusters'); currentMap.off('mouseleave', 'clusters');
-    currentMap.off('mousemove', 'unclustered-point'); currentMap.off('mouseleave', 'unclustered-point');
-    currentMap.off('click', 'clusters'); currentMap.off('click', 'unclustered-point');
-    currentMap.off('mouseenter', 'clusters'); currentMap.off('mouseleave', 'clusters');
-    currentMap.off('mouseenter', 'unclustered-point'); currentMap.off('mouseleave', 'unclustered-point');
-
-    // Add new listeners
-    currentMap.on('mousemove', 'clusters', (e) => { if (e.features?.length) { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = e.features[0].id; setHoverState(hoveredFeatureId, true); } });
-    currentMap.on('mouseleave', 'clusters', () => { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = undefined; });
-    currentMap.on('mousemove', 'unclustered-point', (e) => {
-      if (e.features?.length) {
-        const currentFeature = e.features[0]; const currentFeatureId = currentFeature.properties?.id;
-        if (hoveredFeatureId !== currentFeatureId) { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = currentFeatureId; setHoverState(hoveredFeatureId, true); }
-        if (map.current && currentFeature.geometry.type === 'Point') {
-          const coords = currentFeature.geometry.coordinates.slice() as [number, number]; const title = currentFeature.properties?.title || 'Event';
-          while (Math.abs(e.lngLat.lng - coords[0]) > 180) coords[0] += e.lngLat.lng > coords[0] ? 360 : -360;
-          if (!hoverPopup.current) hoverPopup.current = new mapboxgl.Popup({ closeButton: false, closeOnClick: false, offset: 15, className: 'date-ai-hover-popup' });
-          hoverPopup.current.setLngLat(coords).setHTML(`<p class="text-xs font-medium">${title}</p>`).addTo(map.current);
-        }
-      } else { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = undefined; hoverPopup.current?.remove(); }
-    });
-    currentMap.on('mouseleave', 'unclustered-point', () => { if (hoveredFeatureId !== undefined) setHoverState(hoveredFeatureId, false); hoveredFeatureId = undefined; hoverPopup.current?.remove(); });
-    currentMap.on('click', 'clusters', (e) => {
-      const features = currentMap.queryRenderedFeatures(e.point, { layers: ['clusters'] }); if (!features?.length) return; const clusterId = features[0].properties?.cluster_id; const source = currentMap.getSource('events') as mapboxgl.GeoJSONSource;
-      source?.getClusterExpansionZoom(clusterId, (err, zoom) => { if (err || !e.features?.[0]?.geometry || e.features[0].geometry.type !== 'Point') return; isProgrammaticMove.current = true; currentMap.easeTo({ center: e.features[0].geometry.coordinates as [number, number], zoom: zoom }); setTimeout(() => { isProgrammaticMove.current = false; }, 1100); });
-    });
-    currentMap.on('click', 'unclustered-point', (e) => { if (!e.features?.[0]?.properties) return; const eventId = e.features[0].properties.id; const clickedEvent = events.find(ev => ev.id === eventId); if (clickedEvent) { setSelectedEvent(clickedEvent); onEventSelect?.(clickedEvent); } });
-    currentMap.on('mouseenter', 'clusters', () => { if(currentMap) currentMap.getCanvas().style.cursor = 'pointer'; });
-    currentMap.on('mouseleave', 'clusters', () => { if(currentMap) currentMap.getCanvas().style.cursor = ''; });
-    currentMap.on('mouseenter', 'unclustered-point', () => { if(currentMap) currentMap.getCanvas().style.cursor = 'pointer'; });
-    currentMap.on('mouseleave', 'unclustered-point', () => { if(currentMap) currentMap.getCanvas().style.cursor = ''; });
-
-  }, [events, onEventSelect]); // Include events and onEventSelect
 
   // --- Map Initialization Effect ---
   useEffect(() => {
     let isMounted = true;
+    
     const initializeMap = async () => {
       try {
         const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-        if (!isMounted || error || !data?.MAPBOX_TOKEN || !mapContainer.current) throw error || new Error('Map init failed');
+        
+        if (!isMounted || error || !data?.MAPBOX_TOKEN || !mapContainer.current) {
+          throw error || new Error('Map init failed');
+        }
 
         mapboxgl.accessToken = data.MAPBOX_TOKEN;
+        
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
-          style: mapStyle, // Use state variable for initial style
+          style: mapStyle,
           center: [viewState.longitude, viewState.latitude],
           zoom: viewState.zoom,
-          pitch: 45, bearing: -17.6, attributionControl: false, preserveDrawingBuffer: true
+          pitch: 45,
+          bearing: -17.6,
+          attributionControl: false,
+          preserveDrawingBuffer: true
         });
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-        map.current.addControl(new mapboxgl.GeolocateControl({ positionOptions: { enableHighAccuracy: true }, trackUserLocation: true, showUserHeading: true }), 'bottom-right');
+        map.current.addControl(
+          new mapboxgl.GeolocateControl({
+            positionOptions: { enableHighAccuracy: true },
+            trackUserLocation: true,
+            showUserHeading: true
+          }),
+          'bottom-right'
+        );
 
         map.current.on('load', () => {
-  if (!isMounted || !map.current) return;
-  setMapLoaded(true);
-  setupMapFeatures(); // Setup sources, layers, interactions
-  fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
-});
-
-// Ensure sources/layers are re-added after style changes
-map.current.on('style.load', () => {
-  if (!isMounted || !map.current) return;
-  setupMapFeatures();
-});
+          if (!isMounted || !map.current) return;
+          setMapLoaded(true);
+          fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
+        });
 
         map.current.on('move', (e) => {
           if (!map.current) return;
+          
           const center = map.current.getCenter();
-          setViewState({ longitude: parseFloat(center.lng.toFixed(4)), latitude: parseFloat(center.lat.toFixed(4)), zoom: parseFloat(map.current.getZoom().toFixed(2)) });
-          if (!isProgrammaticMove.current && mapLoaded && (e.originalEvent || (e as any).isUserInteraction)) { setMapHasMoved(true); }
+          setViewState({
+            longitude: parseFloat(center.lng.toFixed(4)),
+            latitude: parseFloat(center.lat.toFixed(4)),
+            zoom: parseFloat(map.current.getZoom().toFixed(2))
+          });
+          
+          if (!isProgrammaticMove.current && mapLoaded && (e.originalEvent || (e as any).isUserInteraction)) {
+            setMapHasMoved(true);
+          }
         });
       } catch (error) {
         if (!isMounted) return;
+        
         console.error('Error initializing map:', error);
         setMapError("Map initialization failed. Could not load the map.");
-
-        toast({ title: "Map initialization failed", description: "Could not load the map.", variant: "destructive" });
+        toast({
+          title: "Map initialization failed",
+          description: "Could not load the map.",
+          variant: "destructive"
+        });
+        
         setLoading(false);
       }
     };
-    initializeMap();
-    return () => { isMounted = false; if (userMarker) userMarker.remove(); if (map.current) map.current.remove(); };
-  }, []); // Run only once on mount
 
-  // --- Effect to Update Map Data ---
+    initializeMap();
+
+    return () => {
+      isMounted = false;
+      if (userMarker) userMarker.remove();
+      if (map.current) map.current.remove();
+    };
+  }, [filters, mapLoaded, mapStyle]);
+
+  // --- Effect to Update Map Bounds Based on Events ---
   useEffect(() => {
-    if (!map.current || !mapLoaded || !map.current.getSource('events')) return; // Ensure source exists
-    const source = map.current.getSource('events') as mapboxgl.GeoJSONSource;
-    if (source) {
+    if (!map.current || !mapLoaded || loading || mapHasMoved || events.length === 0) return;
+    
+    try {
       const geojsonData = eventsToGeoJSON(events);
-      source.setData(geojsonData);
-      // Fit bounds only if not loading and map hasn't just been moved by user
-      if (geojsonData.features.length > 0 && !loading && !mapHasMoved) {
+      
+      if (geojsonData.features.length > 0) {
         try {
           isProgrammaticMove.current = true;
           const bounds = bbox(geojsonData) as mapboxgl.LngLatBoundsLike;
-          map.current.fitBounds(bounds, { padding: { top: 100, bottom: 50, left: 50, right: 50 }, maxZoom: 15, duration: 1000 });
-          setTimeout(() => { isProgrammaticMove.current = false; }, 1100);
-        } catch (e) { console.error("Error fitting bounds:", e); }
+          
+          map.current.fitBounds(bounds, {
+            padding: { top: 100, bottom: 50, left: 50, right: 50 },
+            maxZoom: 15,
+            duration: 1000
+          });
+          
+          setTimeout(() => {
+            isProgrammaticMove.current = false;
+          }, 1100);
+        } catch (e) {
+          console.error("Error fitting bounds:", e);
+        }
       }
+    } catch (err) {
+      console.error("Error updating map bounds:", err);
     }
   }, [events, mapLoaded, loading, mapHasMoved]);
 
-  // --- Effect to Handle Style Changes ---
-   useEffect(() => {
+  // --- Effect to Handle Map Style Changes ---
+  useEffect(() => {
     if (!map.current || !mapLoaded) return;
 
     const handleStyleData = () => {
       if (map.current?.isStyleLoaded()) {
         console.log("Style loaded, re-adding features...");
-        setupMapFeatures(); // Re-run setup (adds source if needed, layers, interactions)
-      } else {
-         map.current?.once('styledata', handleStyleData);
       }
     };
 
     map.current.setStyle(mapStyle);
     map.current.once('styledata', handleStyleData);
-
-  }, [mapStyle, mapLoaded, setupMapFeatures]); // Depend on mapStyle
-
+  }, [mapStyle, mapLoaded]);
 
   // --- Handlers ---
   const handleSearchThisArea = () => {
@@ -376,95 +286,174 @@ map.current.on('style.load', () => {
     setMapHasMoved(false);
     const center = map.current.getCenter();
     fetchEvents(center.lat, center.lng, 30, filters);
-    toast({ title: "Searching Area", description: "Fetching events for the current map view." });
+    toast({
+      title: "Searching Area",
+      description: "Fetching events for the current map view."
+    });
   };
 
   const handleClearSearch = () => {
-    setMapHasMoved(false); // Also reset move state on clear
-    // Re-fetch for the original or last known good viewState? Let's use current viewState.
+    setMapHasMoved(false);
     fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
   };
 
-  const handleViewChange = (view: 'list' | 'grid') => { setCurrentView(view); };
+  const handleViewChange = (view: 'list' | 'grid') => {
+    setCurrentView(view);
+  };
 
   const handleLocationSearch = async (location: string) => {
     if (!location.trim() || !mapboxgl.accessToken) return;
-    setLoading(true); onLoadingChange?.(true); setMapHasMoved(false);
-    toast({ title: "Searching", description: `Looking for events near ${location}...` });
+    
+    setLoading(true);
+    onLoadingChange?.(true);
+    setMapHasMoved(false);
+    
+    toast({
+      title: "Searching",
+      description: `Looking for events near ${location}...`
+    });
+    
     try {
       const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
-      const response = await fetch(geocodeUrl); const data = await response.json();
+      const response = await fetch(geocodeUrl);
+      const data = await response.json();
+      
       if (data.features?.length) {
-        const feature = data.features[0]; const [longitude, latitude] = feature.center; const placeName = feature.text || location;
+        const feature = data.features[0];
+        const [longitude, latitude] = feature.center;
+        const placeName = feature.text || location;
+        
         setCurrentLocation(placeName);
+        
         if (map.current) {
           isProgrammaticMove.current = true;
-          map.current.easeTo({ center: [longitude, latitude], zoom: 13, duration: 1500 });
-          setTimeout(() => { isProgrammaticMove.current = false; }, 1600);
+          map.current.easeTo({
+            center: [longitude, latitude],
+            zoom: 13,
+            duration: 1500
+          });
+          
+          setTimeout(() => {
+            isProgrammaticMove.current = false;
+          }, 1600);
+          
           setViewState({ longitude, latitude, zoom: 13 });
           await fetchEvents(latitude, longitude, 30, filters);
-          // Toast removed, fetchEvents handles success/fail toast
         }
-      } else { toast({ title: "Location not found", variant: "destructive" }); setLoading(false); onLoadingChange?.(false); } // Stop loading if not found
-    } catch (error) { console.error('Geocoding error:', error); toast({ title: "Search Error", variant: "destructive" }); setLoading(false); onLoadingChange?.(false); }
-    // finally block removed as fetchEvents handles the final loading state change
+      } else {
+        toast({ title: "Location not found", variant: "destructive" });
+        setLoading(false);
+        onLoadingChange?.(false);
+      }
+    } catch (error) {
+      console.error('Geocoding error:', error);
+      toast({ title: "Search Error", variant: "destructive" });
+      setLoading(false);
+      onLoadingChange?.(false);
+    }
   };
 
   const handleGetUserLocation = async () => {
-    setLocationRequested(true); setMapHasMoved(false);
+    setLocationRequested(true);
+    setMapHasMoved(false);
+    
     try {
       const [longitude, latitude] = await getUserLocation();
+      
       if (!map.current) throw new Error("Map not initialized");
+      
       if (userMarker) userMarker.remove();
-      const markerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="blue" />); const el = document.createElement('div'); el.innerHTML = markerHtml;
-      const marker = new mapboxgl.Marker({ element: el.firstChild as HTMLElement }).setLngLat([longitude, latitude]).addTo(map.current); setUserMarker(marker);
+      
+      const markerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="blue" />);
+      const el = document.createElement('div');
+      el.innerHTML = markerHtml;
+      
+      const marker = new mapboxgl.Marker({ element: el.firstChild as HTMLElement })
+        .setLngLat([longitude, latitude])
+        .addTo(map.current);
+      
+      setUserMarker(marker);
+      
       isProgrammaticMove.current = true;
       setViewState({ longitude, latitude, zoom: 14 });
       map.current.jumpTo({ center: [longitude, latitude], zoom: 14 });
-      setTimeout(() => { if (map.current) map.current.easeTo({ pitch: 50, bearing: Math.random() * 60 - 30, duration: 1500 }); isProgrammaticMove.current = false; }, 100);
-      try { // Reverse geocode
-        const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`); const data = await response.json();
-        if (data.features?.length) { const place = data.features.find((f: any) => f.place_type.includes('place') || f.place_type.includes('locality')); if (place) setCurrentLocation(place.text); }
-      } catch (geoError) { console.error('Reverse geocode error:', geoError); }
+      
+      setTimeout(() => {
+        if (map.current) {
+          map.current.easeTo({
+            pitch: 50,
+            bearing: Math.random() * 60 - 30,
+            duration: 1500
+          });
+        }
+        isProgrammaticMove.current = false;
+      }, 100);
+      
+      try {
+        // Reverse geocode
+        const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`);
+        const data = await response.json();
+        
+        if (data.features?.length) {
+          const place = data.features.find((f: any) => f.place_type.includes('place') || f.place_type.includes('locality'));
+          if (place) setCurrentLocation(place.text);
+        }
+      } catch (geoError) {
+        console.error('Reverse geocode error:', geoError);
+      }
+      
       fetchEvents(latitude, longitude, 30, filters);
-      // Toast removed, fetchEvents handles success/fail toast
     } catch (error) {
       console.error('Get location error:', error);
+      
       const fallbackLng = -73.9712, fallbackLat = 40.7831;
-      // Toast handled by getUserLocation
+      
       if (map.current) {
         if (userMarker) userMarker.remove();
-        const fallbackMarkerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="red" />); const fallbackEl = document.createElement('div'); fallbackEl.innerHTML = fallbackMarkerHtml;
-        const marker = new mapboxgl.Marker({ element: fallbackEl.firstChild as HTMLElement }).setLngLat([fallbackLng, fallbackLat]).addTo(map.current); setUserMarker(marker);
+        
+        const fallbackMarkerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="red" />);
+        const fallbackEl = document.createElement('div');
+        fallbackEl.innerHTML = fallbackMarkerHtml;
+        
+        const marker = new mapboxgl.Marker({ element: fallbackEl.firstChild as HTMLElement })
+          .setLngLat([fallbackLng, fallbackLat])
+          .addTo(map.current);
+        
+        setUserMarker(marker);
+        
         isProgrammaticMove.current = true;
         map.current.jumpTo({ center: [fallbackLng, fallbackLat], zoom: 14 });
-        setTimeout(() => { isProgrammaticMove.current = false; }, 100);
+        
+        setTimeout(() => {
+          isProgrammaticMove.current = false;
+        }, 100);
+        
         setViewState({ longitude: fallbackLng, latitude: fallbackLat, zoom: 14 });
         fetchEvents(fallbackLat, fallbackLng, 30, filters);
       }
-    } finally { setLocationRequested(false); }
+    } finally {
+      setLocationRequested(false);
+    }
   };
 
-   const handleMapStyleChange = (newStyle: string) => {
-      if (mapStyle !== newStyle && map.current) {
-          setMapStyle(newStyle);
-          setSelectedEvent(null); // Clear selection
-          hoverPopup.current?.remove(); // Remove hover popup
-          console.log(`Changing map style to: ${newStyle}`);
-          // Style change is handled by the useEffect hook watching mapStyle
+  const handleMapStyleChange = (newStyle: string) => {
+    if (mapStyle !== newStyle && map.current) {
+      setMapStyle(newStyle);
+      setSelectedEvent(null);
+      
+      if (hoverPopup.current) {
+        hoverPopup.current.remove();
       }
+      
+      console.log(`Changing map style to: ${newStyle}`);
+    }
   };
 
-
-  // --- Render ---
-      {mapError && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
-          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <strong className="font-bold">Map Error: </strong>
-            <span className="block sm:inline">{mapError}</span>
-          </div>
-        </div>
-      )}
+  // Handler for when a marker is clicked
+  const handleMarkerClick = (event: Event) => {
+    setSelectedEvent(event);
+    onEventSelect?.(event);
+  };
 
   return (
     <div className="w-full h-full relative">
@@ -479,44 +468,87 @@ map.current.on('style.load', () => {
         </div>
       )}
 
-      {mapLoaded && (
-         <MapControls
-           currentView={currentView}
-           onViewChange={handleViewChange}
-           filters={filters}
-           onFiltersChange={handleFiltersChange}
-           onLocationSearch={handleLocationSearch}
-           onSearchClear={handleClearSearch}
-           currentMapStyle={mapStyle} // Pass current style
-           onMapStyleChange={handleMapStyleChange} // Pass handler
-         />
+      {mapError && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Map Error: </strong>
+            <span className="block sm:inline">{mapError}</span>
+          </div>
+        </div>
       )}
 
-       {mapLoaded && mapHasMoved && (
-         <motion.div className="absolute top-20 left-1/2 -translate-x-1/2 z-10" initial={{ y: -20, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: -20, opacity: 0 }}>
-           <Button onClick={handleSearchThisArea} className="shadow-lg bg-background/90 hover:bg-background backdrop-blur-sm border border-border/50">
-             <Search className="mr-2 h-4 w-4" /> Search This Area
-           </Button>
-         </motion.div>
-       )}
+      {mapLoaded && (
+        <MapControls
+          currentView={currentView}
+          onViewChange={handleViewChange}
+          filters={filters}
+          onFiltersChange={handleFiltersChange}
+          onLocationSearch={handleLocationSearch}
+          onSearchClear={handleClearSearch}
+          currentMapStyle={mapStyle}
+          onMapStyleChange={handleMapStyleChange}
+        />
+      )}
+
+      {mapLoaded && mapHasMoved && (
+        <motion.div 
+          className="absolute top-20 left-1/2 -translate-x-1/2 z-10" 
+          initial={{ y: -20, opacity: 0 }} 
+          animate={{ y: 0, opacity: 1 }} 
+          exit={{ y: -20, opacity: 0 }}
+        >
+          <Button 
+            onClick={handleSearchThisArea} 
+            className="shadow-lg bg-background/90 hover:bg-background backdrop-blur-sm border border-border/50"
+          >
+            <Search className="mr-2 h-4 w-4" /> Search This Area
+          </Button>
+        </motion.div>
+      )}
+
+      {mapLoaded && map.current && (
+        <MapMarkers
+          map={map.current}
+          events={events}
+          onMarkerClick={handleMarkerClick}
+          selectedEvent={selectedEvent}
+        />
+      )}
 
       {selectedEvent && map.current && (
-        <MapPopup map={map.current} event={selectedEvent} onClose={() => setSelectedEvent(null)} onViewDetails={onEventSelect} />
+        <MapPopup 
+          map={map.current} 
+          event={selectedEvent} 
+          onClose={() => setSelectedEvent(null)} 
+          onViewDetails={onEventSelect} 
+        />
       )}
 
-      {mapLoaded && ( <CoordinatesDisplay latitude={viewState.latitude} longitude={viewState.longitude} zoom={viewState.zoom} /> )}
+      {mapLoaded && (
+        <CoordinatesDisplay 
+          latitude={viewState.latitude} 
+          longitude={viewState.longitude} 
+          zoom={viewState.zoom} 
+        />
+      )}
 
       {mapLoaded && (
         <div className="absolute bottom-4 right-20 z-10 bg-background/90 backdrop-blur-sm border border-border/50 shadow-lg rounded-full px-4 py-2 flex items-center gap-3">
-           <span className="text-xs text-muted-foreground hidden sm:inline">Location: {currentLocation}</span>
-           <Button variant="ghost" size="icon" onClick={handleGetUserLocation} disabled={locationRequested} className="rounded-full h-8 w-8" aria-label="Get Current Location">
-             {locationRequested ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
-           </Button>
-         </div>
+          <span className="text-xs text-muted-foreground hidden sm:inline">Location: {currentLocation}</span>
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleGetUserLocation} 
+            disabled={locationRequested} 
+            className="rounded-full h-8 w-8" 
+            aria-label="Get Current Location"
+          >
+            {locationRequested ? <Loader2 className="h-4 w-4 animate-spin" /> : <MapPin className="h-4 w-4" />}
+          </Button>
+        </div>
       )}
     </div>
   );
 };
-
 
 export default MapComponent;
