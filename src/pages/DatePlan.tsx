@@ -7,7 +7,7 @@ import ItineraryBuilder from '@/components/itinerary/ItineraryBuilder';
 import EmptyState from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
-import { getUserItineraries, getItineraryById, saveItinerary } from '@/services/itineraryService';
+import { getItineraries, getItineraryById, createItinerary, updateItinerary } from '@/services/itineraryService';
 import type { Itinerary } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -25,7 +25,7 @@ const DatePlan = () => {
     const fetchItineraries = async () => {
       try {
         setLoading(true);
-        const data = await getUserItineraries();
+        const data = await getItineraries();
         setItineraries(data);
       } catch (error) {
         console.error('Error fetching itineraries:', error);
@@ -88,18 +88,26 @@ const DatePlan = () => {
   // Handle saving an itinerary
   const handleSaveItinerary = async (itinerary: Itinerary) => {
     try {
-      const savedId = await saveItinerary(itinerary);
+      let savedId: string | undefined = itinerary.id;
+      if (itinerary.id.startsWith('new-')) {
+        // Remove id, createdAt, updatedAt for creation
+        const { id, createdAt, updatedAt, ...createData } = itinerary as any;
+        const created = await createItinerary(createData);
+        savedId = created?.id;
+      } else {
+        await updateItinerary(itinerary.id, itinerary);
+        savedId = itinerary.id;
+      }
 
       // Refresh the itineraries list
-      const updatedItineraries = await getUserItineraries();
+      const updatedItineraries = await getItineraries();
       setItineraries(updatedItineraries);
 
       // If this was a new itinerary, navigate to the saved one
-      if (itinerary.id.startsWith('new-')) {
+      if (itinerary.id.startsWith('new-') && savedId) {
         navigate(`/plan/${savedId}`);
       }
-
-      return savedId;
+      // Do not return anything (void)
     } catch (error) {
       console.error('Error saving itinerary:', error);
       throw error;
