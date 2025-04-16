@@ -198,36 +198,31 @@ serve(async (req) => {
 
     // Fetch from Eventbrite API
     try {
-      // Try multiple possible Eventbrite token environment variables
+      // Use public Eventbrite event search endpoint for public events
       const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN');
       const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
+      const eventbriteAuthToken = EVENTBRITE_TOKEN || EVENTBRITE_API_KEY;
 
-      console.log('[DEBUG] Eventbrite tokens available:', {
-        EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN,
-        EVENTBRITE_API_KEY: !!EVENTBRITE_API_KEY
-      });
-
-      // Load organization ID and OAuth token from environment
-      const EVENTBRITE_ORG_ID = Deno.env.get('EVENTBRITE_ORG_ID');
-      const EVENTBRITE_OAUTH_TOKEN = Deno.env.get('EVENTBRITE_OAUTH_TOKEN');
-
-      if (!EVENTBRITE_ORG_ID || !EVENTBRITE_OAUTH_TOKEN) {
-        console.log('[DEBUG] Missing Eventbrite organization ID or OAuth token');
-        return new Response(JSON.stringify({ error: 'Missing Eventbrite organization ID or OAuth token' }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+      if (!eventbriteAuthToken) {
+        eventbriteError = 'Eventbrite API key or token is not set';
+        throw new Error(eventbriteError);
       }
 
-      // Build base URL for organization events endpoint
-      let eventbriteUrl = `https://www.eventbriteapi.com/v3/organizations/${EVENTBRITE_ORG_ID}/events/?expand=venue`;
+      // Build base URL for public event search
+      let eventbriteUrl = `https://www.eventbriteapi.com/v3/events/search/?expand=venue`;
 
       // Add filters as query parameters
       const eventbriteParams: string[] = [];
       if (keyword) eventbriteParams.push(`q=${encodeURIComponent(keyword)}`);
+      if (location) eventbriteParams.push(`location.address=${encodeURIComponent(location)}`);
+      if (userLat && userLng) {
+        eventbriteParams.push(`location.latitude=${userLat}`);
+        eventbriteParams.push(`location.longitude=${userLng}`);
+      }
+      if (radius) eventbriteParams.push(`location.within=${radius}mi`);
       if (startDate) eventbriteParams.push(`start_date.range_start=${startDate}T00:00:00Z`);
       if (endDate) eventbriteParams.push(`start_date.range_end=${endDate}T23:59:59Z`);
-      // Note: Eventbrite organization endpoints do not support direct location filtering, but you can filter by keyword/location in the event title/description
+      if (categories.length > 0) eventbriteParams.push(`categories=${categories.join(',')}`);
 
       // Pagination setup
       let eventbriteEvents: any[] = [];
@@ -244,7 +239,7 @@ serve(async (req) => {
         console.log('[DEBUG] Eventbrite API URL:', pagedUrl);
         const ebResp = await fetch(pagedUrl, {
           headers: {
-            'Authorization': `Bearer ${EVENTBRITE_OAUTH_TOKEN}`
+            'Authorization': `Bearer ${eventbriteAuthToken}`
           }
         });
         const ebData = await ebResp.json();
