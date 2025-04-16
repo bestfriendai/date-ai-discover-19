@@ -1,4 +1,3 @@
-
 // Event types
 export interface Event {
   id: string;
@@ -28,6 +27,7 @@ export interface ItineraryItem {
   coordinates?: [number, number];
   notes?: string;
   type: 'EVENT' | 'CUSTOM';
+  order: number;
 }
 
 export interface Itinerary {
