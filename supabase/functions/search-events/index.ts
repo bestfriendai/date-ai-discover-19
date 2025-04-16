@@ -325,6 +325,7 @@ serve(async (req) => {
     // Fetch from SerpAPI if key is available
     if (SERPAPI_KEY && (keyword || location)) {
       try {
+        console.log('[DEBUG] Using SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
         let serpQuery = keyword || '' // Start with keyword or empty string
         let serpBaseUrl = `https://serpapi.com/search.json?engine=google_events&api_key=${SERPAPI_KEY}&hl=en&gl=us`
 
@@ -357,16 +358,41 @@ serve(async (req) => {
         const serpPageSize = 10;
         const serpMaxPages = 10;
         let serpHasMore = true;
+        let serpApiWorked = false;
+        let serpApiLastError = null;
         for (let serpPage = 0; serpPage < serpMaxPages && serpHasMore; serpPage++) {
           let pagedSerpUrl = serpBaseUrl + `&start=${serpStart}`;
           if (location) pagedSerpUrl += `&location=${encodeURIComponent(location)}`;
-          const response = await fetch(pagedSerpUrl);
-          const data = await response.json();
-          if (data.events_results && Array.isArray(data.events_results) && data.events_results.length > 0) {
-            serpEvents = [...serpEvents, ...data.events_results];
-            serpStart += serpPageSize;
-          } else {
+          console.log('[DEBUG] SerpApi URL:', pagedSerpUrl);
+          try {
+            const response = await fetch(pagedSerpUrl);
+            const data = await response.json();
+            console.log('[DEBUG] SerpApi raw response:', JSON.stringify(data).slice(0, 1000));
+            console.log('[DEBUG] SerpApi response:', {
+              eventsCount: data.events_results?.length || 0,
+              error: data.error || null,
+              message: data.message || null
+            });
+            if (data.events_results && Array.isArray(data.events_results) && data.events_results.length > 0) {
+              serpEvents = [...serpEvents, ...data.events_results];
+              serpStart += serpPageSize;
+              serpApiWorked = true;
+            } else {
+              serpHasMore = false;
+              if (data.error || data.message) {
+                serpApiLastError = data;
+              }
+            }
+          } catch (err) {
             serpHasMore = false;
+            serpApiLastError = err && err.message ? err.message : err;
+            console.log('[DEBUG][SerpApi] Fetch error:', serpApiLastError);
+          }
+        }
+        if (!serpApiWorked) {
+          console.log('[DEBUG] SerpApi integration is NOT WORKING');
+          if (serpApiLastError) {
+            console.log('[DEBUG][SerpApi] Last error or message:', JSON.stringify(serpApiLastError, null, 2));
           }
         }
 
