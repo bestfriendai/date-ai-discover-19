@@ -110,26 +110,37 @@ serve(async (req) => {
       const data = await response.json()
 
       // Transform Ticketmaster events
-      const ticketmasterEvents = data._embedded?.events?.map(event => ({
-        id: `ticketmaster-${event.id}`,
-        source: 'ticketmaster',
-        title: event.name,
-        description: event.description || event.info || '',
-        date: event.dates.start.localDate,
-        time: event.dates.start.localTime,
-        location: event._embedded?.venues?.[0]?.name || '',
-        venue: event._embedded?.venues?.[0]?.name,
-        category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
-        image: event.images?.[0]?.url || '/placeholder.svg',
-        coordinates: event._embedded?.venues?.[0]?.location ? [
-          parseFloat(event._embedded?.venues?.[0]?.location?.longitude),
-          parseFloat(event._embedded?.venues?.[0]?.location?.latitude)
-        ] : undefined,
-        url: event.url,
-        price: event.priceRanges ?
-          `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` :
-          undefined
-      })) || []
+      const ticketmasterEvents = data._embedded?.events?.map(event => {
+        let coordinates: [number, number] | undefined = undefined;
+        const venue = event._embedded?.venues?.[0];
+        if (venue?.location?.longitude && venue?.location?.latitude) {
+          const lon = parseFloat(venue.location.longitude);
+          const lat = parseFloat(venue.location.latitude);
+          if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
+            coordinates = [lon, lat];
+          } else {
+            // Optionally log invalid coordinates
+            // console.warn(`Invalid coordinates for Ticketmaster event ${event.id}:`, venue.location.longitude, venue.location.latitude);
+          }
+        }
+        return {
+          id: `ticketmaster-${event.id}`,
+          source: 'ticketmaster',
+          title: event.name,
+          description: event.description || event.info || '',
+          date: event.dates.start.localDate,
+          time: event.dates.start.localTime,
+          location: venue?.name || '',
+          venue: venue?.name,
+          category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
+          image: event.images?.[0]?.url || '/placeholder.svg',
+          coordinates,
+          url: event.url,
+          price: event.priceRanges ?
+            `${event.priceRanges[0].min} - ${event.priceRanges[0].max} ${event.priceRanges[0].currency}` :
+            undefined
+        };
+      }) || [];
 
       allEvents = [...allEvents, ...ticketmasterEvents]
       ticketmasterCount = ticketmasterEvents.length
@@ -155,19 +166,82 @@ serve(async (req) => {
 
       const ebResp = await fetch(eventbriteUrl)
       const ebData = await ebResp.json()
-      const eventbriteEvents = ebData.events?.map(event => ({
-        title: event.name?.text || '',
-        date: event.start?.local || '',
-        url: event.url,
-        description: event.description?.text || '',
-        venue: event.venue?.name || '',
-        coordinates: event.venue?.longitude && event.venue?.latitude
-          ? [parseFloat(event.venue.longitude), parseFloat(event.venue.latitude)]
-          : null,
-        source: 'eventbrite'
-      })) || []
-      allEvents = [...allEvents, ...eventbriteEvents]
-      eventbriteCount = eventbriteEvents.length
+      // Robust Eventbrite normalization
+      function mapEventbriteCategory(categoryId) {
+        const mapping = {
+          '103': 'music',
+          '101': 'business',
+          '110': 'food',
+          '105': 'arts',
+          '104': 'film',
+          '108': 'sports',
+          '107': 'health',
+          '102': 'science',
+          '109': 'travel',
+          '111': 'charity',
+          '113': 'spirituality',
+          '114': 'family',
+          '115': 'holiday',
+          '116': 'government',
+          '112': 'fashion',
+          '106': 'hobbies',
+          '117': 'home',
+          '118': 'auto',
+          '119': 'school',
+          '199': 'other',
+        };
+        return mapping[categoryId] || 'event';
+      }
+
+      function normalizeEventbriteEvent(event) {
+        try {
+          if (!event.id || !event.name?.text || !event.start?.local) return null;
+          // Coordinates
+          let coordinates: [number, number] | undefined = undefined;
+          if (event.venue?.longitude && event.venue?.latitude) {
+            const lon = parseFloat(event.venue.longitude);
+            const lat = parseFloat(event.venue.latitude);
+            if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
+              coordinates = [lon, lat];
+            }
+          }
+          // Price
+          let price: string | undefined = undefined;
+          if (event.is_free) {
+            price = 'Free';
+          } else if (event.ticket_classes && Array.isArray(event.ticket_classes) && event.ticket_classes.length > 0) {
+            const paid = event.ticket_classes.find(tc => tc.free === false && tc.cost);
+            if (paid && paid.cost) price = `${paid.cost.display}`;
+          }
+          // Image
+          const image = event.logo?.original?.url || event.logo?.url || '/placeholder.svg';
+          // Category
+          const category = event.category_id ? mapEventbriteCategory(event.category_id) : 'event';
+          // Date/time
+          const [date, time] = event.start.local.split('T');
+          return {
+            id: `eventbrite-${event.id}`,
+            source: 'eventbrite',
+            title: event.name.text,
+            description: event.description?.text || '',
+            date: date,
+            time: time?.substring(0, 5) || 'N/A',
+            location: event.venue?.address?.localized_address_display || event.venue?.name || 'Online or TBD',
+            venue: event.venue?.name,
+            category,
+            image,
+            coordinates,
+            url: event.url,
+            price,
+          };
+        } catch (error) {
+          return null;
+        }
+      }
+
+      const eventbriteEvents = ebData.events?.map(normalizeEventbriteEvent).filter(e => e !== null) || [];
+      allEvents = [...allEvents, ...eventbriteEvents];
+      eventbriteCount = eventbriteEvents.length;
     } catch (err) {
       eventbriteError = err instanceof Error ? err.message : String(err)
       console.error('Eventbrite API error:', eventbriteError)
@@ -207,25 +281,38 @@ serve(async (req) => {
 
         // Transform SerpAPI events
         const serpEvents = data.events_results?.map(event => {
-          // Extract coordinates (would need geocoding in real implementation)
-          const coordinates = undefined
+          // SerpApi does not provide coordinates; geocoding could be added here in the future
+          const coordinates: [number, number] | undefined = undefined;
+
+          // Robust fallback/defaults for all fields
+          const id = event.title ? `serpapi-${btoa(event.title).slice(0, 10)}` : `serpapi-${Date.now()}`;
+          const title = event.title || 'Untitled Event';
+          const date = event.date?.start_date || '';
+          const time = event.date?.when?.split(' ').pop() || '';
+          const location = Array.isArray(event.address) ? event.address.join(', ') : (event.address || '');
+          const venue = event.venue?.name || '';
+          const image = event.thumbnail || '/placeholder.svg';
+          const url = event.link || '';
+          const price = event.ticket_info?.[0]?.price || undefined;
+          const description = event.description || '';
+          const category = 'event';
 
           return {
-            id: `serpapi-${btoa(event.title).slice(0, 10)}`,
+            id,
             source: 'serpapi',
-            title: event.title,
-            description: event.description || '',
-            date: event.date?.start_date || '',
-            time: event.date?.when?.split(' ').pop() || '',
-            location: event.address?.join(', ') || '',
-            venue: event.venue?.name,
-            category: 'event', // SerpAPI doesn't provide clear categories
-            image: event.thumbnail || '/placeholder.svg',
+            title,
+            description,
+            date,
+            time,
+            location,
+            venue,
+            category,
+            image,
             coordinates,
-            url: event.link,
-            price: event.ticket_info?.[0]?.price || undefined
-          }
-        }) || []
+            url,
+            price
+          };
+        }) || [];
 
         allEvents = [...allEvents, ...serpEvents]
         serpapiCount = serpEvents.length

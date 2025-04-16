@@ -1,12 +1,21 @@
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Header from '@/components/layout/Header';
 import EventGrid from '@/components/events/EventGrid';
 import EmptyState from '@/components/shared/EmptyState';
+import { getFavoriteEvents } from '@/services/eventService';
+import { Loader2 } from 'lucide-react';
 
 const Favorites = () => {
-  // In a real app, this would come from an API or state management
   const [favorites, setFavorites] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    getFavoriteEvents()
+      .then(setFavorites)
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -24,10 +33,15 @@ const Favorites = () => {
               </div>
             </div>
             
-            {favorites.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                <span className="ml-2 text-muted-foreground">Loading favorites...</span>
+              </div>
+            ) : favorites.length > 0 ? (
               <EventGrid events={favorites} />
             ) : (
-              <EmptyState 
+              <EmptyState
                 icon="heart"
                 title="No favorite events yet"
                 description="Browse events and save the ones you like to see them here."

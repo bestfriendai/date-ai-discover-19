@@ -168,6 +168,10 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const [mapHasMoved, setMapHasMoved] = useState(false);
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
 
+  // --- Error State for Alerts ---
+  const [mapError, setMapError] = useState<string | null>(null);
+
+
   // --- Event Fetching ---
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
     setLoading(true); onLoadingChange?.(true);
@@ -177,6 +181,10 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
       const fetchedEvents = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
       setEvents(fetchedEvents); onEventsChange?.(fetchedEvents);
       // Optional: Add success/no results toast here
+      setMapError(null); // Clear previous errors
+
+      setMapError("Failed to fetch events.");
+
     } catch (error) { console.error('Error fetching events:', error); toast({ title: "Error", description: "Failed to fetch events.", variant: "destructive" }); }
     finally { setLoading(false); onLoadingChange?.(false); }
   }, [onEventsChange, onLoadingChange]);
@@ -315,6 +323,8 @@ map.current.on('style.load', () => {
       } catch (error) {
         if (!isMounted) return;
         console.error('Error initializing map:', error);
+        setMapError("Map initialization failed. Could not load the map.");
+
         toast({ title: "Map initialization failed", description: "Could not load the map.", variant: "destructive" });
         setLoading(false);
       }
@@ -448,6 +458,15 @@ map.current.on('style.load', () => {
 
 
   // --- Render ---
+      {mapError && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">Map Error: </strong>
+            <span className="block sm:inline">{mapError}</span>
+          </div>
+        </div>
+      )}
+
   return (
     <div className="w-full h-full relative">
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />

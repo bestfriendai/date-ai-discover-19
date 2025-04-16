@@ -15,7 +15,33 @@ interface EventDetailProps {
   onClose: () => void;
 }
 
+import { useState } from 'react';
+import { toggleFavorite } from '@/services/eventService';
+import AddToPlanModal from './AddToPlanModal';
+import { toast } from '@/hooks/use-toast';
+
 const EventDetail = ({ event, onClose }: EventDetailProps) => {
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [showItineraryModal, setShowItineraryModal] = useState(false);
+
+  const handleToggleFavorite = async () => {
+    setFavoriteLoading(true);
+    try {
+      const newStatus = await toggleFavorite(event.id);
+      setIsFavorite(newStatus);
+      toast({ title: newStatus ? 'Added to Favorites' : 'Removed from Favorites', description: event.title });
+    } catch (error) {
+      toast({ title: 'Error', description: 'Failed to update favorite status', variant: 'destructive' });
+    } finally {
+      setFavoriteLoading(false);
+    }
+  };
+
+  const handleAddToPlan = () => {
+    setShowItineraryModal(true);
+  };
+
   return (
     <div className="h-full flex flex-col">
       <div className="p-4 border-b border-border flex justify-between items-center">
@@ -45,8 +71,19 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           <div className="flex items-center gap-4 mb-6">
             <div className="text-sm px-3 py-1 bg-muted rounded-full">{event.category}</div>
             
-            <button className="ml-auto text-primary hover:text-primary/70">
-              <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <button
+              className="ml-auto text-primary hover:text-primary/70"
+              onClick={handleToggleFavorite}
+              disabled={favoriteLoading}
+              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+            >
+              {isFavorite ? (
+                // Filled heart
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="currentColor"/></svg>
+              ) : (
+                // Outline heart
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+              )}
             </button>
           </div>
           
@@ -87,10 +124,17 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           
           <div className="flex gap-4">
             <Button className="flex-1">Buy Tickets</Button>
-            <Button variant="outline" className="flex-1">Add to Plan</Button>
+            <Button variant="outline" className="flex-1" onClick={handleAddToPlan}>Add to Plan</Button>
           </div>
         </div>
       </div>
+      {showItineraryModal && (
+        <AddToPlanModal
+          event={event}
+          open={showItineraryModal}
+          onClose={() => setShowItineraryModal(false)}
+        />
+      )}
     </div>
   );
 };
