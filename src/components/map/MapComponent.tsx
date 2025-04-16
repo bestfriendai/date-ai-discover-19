@@ -106,22 +106,46 @@ const unclusteredPointLayer: mapboxgl.CircleLayer = {
 
 // Helper function to convert events to GeoJSON features
 const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Point> => {
+  const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
+  let skipped = 0;
+  let missingCategory = 0;
+  events.forEach(event => {
+    // Validate coordinates
+    if (
+      !event.coordinates ||
+      !Array.isArray(event.coordinates) ||
+      event.coordinates.length !== 2 ||
+      typeof event.coordinates[0] !== 'number' ||
+      typeof event.coordinates[1] !== 'number' ||
+      isNaN(event.coordinates[0]) ||
+      isNaN(event.coordinates[1])
+    ) {
+      skipped++;
+      return;
+    }
+    // Validate category
+    if (!event.category) {
+      missingCategory++;
+    }
+    features.push({
+      type: 'Feature',
+      properties: {
+        id: event.id,
+        title: event.title,
+        category: event.category?.toLowerCase() || 'other',
+      },
+      geometry: {
+        type: 'Point',
+        coordinates: event.coordinates as [number, number]
+      }
+    });
+  });
+  // Debug logging
+  // eslint-disable-next-line no-console
+  console.log(`[Map] eventsToGeoJSON: received=${events.length}, output=${features.length}, skipped_invalid_coords=${skipped}, missing_category=${missingCategory}`);
   return {
     type: 'FeatureCollection',
-    features: events
-      .filter(event => event.coordinates)
-      .map(event => ({
-        type: 'Feature',
-        properties: {
-          id: event.id,
-          title: event.title,
-          category: event.category?.toLowerCase() || 'other',
-        },
-        geometry: {
-          type: 'Point',
-          coordinates: event.coordinates as [number, number]
-        }
-      }))
+    features
   };
 };
 
