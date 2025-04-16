@@ -255,37 +255,36 @@ serve(async (req) => {
           serpQuery += (serpQuery !== 'events' ? ' ' : '') + categories.join(' ') + ' events';
         }
 
-        // Always add 'near me' to the query to prioritize local events
-        if (!serpQuery.toLowerCase().includes('near me')) {
-          serpQuery += ' near me';
-        }
-
         // Build SerpApi params with strong location emphasis
         const serpParams: Record<string, string> = {};
 
-        // Set location with high priority
+        // If we have a location or coordinates, do NOT add 'near me' to the query
         if (location) {
-          // Add the location to the query string for better relevance
           serpQuery += ` in ${location}`;
           serpParams['location'] = location;
+        } else if (userLat && userLng) {
+          // If only coordinates, don't add 'near me', but set ll param
+          serpParams['ll'] = `@${userLat},${userLng},15z`;
         } else {
-          console.warn('[SerpApi] No location provided. Results may be less relevant.');
+          // If neither location nor coordinates, add 'near me' to the query
+          if (!serpQuery.toLowerCase().includes('near me')) {
+            serpQuery += ' near me';
+          }
         }
 
-        // Use ll param for lat/lng if available - this is critical for local results
-        if (userLat && userLng) {
-          // Use a tighter zoom level (15z instead of 11z) for more local results
+        // If both location and coordinates, set both params for maximum locality
+        if (location && userLat && userLng) {
           serpParams['ll'] = `@${userLat},${userLng},15z`;
+        }
 
-          // Also add a radius parameter to limit results to nearby events
-          if (radius) {
-            // Convert miles to kilometers for Google
-            const radiusKm = Math.round(radius * 1.60934);
-            serpParams['radius'] = `${radiusKm}km`;
-          } else {
-            // Default to 10km radius if not specified
-            serpParams['radius'] = '10km';
-          }
+        // Also add a radius parameter to limit results to nearby events
+        if (radius) {
+          // Convert miles to kilometers for Google
+          const radiusKm = Math.round(radius * 1.60934);
+          serpParams['radius'] = `${radiusKm}km`;
+        } else {
+          // Default to 10km radius if not specified
+          serpParams['radius'] = '10km';
         }
 
         // Advanced: support htichips for event type/date filtering
