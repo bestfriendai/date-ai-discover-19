@@ -536,8 +536,12 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error) {
+    // Improved error reporting: include stack trace if available
     console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    return new Response(JSON.stringify({
+      error: error && error.message ? error.message : String(error),
+      stack: error && error.stack ? error.stack : undefined
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })
