@@ -29,6 +29,22 @@ function to12Hour(time24: string): string {
   if (hour === 0) hour = 12;
   return `${hour}:${minute} ${ampm}`;
 }
+// Helper: Reverse geocode lat/lng to city name using Mapbox
+async function reverseGeocodeCity(lat: number, lng: number, mapboxToken: string): Promise<string | null> {
+  try {
+    const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${mapboxToken}&types=place&limit=1`;
+    const res = await fetch(url);
+    const data = await res.json();
+    if (data.features && data.features.length > 0) {
+      return data.features[0].text;
+    }
+    return null;
+  } catch (err) {
+    console.error('[ReverseGeocode] Error:', err);
+    return null;
+  }
+}
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -76,25 +92,35 @@ serve(async (req) => {
     }
 
     // Parse request parameters
-    const params = await req.json()
+    const params = await req.json();
     const {
       keyword = '',
       lat,
       lng,
       latitude,
       longitude,
-      location,
       radius = 10,
       startDate,
       endDate,
       categories = [],
       eventType = '',
       serpDate = ''
-    } = params
+    } = params;
+
+    // Allow location to be reassigned if reverse geocoding is needed
+    let location = params.location;
 
     // Support both lat/lng and latitude/longitude parameter formats
-    const userLat = latitude || lat
-    const userLng = longitude || lng
+    const userLat = latitude || lat;
+    const userLng = longitude || lng;
+
+    // If location is not provided but coordinates are, reverse geocode to get city name
+    if (!location && userLat && userLng && MAPBOX_TOKEN) {
+      const city = await reverseGeocodeCity(Number(userLat), Number(userLng), MAPBOX_TOKEN);
+      if (city) {
+        location = city;
+      }
+    }
 
     // Prepare results array
     let allEvents: Event[] = []
