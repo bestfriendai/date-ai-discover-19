@@ -56,7 +56,6 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
 // Get event details by ID
 export async function getEventById(id: string): Promise<Event | null> {
   try {
-    // Check if event exists in local database first
     const { data: localEvent } = await supabase
       .from('events')
       .select('*')
@@ -64,6 +63,16 @@ export async function getEventById(id: string): Promise<Event | null> {
       .single();
       
     if (localEvent) {
+      let coordinates: [number, number] | undefined;
+      
+      if (localEvent.location_coordinates) {
+        const coordStr = localEvent.location_coordinates as string;
+        const matches = coordStr.match(/\(([-\d.]+)\s+([-\d.]+)\)/);
+        if (matches) {
+          coordinates = [parseFloat(matches[1]), parseFloat(matches[2])];
+        }
+      }
+
       return {
         id: localEvent.external_id,
         source: localEvent.source,
@@ -76,12 +85,8 @@ export async function getEventById(id: string): Promise<Event | null> {
         category: localEvent.category,
         image: localEvent.image_url,
         url: localEvent.url,
-        coordinates: localEvent.location_coordinates ? 
-          [
-            parseFloat(localEvent.location_coordinates.split('(')[1].split(' ')[0]),
-            parseFloat(localEvent.location_coordinates.split(' ')[1].split(')')[0])
-          ] : undefined,
-        price: localEvent.metadata?.price
+        coordinates,
+        price: typeof localEvent.metadata === 'object' ? localEvent.metadata.price : undefined
       };
     }
     
