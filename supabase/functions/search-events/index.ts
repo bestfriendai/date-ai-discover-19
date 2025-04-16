@@ -229,19 +229,37 @@ serve(async (req) => {
           serpQuery += (serpQuery !== 'events' ? ' ' : '') + categories.join(' ') + ' events';
         }
 
-        // Remove Eventbrite reference as requested
+        // Always add 'near me' to the query to prioritize local events
+        if (!serpQuery.toLowerCase().includes('near me')) {
+          serpQuery += ' near me';
+        }
 
-        // Build SerpApi params
+        // Build SerpApi params with strong location emphasis
         const serpParams: Record<string, string> = {};
-        // Always set location if available, else warn
+
+        // Set location with high priority
         if (location) {
+          // Add the location to the query string for better relevance
+          serpQuery += ` in ${location}`;
           serpParams['location'] = location;
         } else {
           console.warn('[SerpApi] No location provided. Results may be less relevant.');
         }
-        // Use ll param for lat/lng if available
+
+        // Use ll param for lat/lng if available - this is critical for local results
         if (userLat && userLng) {
-          serpParams['ll'] = `@${userLat},${userLng},11z`;
+          // Use a tighter zoom level (15z instead of 11z) for more local results
+          serpParams['ll'] = `@${userLat},${userLng},15z`;
+
+          // Also add a radius parameter to limit results to nearby events
+          if (radius) {
+            // Convert miles to kilometers for Google
+            const radiusKm = Math.round(radius * 1.60934);
+            serpParams['radius'] = `${radiusKm}km`;
+          } else {
+            // Default to 10km radius if not specified
+            serpParams['radius'] = '10km';
+          }
         }
 
         // Advanced: support htichips for event type/date filtering
@@ -258,9 +276,14 @@ serve(async (req) => {
         }
 
         // Add the final query to the URL
-        serpBaseUrl += `&q=${encodeURIComponent(serpQuery.trim())}`;
+        const finalSerpQuery = serpQuery.trim();
+        console.log('[DEBUG] SerpApi final query:', finalSerpQuery);
+        serpBaseUrl += `&q=${encodeURIComponent(finalSerpQuery)}`;
+
+        // Add all parameters
         Object.entries(serpParams).forEach(([k, v]) => {
           serpBaseUrl += `&${k}=${encodeURIComponent(v)}`;
+          console.log(`[DEBUG] SerpApi param ${k}:`, v);
         });
 
         // Paginate SerpApi results (up to 100 events, 10 pages)

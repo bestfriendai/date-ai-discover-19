@@ -6,6 +6,7 @@ import type { Itinerary, ItineraryItem } from '@/types';
  * Get all itineraries for the current user
  */
 export async function getItineraries(): Promise<Itinerary[]> {
+  console.log('[itineraryService] Getting all itineraries');
   try {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return [];
@@ -21,14 +22,14 @@ export async function getItineraries(): Promise<Itinerary[]> {
 
     // Get items for each itinerary
     const itinerariesWithItems: Itinerary[] = [];
-    
+
     for (const itinerary of data) {
       const { data: items, error: itemsError } = await supabase
         .from('itinerary_items')
         .select('*')
         .eq('itinerary_id', itinerary.id)
         .order('order', { ascending: true });
-      
+
       if (itemsError) {
         console.error('Error fetching itinerary items:', itemsError);
         continue;
@@ -71,6 +72,7 @@ export async function getItineraries(): Promise<Itinerary[]> {
  * Get a specific itinerary by ID
  */
 export async function getItinerary(id: string): Promise<Itinerary | null> {
+  console.log('[itineraryService] Getting itinerary with ID:', id);
   try {
     const { data, error } = await supabase
       .from('itineraries')
@@ -78,8 +80,15 @@ export async function getItinerary(id: string): Promise<Itinerary | null> {
       .eq('id', id)
       .single();
 
-    if (error) throw error;
-    if (!data) return null;
+    if (error) {
+      console.error('[itineraryService] Error fetching itinerary:', error);
+      throw error;
+    }
+    if (!data) {
+      console.log('[itineraryService] No itinerary found with ID:', id);
+      return null;
+    }
+    console.log('[itineraryService] Found itinerary:', data);
 
     const { data: items, error: itemsError } = await supabase
       .from('itinerary_items')
@@ -87,7 +96,11 @@ export async function getItinerary(id: string): Promise<Itinerary | null> {
       .eq('itinerary_id', id)
       .order('order', { ascending: true });
 
-    if (itemsError) throw itemsError;
+    if (itemsError) {
+      console.error('[itineraryService] Error fetching itinerary items:', itemsError);
+      throw itemsError;
+    }
+    console.log('[itineraryService] Found itinerary items:', items?.length || 0);
 
     const formattedItems: ItineraryItem[] = (items || []).map(item => ({
       id: item.id,
@@ -308,3 +321,6 @@ export async function deleteItinerary(id: string): Promise<boolean> {
     return false;
   }
 }
+
+// Add an alias for backward compatibility
+export const getItineraryById = getItinerary;

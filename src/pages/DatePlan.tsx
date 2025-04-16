@@ -7,7 +7,7 @@ import ItineraryBuilder from '@/components/itinerary/ItineraryBuilder';
 import EmptyState from '@/components/shared/EmptyState';
 import { Button } from '@/components/ui/button';
 import { PlusCircle } from 'lucide-react';
-import { getItineraries, getItineraryById, createItinerary, updateItinerary } from '@/services/itineraryService';
+import { getItineraries, getItinerary, createItinerary, updateItinerary } from '@/services/itineraryService';
 import type { Itinerary } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 
@@ -16,12 +16,15 @@ const DatePlan = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  console.log('[DatePlan] Rendering with id param:', id);
+
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [selectedItinerary, setSelectedItinerary] = useState<Itinerary | null>(null);
   const [loading, setLoading] = useState(true);
 
   // Fetch itineraries on component mount
   useEffect(() => {
+    console.log('[DatePlan] Fetching itineraries effect running');
     const fetchItineraries = async () => {
       try {
         setLoading(true);
@@ -44,10 +47,13 @@ const DatePlan = () => {
 
   // Fetch specific itinerary if ID is provided
   useEffect(() => {
+    console.log('[DatePlan] Itinerary ID effect running with id:', id);
     if (id && id !== 'new') {
       const fetchItinerary = async () => {
         try {
-          const data = await getItineraryById(id);
+          console.log('Fetching itinerary with ID:', id);
+          const data = await getItinerary(id);
+          console.log('Fetched itinerary data:', data);
           if (data) {
             setSelectedItinerary(data);
           } else {
@@ -87,6 +93,7 @@ const DatePlan = () => {
 
   // Handle saving an itinerary
   const handleSaveItinerary = async (itinerary: Itinerary) => {
+    console.log('[DatePlan] Saving itinerary:', itinerary);
     try {
       let savedId: string | undefined = itinerary.id;
       if (itinerary.id.startsWith('new-')) {
