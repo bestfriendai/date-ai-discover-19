@@ -349,7 +349,10 @@ serve(async (req) => {
       console.error('Eventbrite API error:', eventbriteError)
     }
 
-    // Fetch from SerpAPI if key is available
+    // SerpApi Google Events API integration
+    // Docs: https://serpapi.com/google-events-api
+    // Best practices: https://serpapi.com/blog/filter-and-scrape-google-events-with-python/
+    // Node.js example: https://serpapi.com/blog/web-scraping-google-events-results-with-nodejs/
     if (SERPAPI_KEY && (keyword || location)) {
       try {
         console.log('[DEBUG] Using SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
@@ -365,9 +368,11 @@ serve(async (req) => {
 
         // Build SerpApi params
         const serpParams: Record<string, string> = {};
-        // Always set location if available
+        // Always set location if available, else warn
         if (location) {
           serpParams['location'] = location;
+        } else {
+          console.warn('[SerpApi] No location provided. Results may be less relevant.');
         }
         // Use ll param for lat/lng if available
         if (userLat && userLng) {
@@ -376,13 +381,15 @@ serve(async (req) => {
 
         // Advanced: support htichips for event type/date filtering
         // Example: htichips=event_type:Virtual-Event,date:today
+        let htichips: string[] = [];
         if (typeof eventType === 'string' && eventType.length > 0) {
-          serpParams['htichips'] = `event_type:${eventType}`;
+          htichips.push(`event_type:${eventType}`);
         }
         if (typeof serpDate === 'string' && serpDate.length > 0) {
-          serpParams['htichips'] = serpParams['htichips']
-            ? `${serpParams['htichips']},date:${serpDate}`
-            : `date:${serpDate}`;
+          htichips.push(`date:${serpDate}`);
+        }
+        if (htichips.length > 0) {
+          serpParams['htichips'] = htichips.join(',');
         }
 
         // Add the final query to the URL
@@ -415,6 +422,13 @@ serve(async (req) => {
               message: data.message || null,
               status: data.search_metadata?.status || null
             });
+            // Check for explicit error status
+            if (data.search_metadata?.status && data.search_metadata.status !== "Success") {
+              serpHasMore = false;
+              serpApiLastError = data;
+              console.error('[SerpApi] Non-success status:', data.search_metadata.status);
+              break;
+            }
             if (data.events_results && Array.isArray(data.events_results) && data.events_results.length > 0) {
               serpEvents = [...serpEvents, ...data.events_results];
               serpStart += serpPageSize;
@@ -453,7 +467,15 @@ serve(async (req) => {
           // Robust fallback/defaults for all fields
           const id = event.title ? `serpapi-${Buffer.from(event.title).toString('base64').slice(0, 10)}` : `serpapi-${Date.now()}`;
           const title = event.title || 'Untitled Event';
-          const date = event.date?.start_date || '';
+          // Normalize date to ISO 8601 if possible
+          let date = event.date?.start_date || '';
+          if (date && isNaN(Date.parse(date))) {
+            // Try to parse non-ISO date
+            const parsed = Date.parse(date.replace(/(\d{2})\.(\d{2})\.(\d{4})/, '$3-$2-$1'));
+            if (!isNaN(parsed)) {
+              date = new Date(parsed).toISOString();
+            }
+          }
           const time = event.date?.when?.split(' ').pop() || '';
           // Convert to 12-hour format
           const time12 = time ? to12Hour(time) : '';
