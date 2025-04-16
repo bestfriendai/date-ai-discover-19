@@ -47,23 +47,23 @@ serve(async (req) => {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
     const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-    
+
     // Get Eventbrite tokens - check all possible env var names
     const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN') || Deno.env.get('EVENTBRITE_PRIVATE_TOKEN');
     const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
     const EVENTBRITE_CLIENT_SECRET = Deno.env.get('EVENTBRITE_CLIENT_SECRET');
     const EVENTBRITE_PUBLIC_TOKEN = Deno.env.get('EVENTBRITE_PUBLIC_TOKEN');
-    
+
     // Debug: Log the presence of API keys (masking sensitive parts)
     console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_TOKEN:', EVENTBRITE_TOKEN ? EVENTBRITE_TOKEN.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_API_KEY:', EVENTBRITE_API_KEY ? EVENTBRITE_API_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_PUBLIC_TOKEN:', EVENTBRITE_PUBLIC_TOKEN ? EVENTBRITE_PUBLIC_TOKEN.slice(0,4) + '...' : 'NOT SET');
-    
+
     // Debug Eventbrite tokens availability
-    console.log('[DEBUG] Eventbrite tokens available:', { 
-      EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN, 
+    console.log('[DEBUG] Eventbrite tokens available:', {
+      EVENTBRITE_TOKEN: !!EVENTBRITE_TOKEN,
       EVENTBRITE_API_KEY: !!EVENTBRITE_API_KEY,
       EVENTBRITE_PUBLIC_TOKEN: !!EVENTBRITE_PUBLIC_TOKEN
     });
@@ -473,7 +473,8 @@ serve(async (req) => {
           const coordinates: [number, number] | undefined = undefined;
 
           // Robust fallback/defaults for all fields
-          const id = event.title ? `serpapi-${Buffer.from(event.title).toString('base64').slice(0, 10)}` : `serpapi-${Date.now()}`;
+          // Use btoa for base64 encoding in Deno instead of Node.js Buffer
+          const id = event.title ? `serpapi-${btoa(event.title).slice(0, 10)}` : `serpapi-${Date.now()}`;
           const title = event.title || 'Untitled Event';
           // Normalize date to ISO 8601 if possible
           let date = event.date?.start_date || '';
