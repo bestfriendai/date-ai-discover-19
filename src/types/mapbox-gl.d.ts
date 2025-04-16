@@ -1,6 +1,51 @@
 
 // Type definitions for mapbox-gl
 declare module 'mapbox-gl' {
+  // --- Layer Types ---
+  export interface CircleLayer {
+    id: string;
+    type: 'circle';
+    source: string;
+    filter?: any[];
+    paint?: { [key: string]: any };
+    layout?: { [key: string]: any };
+  }
+  export interface SymbolLayer {
+    id: string;
+    type: 'symbol';
+    source: string;
+    filter?: any[];
+    paint?: { [key: string]: any };
+    layout?: { [key: string]: any };
+  }
+
+  // --- Source Types ---
+  export interface GeoJSONSource {
+    setData(data: any): void;
+    getClusterExpansionZoom(clusterId: number, callback: (error: any, zoom: number) => void): void;
+  }
+
+  // --- Bounds Type ---
+  export type LngLatBoundsLike = [number, number, number, number] | [[number, number], [number, number]];
+
+  // --- GeolocateControl ---
+  export class GeolocateControl {
+    constructor(options?: any);
+    onAdd(map: Map): HTMLElement;
+    onRemove(map: Map): void;
+  }
+
+  // --- Map Methods Patch ---
+  // Extend Map class below with missing methods
+  export interface Map {
+    getLayer(id: string): any;
+    addLayer(layer: any): this;
+    setFeatureState(feature: { source: string; id: string | number }, state: any): void;
+    fitBounds(bounds: LngLatBoundsLike, options?: any): void;
+    jumpTo(options: { center: [number, number]; zoom: number }): void;
+    isStyleLoaded(): boolean;
+  }
+
   export interface MapboxOptions {
     container: HTMLElement | string;
     style: string;

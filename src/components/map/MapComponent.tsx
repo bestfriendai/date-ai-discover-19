@@ -1,4 +1,5 @@
 import { useRef, useEffect, useState, useCallback } from 'react';
+import { useUserLocation } from '@/hooks/useUserLocation';
 import ReactDOMServer from 'react-dom/server';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
@@ -206,26 +207,8 @@ if (sourceStats) {
   }, [filters, viewState.latitude, viewState.longitude, fetchEvents]);
 
   // --- Location Handling ---
-  const getUserLocation = useCallback(async (): Promise<[number, number]> => {
-    return new Promise((resolve, reject) => {
-      if (!navigator.geolocation) {
-        toast({ title: "Geolocation not supported", variant: "destructive" });
-        return reject(new Error('Geolocation not supported'));
-      }
-      navigator.geolocation.getCurrentPosition(
-        (position) => resolve([position.coords.longitude, position.coords.latitude]),
-        (error) => {
-          let msg = "An unknown error occurred.";
-          if (error.code === 1) msg = "Location permission denied.";
-          if (error.code === 2) msg = "Location information unavailable.";
-          if (error.code === 3) msg = "Location request timed out.";
-          toast({ title: "Location error", description: msg, variant: "destructive" });
-          reject(error);
-        },
-        { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-      );
-    });
-  }, []);
+  // --- Location Handling ---
+  const { getUserLocation } = useUserLocation();
 
   // --- Map Setup and Source/Layer Management ---
   const setupMapFeatures = useCallback(() => {

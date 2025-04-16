@@ -1,10 +1,79 @@
 import type { Event } from '@/types';
+// Partial type for Ticketmaster API event (expand as needed)
+interface TicketmasterEvent {
+  id: string;
+  name: string;
+  description?: string;
+  info?: string;
+  dates: {
+    start: {
+      localDate: string;
+      localTime?: string;
+    };
+  };
+  _embedded?: {
+    venues?: Array<{
+      name?: string;
+      location?: {
+        longitude?: string;
+        latitude?: string;
+      };
+    }>;
+  };
+  classifications?: Array<{
+    segment?: {
+      name?: string;
+    };
+  }>;
+  images?: Array<{ url?: string }>;
+  url?: string;
+  priceRanges?: Array<{
+    min: number;
+    max: number;
+    currency: string;
+  }>;
+}
+// Partial type for SerpApi event (expand as needed)
+interface SerpApiEvent {
+  title: string;
+  description?: string;
+  date?: {
+    start_date?: string;
+    when?: string;
+  };
+  address?: string[];
+  venue?: {
+    name?: string;
+  };
+  thumbnail?: string;
+  link?: string;
+  ticket_info?: Array<{ price?: string }>;
+}
+
+// Partial type for Eventbrite event (expand as needed)
+interface EventbriteEvent {
+  id: string;
+  name?: { text?: string };
+  description?: { text?: string };
+  start?: { local?: string };
+  end?: { local?: string };
+  url?: string;
+  logo?: { url?: string };
+  venue?: { name?: string; address?: { localized_address_display?: string } };
+  category_id?: string;
+  is_free?: boolean;
+  ticket_availability?: { minimum_ticket_price?: { major_value?: string; currency?: string } };
+}
+
+
 
 export function normalizeTicketmasterEvent(event: any): Event {
   return {
     id: `ticketmaster-${event.id}`,
     source: 'ticketmaster',
     title: event.name,
+// Partial type for Eventbrite event (expand as needed)
+
     description: event.description || event.info || '',
     date: event.dates.start.localDate,
     time: event.dates.start.localTime,
@@ -62,16 +131,15 @@ function mapEventbriteCategory(categoryId: string): string {
     '115': 'holiday',
     '116': 'government',
     '112': 'fashion',
-    '106': 'hobbies',
     '117': 'home',
     '118': 'auto',
     '119': 'school',
-    '199': 'other',
+    '199': 'other'
   };
   return mapping[categoryId] || 'event';
 }
+export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
 
-export function normalizeEventbriteEvent(event: any): Event | null {
   try {
     // Validate required fields
     if (!event.id || !event.name?.text || !event.start?.local) {
@@ -80,30 +148,20 @@ export function normalizeEventbriteEvent(event: any): Event | null {
     }
 
     // Coordinates
-    let coordinates: [number, number] | undefined = undefined;
-    if (event.venue?.longitude && event.venue?.latitude) {
-      const lon = parseFloat(event.venue.longitude);
-      const lat = parseFloat(event.venue.latitude);
-      if (!isNaN(lon) && !isNaN(lat) && lon >= -180 && lon <= 180 && lat >= -90 && lat <= 90) {
-        coordinates = [lon, lat];
-      } else {
-        console.warn(`Invalid coordinates for Eventbrite event ${event.id}:`, event.venue.longitude, event.venue.latitude);
-      }
-    }
+    // Coordinates extraction skipped: EventbriteEvent.venue does not have longitude/latitude by default.
+    // If you add geocoding or extend the type, restore this logic.
+    const coordinates: [number, number] | undefined = undefined;
 
     // Price
     let price: string | undefined = undefined;
     if (event.is_free) {
       price = 'Free';
-    } else if (event.ticket_classes && Array.isArray(event.ticket_classes) && event.ticket_classes.length > 0) {
-      const paid = event.ticket_classes.find((tc: any) => tc.free === false && tc.cost);
-      if (paid && paid.cost) {
-        price = `${paid.cost.display}`;
-      }
+    } else if (event.ticket_availability?.minimum_ticket_price) {
+      price = `${event.ticket_availability.minimum_ticket_price.major_value} ${event.ticket_availability.minimum_ticket_price.currency}`;
     }
 
     // Image
-    const image = event.logo?.original?.url || event.logo?.url || '/placeholder.svg';
+    const image = event.logo?.url || '/placeholder.svg';
 
     // Category
     const category = event.category_id ? mapEventbriteCategory(event.category_id) : 'event';
