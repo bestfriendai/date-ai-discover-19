@@ -175,13 +175,15 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   // --- Event Fetching ---
   const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
     setLoading(true); onLoadingChange?.(true);
-      if (fetchedEvents && fetchedEvents.sourceStats) {
-        console.log('[Events][SourceStats]', fetchedEvents.sourceStats);
+      if (events && events.sourceStats) {
+        console.log('[Events][SourceStats]', events.sourceStats);
       }
     try {
       const startDate = currentFilters.dateRange?.from ? formatISO(currentFilters.dateRange.from, { representation: 'date' }) : undefined;
       const endDate = currentFilters.dateRange?.to ? formatISO(currentFilters.dateRange.to, { representation: 'date' }) : undefined;
-      const { events, sourceStats } = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
+      const rawResponse = await searchEvents({ latitude, longitude, radius, startDate, endDate, categories: currentFilters.categories });
+console.log('[Map][DEBUG] Raw backend response:', rawResponse);
+const { events, sourceStats } = rawResponse;
 setEvents(events);
 onEventsChange?.(events);
 if (sourceStats) {
