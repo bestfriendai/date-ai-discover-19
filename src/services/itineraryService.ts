@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { Itinerary, ItineraryItem } from '@/types';
 
@@ -42,10 +41,10 @@ export async function getItineraries(): Promise<Itinerary[]> {
         description: item.description,
         startTime: item.start_time,
         endTime: item.end_time,
-        location: item.location,
-        coordinates: item.coordinates,
+        location: item.location_name,
+        coordinates: item.location_coordinates,
         notes: item.notes,
-        type: item.type,
+        type: item.type as "EVENT" | "CUSTOM",
         order: item.order
       }));
 
@@ -109,10 +108,10 @@ export async function getItinerary(id: string): Promise<Itinerary | null> {
       description: item.description,
       startTime: item.start_time,
       endTime: item.end_time,
-      location: item.location,
-      coordinates: item.coordinates,
+      location: item.location_name,
+      coordinates: item.location_coordinates,
       notes: item.notes,
-      type: item.type,
+      type: item.type as "EVENT" | "CUSTOM",
       order: item.order
     }));
 
