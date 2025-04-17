@@ -789,22 +789,7 @@ const MapComponent = ({
         />
       )}
 
-      {mapLoaded && mapHasMoved && (
-        <motion.div
-          className="absolute top-20 left-1/2 -translate-x-1/2 z-10"
-          initial={{ y: -20, opacity: 0 }}
-          animate={{ y: 0, opacity: 1 }}
-          exit={{ y: -20, opacity: 0 }}
-        >
-          <Button
-            onClick={handleSearchThisArea}
-            className="shadow-lg bg-background/90 hover:bg-background backdrop-blur-sm border border-border/50"
-          >
-            <Search className="mr-2 h-4 w-4" /> Search This Area
-          </Button>
-        </motion.div>
-      )}
-
+      {/* "Search This Area" button is now rendered in MapView.tsx */}
       {mapLoaded && map.current && (
         <MapMarkers
           map={map.current}
