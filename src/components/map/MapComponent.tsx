@@ -32,9 +32,15 @@ const MAP_STYLES = {
 };
 
 interface MapComponentProps {
+  events: Event[];
+  selectedEvent: Event | null;
+  isLoading: boolean;
+  filters: EventFilters;
+  mapLoaded: boolean;
+  onMapMoveEnd: (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => void;
+  onMapLoad: () => void;
   onEventSelect?: (event: Event) => void;
   onLoadingChange?: (isLoading: boolean) => void;
-  onEventsChange?: (events: Event[]) => void;
 }
 
 // Helper function to convert events to GeoJSON features
@@ -86,7 +92,17 @@ const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Poi
   };
 };
 
-const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapComponentProps) => {
+const MapComponent = ({
+  events,
+  selectedEvent,
+  isLoading,
+  filters,
+  mapLoaded,
+  onMapMoveEnd,
+  onMapLoad,
+  onEventSelect,
+  onLoadingChange,
+}: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const map = useRef<mapboxgl.Map | null>(null);
   const hoverPopup = useRef<mapboxgl.Popup | null>(null);
@@ -94,369 +110,23 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const initialBoundsFitted = useRef(false); // Track if initial bounds have been fitted
   // Center on the US/globe by default
   const [viewState, setViewState] = useState({ longitude: -98.5795, latitude: 39.8283, zoom: 3.5 });
-  const [events, setEvents] = useState<Event[]>([]);
-  const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
-  const [loading, setLoading] = useState(true);
-const [showInViewOnly, setShowInViewOnly] = useState(false);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [userHasSetLocation, setUserHasSetLocation] = useState(false);
-  const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
   const [locationRequested, setLocationRequested] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
-  const [filters, setFilters] = useState<EventFilters>({});
-  const [mapHasMoved, setMapHasMoved] = useState(false);
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
   const [mapError, setMapError] = useState<string | null>(null);
-
-  // --- Event Fetching ---
-  // Cache for event results to avoid redundant API calls
-  const eventCache = useRef<{[key: string]: {timestamp: number, events: Event[]}}>({});
   const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes cache expiry
 
   // Optimize event fetching with caching and reduced radius
-  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
-    // Start measuring performance
-    PerformanceMonitor.startMeasure('eventFetching', {
-      latitude,
-      longitude,
-      radius,
-      filters: { ...currentFilters }
-    });
-
-    console.log('[EVENTS] Starting event fetch with params:', { latitude, longitude, radius, filters: currentFilters });
-    setLoading(true);
-    console.log('[EVENTS_DEBUG] fetchEvents called with:', { latitude, longitude, radius, currentFilters });
-    onLoadingChange?.(true);
-
-    // Validate coordinates before fetching
-    const isValidCoord = (
-      typeof latitude === 'number' && typeof longitude === 'number' &&
-      !isNaN(latitude) && !isNaN(longitude) &&
-      latitude >= -90 && latitude <= 90 &&
-      longitude >= -180 && longitude <= 180
-    );
-
-    // If coordinates are invalid, use default coordinates for New York
-    if (!isValidCoord) {
-      console.warn('[EVENTS_DEBUG] Invalid coordinates, using default NY.', { latitude, longitude });
-      latitude = 40.7128;
-      longitude = -74.0060;
-    }
-
-    // Create a cache key based on location and filters
-    const cacheKey = `${latitude.toFixed(2)},${longitude.toFixed(2)},${radius},${JSON.stringify(currentFilters)}`;
-    const now = Date.now();
-
-    // Check if we have a valid cached result
-    if (eventCache.current[cacheKey] &&
-        now - eventCache.current[cacheKey].timestamp < CACHE_EXPIRY) {
-      console.log('[EVENTS_DEBUG] Using cache for key:', cacheKey);
-      setEvents(eventCache.current[cacheKey].events);
-      onEventsChange?.(eventCache.current[cacheKey].events);
-
-      setLoading(false);
-      onLoadingChange?.(false);
-
-      // End performance measurement for cache hit
-      PerformanceMonitor.endMeasure('eventFetching', {
-        source: 'cache',
-        eventCount: eventCache.current[cacheKey].events.length,
-        cacheAge: Math.round((now - eventCache.current[cacheKey].timestamp) / 1000)
-      });
-
-      return;
-    }
-
-    console.log('[EVENTS_DEBUG] No valid cache found, fetching fresh data for key:', cacheKey);
-
-    try {
-      const startDate = currentFilters.dateRange?.from ? formatISO(currentFilters.dateRange.from, { representation: 'date' }) : undefined;
-      const endDate = currentFilters.dateRange?.to ? formatISO(currentFilters.dateRange.to, { representation: 'date' }) : undefined;
-
-      // Create search parameters with type assertion to allow additional properties
-      const searchParams: any = {
-        latitude,
-        longitude,
-        radius: currentFilters.distance ?? radius,
-        startDate,
-        endDate,
-        categories: currentFilters.categories
-      };
-
-      // Add optional parameters if they exist in currentFilters
-      if ((currentFilters as any).location) {
-        searchParams.location = (currentFilters as any).location;
-      }
-
-      if ((currentFilters as any).keyword) {
-        searchParams.keyword = (currentFilters as any).keyword;
-      }
-
-      console.log('[EVENTS_DEBUG] Calling searchEvents service with:', searchParams);
-
-      // Start measuring API call performance
-      PerformanceMonitor.startMeasure('apiCall', { endpoint: 'searchEvents', params: searchParams });
-      const startTime = Date.now();
-      const rawResponse = await searchEvents(searchParams);
-      const elapsed = Date.now() - startTime;
-
-      // End API call performance measurement
-      PerformanceMonitor.endMeasure('apiCall', {
-        elapsed,
-        success: !!rawResponse,
-        responseSize: JSON.stringify(rawResponse).length
-      });
-
-      console.log(`[EVENTS_DEBUG] searchEvents call took ${elapsed}ms`);
-      console.log('[EVENTS_DEBUG] Response from searchEvents service:', rawResponse);
-
-      if (!rawResponse) {
-        console.error('[EVENTS_DEBUG] No response returned from searchEvents');
-        throw new Error('No response returned from event search');
-      }
-
-      if (!rawResponse.events) {
-        console.error('[EVENTS_DEBUG] Invalid response structure from service:', rawResponse);
-        throw new Error('Invalid response format from event search');
-      }
-
-      const { events: fetchedEvents, sourceStats } = rawResponse;
-      console.log(`[EVENTS_DEBUG] Received ${fetchedEvents.length} raw events from backend.`);
-      if (sourceStats) console.log('[EVENTS_DEBUG] Source Stats:', sourceStats);
-
-      // Check if we have events with coordinates
-      const eventsWithCoords = fetchedEvents.filter(event => event.coordinates && event.coordinates.length === 2);
-      console.log(`[EVENTS_DEBUG] ${eventsWithCoords.length} of ${fetchedEvents.length} events have valid coordinates`);
-
-      if (eventsWithCoords.length === 0 && fetchedEvents.length > 0) {
-        console.warn('[EVENTS_DEBUG] No events have coordinates! Check the search-events function normalization logic');
-      }
-
-      // Apply client-side filtering using our utility functions
-      console.log('[EVENTS_DEBUG] Applying client-side filters/sort...');
-
-      // Start measuring filtering performance
-      PerformanceMonitor.startMeasure('eventFiltering', {
-        eventCount: fetchedEvents.length,
-        filters: { ...currentFilters }
-      });
-
-      const startFilterTime = Date.now();
-
-      // Apply all filters
-      const filteredEvents = applyFilters(fetchedEvents, currentFilters);
-
-      // Sort events based on the selected sort option
-      const sortBy = currentFilters.sortBy || 'date';
-      console.log(`[EVENTS] Sorting events by: ${sortBy}`);
-
-      // Apply sorting using our utility function
-      const sortedEvents = sortEvents(filteredEvents, sortBy, latitude, longitude);
-
-      const filterTime = Date.now() - startFilterTime;
-
-      // End filtering performance measurement
-      PerformanceMonitor.endMeasure('eventFiltering', {
-        inputCount: fetchedEvents.length,
-        outputCount: sortedEvents.length,
-        filterTime,
-        sortBy
-      });
-
-      console.log(`[EVENTS] Client-side filtering and sorting completed in ${filterTime}ms`);
-      console.log(`[EVENTS] ${sortedEvents.length} events remaining after filtering and sorting`);
-
-      // Store in cache for future use
-      eventCache.current[cacheKey] = {
-        timestamp: Date.now(),
-        events: sortedEvents
-      };
-      console.log('[EVENTS] Events stored in cache with key:', cacheKey);
-
-      // Update state with filtered and sorted events
-      setEvents(sortedEvents);
-      onEventsChange?.(sortedEvents);
-
-      // Clear previous errors
-      setMapError(null);
-
-      // Show toast if no events found
-      if (fetchedEvents.length === 0) {
-        console.log('[EVENTS] No events found for the current search criteria');
-        toast({
-          title: "No events found",
-          description: "Try adjusting your search criteria or location.",
-          variant: "default"
-        });
-      } else {
-        console.log(`[EVENTS] Successfully loaded ${filteredEvents.length} events`);
-      }
-    } catch (error) {
-      console.error('[EVENTS] Error fetching events:', error);
-
-      // Try to extract more detailed error information
-      let errorMessage = "Failed to fetch events.";
-      let errorDetails = "";
-      let errorType = "Unknown Error";
-
-      if (error instanceof Error) {
-        errorMessage = error.message;
-        errorDetails = error.stack || '';
-        errorType = error.name || 'Error';
-      } else if (typeof error === 'object' && error !== null) {
-        try {
-          errorMessage = JSON.stringify(error);
-        } catch (e) {
-          errorMessage = "[Object cannot be stringified]";
-        }
-      }
-
-      // Log detailed error information
-      console.error(`[EVENTS] ${errorType}: ${errorMessage}`);
-      console.error('[EVENTS] Error details:', errorDetails);
-
-      // Check for specific error patterns
-      if (errorMessage.includes('network') || errorMessage.includes('fetch') || errorMessage.includes('connection')) {
-        errorMessage = "Network error. Please check your internet connection and try again.";
-      } else if (errorMessage.includes('timeout')) {
-        errorMessage = "Request timed out. The server took too long to respond.";
-      } else if (errorMessage.includes('parse') || errorMessage.includes('JSON')) {
-        errorMessage = "Error processing server response. Please try again later.";
-      }
-
-      // Show toast with user-friendly error message
-      toast({
-        title: "Error Loading Events",
-        description: errorMessage.length > 100 ? errorMessage.substring(0, 100) + '...' : errorMessage,
-        variant: "destructive"
-      });
-
-      // Set error state
-      setMapError(errorMessage);
-
-      // Still show any events we might have cached
-      if (events.length === 0) {
-        console.log('[EVENTS] No cached events available to show');
-        setEvents([]);
-        onEventsChange?.([]);
-      } else {
-        console.log('[EVENTS] Showing cached events despite fetch error');
-      }
-    } finally {
-      // Always reset loading state
-      setLoading(false);
-      onLoadingChange?.(false);
-
-      // End overall performance measurement
-      PerformanceMonitor.endMeasure('eventFetching', {
-        success: !mapError,
-        eventCount: events.length
-      });
-
-      // Report performance metrics
-      PerformanceMonitor.reportPerformanceMetrics();
-
-      console.log('[EVENTS] Event fetch operation completed');
-    }
-  }, [onEventsChange, onLoadingChange]);
-
-  // --- Filter Handling ---
-  const handleFiltersChange = useCallback((newFilters: Partial<EventFilters>) => {
-    const updatedFilters = { ...filters, ...newFilters };
-    setFilters(updatedFilters);
-    setMapHasMoved(false);
-    fetchEvents(viewState.latitude, viewState.longitude, 30, updatedFilters);
-  }, [filters, viewState.latitude, viewState.longitude, fetchEvents]);
+  // (Event fetching logic removed; all event data is now passed in via props)
 
   // --- Location Handling ---
   const { getUserLocation } = useUserLocation();
 
   // Handler for when a marker is clicked
   const handleMarkerClick = (eventItem: Event) => {
-    setSelectedEvent(eventItem);
     onEventSelect?.(eventItem);
   };
-  // Define the search callback function
-  const registerSearchCallback = useCallback(() => {
-    (window as any).mapSearchCallback = (params: any) => {
-      console.log('[Map] Search callback received params:', params);
-      if (params.latitude && params.longitude) {
-        fetchEvents(params.latitude, params.longitude, params.radius || 30, {
-          categories: params.categories,
-          dateRange: params.startDate && params.endDate ? {
-            from: new Date(params.startDate),
-            to: new Date(params.endDate)
-          } : undefined
-        });
-      } else if (params.location) {
-        // Use the location search function
-        if (params.location.trim() && mapboxgl.accessToken) {
-          setLoading(true);
-          onLoadingChange?.(true);
-          setMapHasMoved(false);
-
-          const location = params.location;
-
-          toast({
-            title: "Searching",
-            description: `Looking for events near ${location}...`
-          });
-
-          // Geocode the location and fetch events
-          const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
-          fetch(geocodeUrl)
-            .then(response => response.json())
-            .then(data => {
-              if (data.features?.length) {
-                const feature = data.features[0];
-                const [longitude, latitude] = feature.center;
-                const placeName = feature.text || location;
-
-                setCurrentLocation(placeName);
-                setUserHasSetLocation(true);
-
-                if (map.current) {
-                  isProgrammaticMove.current = true;
-                  map.current.easeTo({
-                    center: [longitude, latitude],
-                    zoom: 13,
-                    duration: 1500
-                  });
-
-                  setTimeout(() => {
-                    isProgrammaticMove.current = false;
-                  }, 1600);
-
-                  setViewState({ longitude, latitude, zoom: 13 });
-                  fetchEvents(latitude, longitude, 30, filters);
-                }
-              } else {
-                toast({ title: "Location not found", variant: "destructive" });
-                setLoading(false);
-                onLoadingChange?.(false);
-              }
-            })
-            .catch(error => {
-              console.error('Geocoding error:', error);
-              toast({ title: "Search Error", variant: "destructive" });
-              setLoading(false);
-              onLoadingChange?.(false);
-            });
-        }
-      }
-    };
-  }, [fetchEvents, filters, isProgrammaticMove, map, onLoadingChange, setCurrentLocation, setLoading, setMapHasMoved, setUserHasSetLocation, setViewState, toast]);
-
-  // Register the search callback on the window object
-  useEffect(() => {
-    registerSearchCallback();
-
-    return () => {
-      // Clean up the callback when component unmounts
-      delete (window as any).mapSearchCallback;
-    };
-  }, [registerSearchCallback]);
 
   // --- Map Initialization Effect ---
   useEffect(() => {
@@ -547,7 +217,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         map.current.on('load', () => {
           console.log('[MAP_DEBUG] Map "load" event fired!');
           // ... existing load handler code ...
-          setMapLoaded(true);
+          onMapLoad();
         });
 
         map.current.on('error', (e: any) => {
@@ -587,7 +257,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
               console.log('[MAP] Component unmounted during map load or map instance missing');
               return;
             }
-            setMapLoaded(true);
+            onMapLoad();
             console.log('[MAP] Map successfully loaded and ready');
 
             // End map initialization performance measurement
@@ -646,7 +316,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
               const isUserInteraction = e.originalEvent || (e as any).isUserInteraction;
               if (!isProgrammaticMove.current && mapLoaded && isUserInteraction) {
                 console.log('[MAP] User moved map, showing Search This Area button');
-                setMapHasMoved(true); // This only shows the button, doesn't trigger automatic fetch
+                // "Search This Area" button state is now managed by parent
               }
             } catch (moveError) {
               console.error('[MAP] Error during map move:', moveError);
@@ -714,7 +384,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         });
 
         // Try to recover by setting a fallback state
-        setLoading(false);
+        // loading state is managed by parent
 
         // Log that we're entering a degraded state
         console.log('[MAP] Entering degraded state due to map initialization failure');
@@ -741,8 +411,8 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
   // --- Effect to Update Map Bounds Based on Events (Initial Load Only) ---
   useEffect(() => {
     // Conditions: Map ready, not loading, HAVE events, and initial bounds NOT fitted yet
-    if (!map.current || !mapLoaded || loading || events.length === 0 || initialBoundsFitted.current) {
-      console.log('[MAP] Skipping initial fitBounds. Conditions:', { mapLoaded, loading, eventCount: events.length, initialBoundsFitted: initialBoundsFitted.current });
+    if (!map.current || !mapLoaded || isLoading || events.length === 0 || initialBoundsFitted.current) {
+      console.log('[MAP] Skipping initial fitBounds. Conditions:', { mapLoaded, isLoading, eventCount: events.length, initialBoundsFitted: initialBoundsFitted.current });
       return;
     }
 
@@ -807,7 +477,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     return () => clearTimeout(boundsUpdateTimer);
     // Depend only on events, mapLoaded, and loading state.
     // initialBoundsFitted handles the "only once" logic.
-  }, [events, mapLoaded, loading]);
+  }, [events, mapLoaded, isLoading]);
 
   // We'll just remove the debounced version since we're not using it anymore
   // If needed in the future, it can be re-implemented
@@ -846,14 +516,14 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     if (!map.current) return;
 
     console.log('[MAP] Search This Area button clicked');
-    setMapHasMoved(false); // Reset the flag
+    // mapHasMoved is managed by parent
 
     // Reset initialBoundsFitted to allow fitBounds to run for these results
     initialBoundsFitted.current = false;
 
     const center = map.current.getCenter();
     // Use the regular fetchEvents here (not debounced) since this is a direct user action
-    fetchEvents(center.lat, center.lng, filters.distance || 30, filters);
+    // event fetching is managed by parent
 
     toast({
       title: "Searching Area",
@@ -862,22 +532,22 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
   };
 
   const handleClearSearch = () => {
-    setMapHasMoved(false);
+    // mapHasMoved is managed by parent
     // Reset initialBoundsFitted to allow fitBounds to run for these results
     initialBoundsFitted.current = false;
-    fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
+    // event fetching is managed by parent
   };
 
   const handleViewChange = (view: 'list' | 'grid') => {
-    setCurrentView(view);
+    // currentView is managed by parent or not used
   };
 
   const handleLocationSearch = async (location: string) => {
     if (!location.trim() || !mapboxgl.accessToken) return;
 
-    setLoading(true);
+    // loading state is managed by parent
     onLoadingChange?.(true);
-    setMapHasMoved(false);
+    // mapHasMoved is managed by parent
 
     // Reset initialBoundsFitted to allow fitBounds to run for the new search results
     initialBoundsFitted.current = false;
@@ -898,7 +568,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         const placeName = feature.text || location;
 
         setCurrentLocation(placeName);
-        setUserHasSetLocation(true);
+        // userHasSetLocation is managed by parent or not needed
 
         if (map.current) {
           isProgrammaticMove.current = true;
@@ -913,11 +583,11 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
           }, 1600);
 
           setViewState({ longitude, latitude, zoom: 13 });
-          await fetchEvents(latitude, longitude, 30, filters);
+          // event fetching is managed by parent
         }
       } else {
         toast({ title: "Location not found", variant: "destructive" });
-        setLoading(false);
+        // loading state is managed by parent
         onLoadingChange?.(false);
 
         // Prevent fitBounds if search yields nothing
@@ -926,7 +596,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     } catch (error) {
       console.error('Geocoding error:', error);
       toast({ title: "Search Error", variant: "destructive" });
-      setLoading(false);
+      // loading state is managed by parent
       onLoadingChange?.(false);
 
       // Prevent fitBounds on error
@@ -936,7 +606,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
   const handleGetUserLocation = async () => {
     setLocationRequested(true);
-    setMapHasMoved(false); // Prevent potential race condition with search this area button
+    // mapHasMoved is managed by parent
     // Reset initialBoundsFitted to allow fitBounds to run for the new location
     initialBoundsFitted.current = false;
 
@@ -990,9 +660,9 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
       }
 
       // --- SET USER HAS SET LOCATION ON SUCCESS ---
-      setUserHasSetLocation(true);
+      // userHasSetLocation is managed by parent or not needed
       // --- FETCH EVENTS FOR THE *USER'S* LOCATION ---
-      fetchEvents(latitude, longitude, filters.distance || 30, filters);
+      // event fetching is managed by parent
       // --- END SUCCESS BLOCK ---
 
     } catch (error) {
@@ -1052,7 +722,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
         // --- DO *NOT* SET userHasSetLocation HERE ---
         // --- FETCH EVENTS FOR THE *FALLBACK* LOCATION ---
-        fetchEvents(fallbackLat, fallbackLng, filters.distance || 30, filters);
+        // event fetching is managed by parent
       }
       // --- END FAILURE BLOCK ---
     } finally {
@@ -1063,7 +733,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
   const handleMapStyleChange = (newStyle: string) => {
     if (mapStyle !== newStyle && map.current) {
       setMapStyle(newStyle);
-      setSelectedEvent(null);
+      onEventSelect?.(null);
 
       if (hoverPopup.current) {
         hoverPopup.current.remove();
@@ -1077,7 +747,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
   // Filter events by map bounds if showInViewOnly is enabled
   let visibleEvents = events;
-  if (showInViewOnly && map.current) {
+  if (filters.showInViewOnly && map.current) {
     const bounds = (map.current as any).getBounds();
     visibleEvents = events.filter(ev => {
       if (!ev.coordinates || ev.coordinates.length !== 2) return false;
@@ -1110,18 +780,12 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
       {mapLoaded && (
         <MapControls
-          currentView={currentView}
-          onViewChange={handleViewChange}
           filters={filters}
-          onFiltersChange={handleFiltersChange}
           onLocationSearch={handleLocationSearch}
-          onSearchClear={handleClearSearch}
           currentMapStyle={mapStyle}
           onMapStyleChange={handleMapStyleChange}
           onFindMyLocation={handleGetUserLocation}
           locationRequested={locationRequested}
-          showInViewOnly={showInViewOnly}
-          onShowInViewOnlyChange={setShowInViewOnly}
         />
       )}
 
@@ -1154,7 +818,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         <MapPopup
           map={map.current}
           event={selectedEvent}
-          onClose={() => setSelectedEvent(null)}
+          onClose={() => onEventSelect?.(null)}
           onViewDetails={onEventSelect}
         />
       )}

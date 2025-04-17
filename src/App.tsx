@@ -11,6 +11,7 @@ import DatePlan from "./pages/DatePlan";
 import Favorites from "./pages/Favorites";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
+import EditItinerary from "./pages/EditItinerary"; // Import EditItinerary
 
 const App = () => {
   const location = useLocation();
@@ -37,6 +38,12 @@ const App = () => {
         <Route path="/plan/:id" element={
           <PageTransition>
             <DatePlan />
+          </PageTransition>
+        } />
+        {/* Add route for editing itinerary */}
+        <Route path="/plan/edit/:id" element={
+          <PageTransition>
+            <EditItinerary />
           </PageTransition>
         } />
         <Route path="/favorites" element={
