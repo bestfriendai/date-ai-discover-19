@@ -67,7 +67,7 @@ function normalizeTicketmasterEvent(event: any): Event {
     }
 
     return {
-      id: `tm-${event.id}`,
+      id: `ticketmaster-${event.id}`,
       source: 'ticketmaster',
       title: event.name,
       description: event.description || event.info,
@@ -146,7 +146,7 @@ function normalizeSerpApiEvent(event: any): Event {
     }
 
     // Generate a unique ID
-    const id = `serp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const id = `serpapi-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     return {
       id,
@@ -204,7 +204,7 @@ serve(async (req: Request) => {
     const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN') || Deno.env.get('EVENTBRITE_PRIVATE_TOKEN');
     const EVENTBRITE_API_KEY = Deno.env.get('EVENTBRITE_API_KEY');
     const EVENTBRITE_CLIENT_SECRET = Deno.env.get('EVENTBRITE_CLIENT_SECRET');
-    const EVENTBRITE_PUBLIC_TOKEN = Deno.env.get('EVENTBRITE_PUBLIC_TOKEN');
+    const EVENTBRITE_PUBLIC_TOKEN = Deno.env.get('EVENTBRITE_PUBLIC_TOKEN') || Deno.env.get('VENTBRITE_PUBLIC_TOKEN');
 
     // Debug: Log the presence of API keys (masking sensitive parts)
     console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
@@ -529,6 +529,10 @@ serve(async (req: Request) => {
                   Number(userLng) + randomLngOffset,
                   Number(userLat) + randomLatOffset
                 ];
+              }
+              // Ensure the event has a unique ID
+              if (!normalized.id) {
+                normalized.id = `serp-${Date.now()}-${Math.floor(Math.random() * 10000)}`;
               }
               return normalized;
             } catch (e) {
