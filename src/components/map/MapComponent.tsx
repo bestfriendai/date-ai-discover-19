@@ -304,6 +304,13 @@ const MapComponent = ({
               console.log('[MAP] Map moved to:', newViewState);
               setViewState(newViewState); // Still update coordinates display
 
+              // Call the parent component's handler
+              onMapMoveEnd(
+                { latitude: newViewState.latitude, longitude: newViewState.longitude },
+                newViewState.zoom,
+                e.originalEvent || (e as any).isUserInteraction // Pass interaction status
+              );
+
               // We're only setting mapHasMoved to true to show the "Search This Area" button
               // We've disabled the automatic event fetching that used to happen on map movement
               // The user can still use the "Search This Area" button for explicit refetches
@@ -781,7 +788,7 @@ const MapComponent = ({
   // Filter events by map bounds if showInViewOnly is enabled
   let visibleEvents = events;
   if (filters.showInViewOnly && map.current) {
-    const bounds = (map.current as mapboxgl.Map).getBounds();
+    const bounds = (map.current as mapboxgl.Map).getBounds(); // Re-added 'as mapboxgl.Map'
     visibleEvents = events.filter(ev => {
       if (!ev.coordinates || ev.coordinates.length !== 2) return false;
       const [lng, lat] = ev.coordinates;
@@ -795,7 +802,7 @@ const MapComponent = ({
 
       {/* --- DEBUG OVERLAY --- */}
       <DebugOverlay
-        events={clusters}
+        events={clusters} // Changed from events to clusters
         clusters={clusters}
         mapLoaded={mapLoaded}
         mapError={mapError}
