@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { MapPin, Music, Trophy, Palette, Users, Utensils, CalendarDays } from 'lucide-react'; // Import icons
 import { cn } from '@/lib/utils';
-import type { Event } from '@/types'; // Import Event type
+import type { ClusterFeature } from '../clustering/useSupercluster'; // Import ClusterFeature type
 
 // Pre-define category icons for better performance
 const CATEGORY_ICONS = {
@@ -41,16 +41,21 @@ const DEFAULT_STYLES = {
 };
 
 interface EventMarkerProps {
-  event: Event; // Add event prop
+  event: ClusterFeature; // Accept ClusterFeature instead of Event
   isSelected?: boolean;
   onClick?: () => void;
 }
 
 const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerProps) => {
+  // Determine if this is a cluster or an event
+  const isCluster = !!event.properties.cluster;
+  const count = event.properties.point_count;
+  const title = event.properties.title || 'Cluster';
+
   // Use memoized values for better performance
   const markerStyles = useMemo(() => {
     // Get category (lowercase and fallback to default)
-    const category = (event.category || 'default').toLowerCase();
+    const category = (event.properties.category || 'default').toLowerCase();
 
     // Get icon component
     const IconComponent = CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
@@ -65,7 +70,7 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
     const scale = isSelected ? SELECTED_STYLES.scale : DEFAULT_STYLES.scale;
 
     return { IconComponent, bgColor, textColor, scale };
-  }, [event.category, isSelected]);
+  }, [event.properties.category, isSelected]);
 
   // Destructure the memoized styles
   const { IconComponent, bgColor, textColor, scale } = markerStyles;
@@ -79,17 +84,21 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
         bgColor,
         scale
       )}
-      aria-label={`Event: ${event.title}`}
-      title={event.title}
+      aria-label={`Event: ${title}`}
+      title={title}
       style={isSelected ? { zIndex: 10 } : {}}
     >
-      <IconComponent
-        className={cn(
-          "h-4 w-4",
-          textColor
-        )}
-        strokeWidth={2}
-      />
+      {isCluster ? (
+        <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{count}</span>
+      ) : (
+        <IconComponent
+          className={cn(
+            "h-4 w-4",
+            textColor
+          )}
+          strokeWidth={2}
+        />
+      )}
     </button>
   );
 });

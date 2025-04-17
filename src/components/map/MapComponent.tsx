@@ -20,8 +20,9 @@ import bbox from '@turf/bbox';
 import { motion } from 'framer-motion';
 import { applyFilters, sortEvents } from '@/utils/eventFilters';
 import PerformanceMonitor from '@/utils/performanceMonitor';
-import Supercluster from 'supercluster';
 import { point } from '@turf/helpers';
+import DebugOverlay from './overlays/DebugOverlay';
+import { useSupercluster } from './clustering/useSupercluster';
 
 // Debounce utility function was removed since we no longer need automatic fetching on map movement
 import { MapMarkers } from './components/MapMarkers';
@@ -49,10 +50,7 @@ interface MapComponentProps {
 const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Point> => {
   const features: GeoJSON.Feature<GeoJSON.Point>[] = [];
   let skipped = 0;
-  let missingCategory = 0;
-
   events.forEach(event => {
-    // Validate coordinates
     if (
       !event.coordinates ||
       !Array.isArray(event.coordinates) ||
@@ -65,18 +63,17 @@ const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Poi
       skipped++;
       return;
     }
-
-    // Validate category
-    if (!event.category) {
-      missingCategory++;
-    }
-
     features.push({
       type: 'Feature',
       properties: {
         id: event.id,
         title: event.title,
         category: event.category?.toLowerCase() || 'other',
+        image: event.image || '/placeholder.svg',
+        price: event.price,
+        location: event.location,
+        description: event.description,
+        url: event.url
       },
       geometry: {
         type: 'Point',
@@ -84,10 +81,7 @@ const eventsToGeoJSON = (events: Event[]): GeoJSON.FeatureCollection<GeoJSON.Poi
       }
     });
   });
-
-  // Debug logging
-  console.log(`[Map] eventsToGeoJSON: received=${events.length}, output=${features.length}, skipped_invalid_coords=${skipped}, missing_category=${missingCategory}`);
-
+  console.log(`[MAP_DEBUG] eventsToGeoJSON: input=${events.length}, output=${features.length}, skipped_invalid_coords=${skipped}`);
   return {
     type: 'FeatureCollection',
     features
@@ -428,7 +422,7 @@ const MapComponent = ({
       try {
         // Only use events with valid coordinates
         const eventsWithCoords = events.filter(e =>
-          e.coordinates && Array.isArray(e.coordinates) && e.coordinates.length === 2
+          e.coordinates && e.coordinates.length === 2
         );
 
         if (eventsWithCoords.length === 0) {
@@ -443,7 +437,7 @@ const MapComponent = ({
         if (geojsonData.features.length > 0) {
           try {
             isProgrammaticMove.current = true;
-            const bounds = bbox(geojsonData) as mapboxgl.LngLatBoundsLike;
+            const bounds = bbox(geojsonData) as [number, number, number, number];
 
             // Add padding based on screen size for better UX
             const padding = {
@@ -481,96 +475,29 @@ const MapComponent = ({
     // initialBoundsFitted handles the "only once" logic.
   }, [events, mapLoaded, isLoading]);
 
-  // --- Add State and Ref for Clustering ---
-  const clustererRef = useRef<Supercluster | null>(null);
-  const [clusters, setClusters] = useState<any[]>([]); // State to hold cluster and point features
-  // --- End State and Ref for Clustering ---
-
-  // --- Effect to initialize/update the Supercluster index ---
-  useEffect(() => {
-    if (!mapLoaded || !events) {
-      setClusters([]); // Clear clusters if map not loaded or no events
-      return;
-    }
-
-    // Only use events with valid coordinates for clustering
-    const points = events.filter(e => e.coordinates && e.coordinates.length === 2).map(e => ({
-      type: "Feature" as const,
-      properties: {
-        id: e.id,
-        title: e.title,
-        category: e.category || 'other',
-      },
-      geometry: {
-        type: "Point" as const,
-        coordinates: e.coordinates as [number, number]
-      }
-    }));
-
-    // Initialize or update the Supercluster instance
-    clustererRef.current = new Supercluster({
-      radius: 60, // Cluster radius in pixels
-      maxZoom: 16, // Max zoom level at which clusters are generated
-    }).load(points);
-
-    // Re-query clusters for the current view after updating the index
-    if (map.current && mapLoaded) {
-      queryClusters(); // Query immediately after index is ready
-    }
-  }, [events, mapLoaded]);
-
-  // --- New: Function to query clusters based on current map view ---
-  const queryClusters = useCallback(() => {
-    if (!map.current || !clustererRef.current || !mapLoaded) {
-      setClusters([]);
-      return;
-    }
-    const bounds = (map.current as mapboxgl.Map).getBounds();
-    const zoom = Math.floor(map.current.getZoom()); // Use floor zoom for query
-    const clusteredFeatures = clustererRef.current.getClusters(
-      [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
-      zoom
-    );
-    setClusters(clusteredFeatures); // Update the state that MapMarkers will use
-  }, [mapLoaded]);
-
-  // --- Effect to query clusters whenever the map moves or zooms ---
-  useEffect(() => {
-    if (!map.current) return;
-    map.current.on('moveend', queryClusters);
-    map.current.on('zoomend', queryClusters);
-    if (mapLoaded) {
-      queryClusters();
-    }
-    return () => {
-      if (map.current) {
-        map.current.off('moveend', queryClusters);
-        map.current.off('zoomend', queryClusters);
-      }
-    };
-  }, [mapLoaded, queryClusters]);
+  // --- CLUSTERING LOGIC (EXTRACTED) ---
+  // Compute clusters using the useSupercluster hook
+  const bounds = map.current ? (map.current as any).getBounds().toArray().flat() as [number, number, number, number] : null;
+  const { clusters, supercluster } = useSupercluster(events, bounds, viewState.zoom);
 
   // --- Handler for clicking a cluster ---
   const handleClusterClick = useCallback((clusterFeature: any) => {
-    if (!map.current || !clustererRef.current) return;
+    if (!map.current || !supercluster) return;
     const clusterId = clusterFeature.properties.cluster_id;
-    clustererRef.current.getClusterExpansionZoom(
-      clusterId,
-      (err: any, zoom: number) => {
-        if (err) {
-          console.error('[CLUSTER] Error expanding cluster:', err);
-          return;
-        }
-        map.current!.flyTo({
-          center: clusterFeature.geometry.coordinates as [number, number],
-          zoom: zoom,
-          duration: 800,
-          essential: true
-        });
-      }
-    );
+    // Fix: getClusterExpansionZoom expects only 1 argument in latest Supercluster
+    try {
+      const zoom = supercluster.getClusterExpansionZoom(clusterId);
+      map.current!.flyTo({
+        center: clusterFeature.geometry.coordinates as [number, number],
+        zoom: zoom,
+        duration: 800,
+        essential: true
+      });
+    } catch (err) {
+      console.error('[CLUSTER] Error expanding cluster:', err);
+    }
     onEventSelect?.(null);
-  }, [map]);
+  }, [map, supercluster]);
 
   // --- Handler for clicking an individual point (event) from clusters ---
   const handlePointClick = useCallback((pointFeature: any) => {
@@ -584,6 +511,7 @@ const MapComponent = ({
       console.error('[CLUSTER] Error handling point click:', err);
     }
   }, [events, onEventSelect]);
+
   // --- Effect to Watch for Map Movement ---
   // This effect has been disabled to prevent automatic event fetching when the user pans or zooms
   // The user can still use the "Search This Area" button for explicit refetches
@@ -845,6 +773,9 @@ const MapComponent = ({
     }
   };
 
+  // --- DEBUGGING IMPROVEMENTS ---
+  // DebugOverlay moved to overlays/DebugOverlay
+
   // --- Render ---
 
   // Filter events by map bounds if showInViewOnly is enabled
@@ -861,6 +792,16 @@ const MapComponent = ({
   return (
     <div className="w-full h-full relative">
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
+
+      {/* --- DEBUG OVERLAY --- */}
+      <DebugOverlay
+        events={clusters}
+        clusters={clusters}
+        mapLoaded={mapLoaded}
+        mapError={mapError}
+        viewState={viewState}
+        filters={filters}
+      />
 
       {!mapLoaded && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-xl">
@@ -895,7 +836,7 @@ const MapComponent = ({
       {mapLoaded && map.current && clusters.length > 0 && (
         <MapMarkers
           map={map.current}
-          events={clusters} // IMPORTANT: Pass the clustered features, not the raw events list
+          events={clusters}
           onMarkerClick={(feature: any) => {
             if (feature.properties && feature.properties.cluster) {
               handleClusterClick(feature); // Handle cluster click

@@ -142,6 +142,23 @@ const MapView = () => {
     // Depend on rawEvents and only client-side filter properties
   }, [rawEvents, filters.priceRange, filters.sortBy, filters.showInViewOnly, mapCenter?.latitude, mapCenter?.longitude]); // Add showInViewOnly if it's part of EventFilters
 
+  // --- DEBUG LOGGING ---
+  useEffect(() => {
+    console.log('[MapView] mapLoaded:', mapLoaded, 'mapCenter:', mapCenter, 'filters:', filters);
+  }, [mapLoaded, mapCenter, filters]);
+
+  // Ensure initial fetch after map load and center set
+  useEffect(() => {
+    if (mapLoaded && mapCenter) {
+      console.log('[MapView] Triggering initial fetch after map load/center:', mapCenter, filters);
+      fetchAndSetEvents(filters, mapCenter);
+    } else if (mapLoaded && !mapCenter) {
+      console.warn('[MapView] Map loaded but no center available for initial fetch.');
+    }
+  }, [mapLoaded, mapCenter]);
+
+  // --- END DEBUG LOGGING ---
+
   // Handle AdvancedSearch
   const handleAdvancedSearch = useCallback(
     (searchParams: any) => {
