@@ -1,4 +1,3 @@
-
 import { useRef, useEffect, useState, useCallback } from 'react';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import ReactDOMServer from 'react-dom/server';
@@ -560,11 +559,6 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         map.current.on('styledata', () => {
           console.log('[MAP_DEBUG] Style loaded successfully');
         });
-        } catch (mapError) {
-          console.error('[MAP] Error creating Mapbox instance:', mapError);
-          setMapError(`Failed to initialize map: ${mapError.message}`);
-          throw mapError;
-        }
 
         try {
           console.log('[MAP] Adding map controls...');
@@ -671,8 +665,6 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
           console.error('[MAP] Error setting up map event listeners:', eventError);
           setMapError(`Failed to set up map events: ${eventError.message}`);
           throw eventError;
-        }
-
         }
       } catch (error) {
         if (!isMounted) {
@@ -1180,5 +1172,3 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
   );
 };
 export default MapComponent;
-
-

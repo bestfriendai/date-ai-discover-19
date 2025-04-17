@@ -1,5 +1,6 @@
+
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/router';
+import { useParams } from 'react-router-dom';
 import { Itinerary } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Calendar } from '@/components/ui/calendar';
@@ -10,8 +11,8 @@ import { cn } from "@/lib/utils"
 import { getItinerary } from '@/services/itineraryService';
 
 const DatePlan: React.FC = () => {
-  const router = useRouter();
-  const { id } = router.query;
+  const params = useParams();
+  const { id } = params;
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [date, setDate] = useState<Date | undefined>(undefined);
 
