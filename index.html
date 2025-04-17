@@ -15,13 +15,32 @@
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@lovable_dev" />
     <meta name="twitter:image" content="https://lovable.dev/opengraph-image-p98pqg.png" />
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
-    
+
     <!-- Preconnect to Mapbox -->
     <link rel="preconnect" href="https://api.mapbox.com" />
     <link rel="preconnect" href="https://events.mapbox.com" />
+
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
+
+    <!-- Fallback Mapbox token in case the server fails -->
+    <script>
+      window.FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+
+      // Check if Mapbox GL JS is loaded
+      window.addEventListener('DOMContentLoaded', function() {
+        if (!window.mapboxgl) {
+          console.error('[MAPBOX] Mapbox GL JS failed to load');
+          document.getElementById('root').innerHTML = '<div style="padding: 20px; text-align: center;"><h2>Error Loading Map</h2><p>There was a problem loading the map library. Please refresh the page or try again later.</p></div>';
+        } else {
+          console.log('[MAPBOX] Mapbox GL JS loaded successfully');
+        }
+      });
+    </script>
   </head>
 
   <body class="dark">
