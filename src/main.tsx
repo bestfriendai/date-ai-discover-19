@@ -3,6 +3,8 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App.tsx'
 import './index.css'
+import NetworkMonitor from './utils/networkMonitor'
+import PerformanceMonitor from './utils/performanceMonitor'
 
 // Set up global error handlers for better debugging
 const originalConsoleError = console.error;
@@ -52,8 +54,46 @@ window.addEventListener('unhandledrejection', (event) => {
   });
 });
 
-createRoot(document.getElementById("root")!).render(
+// Initialize performance monitoring
+console.log('[APP] Initializing performance monitoring');
+
+// Initialize network monitoring
+if (typeof window !== 'undefined') {
+  try {
+    NetworkMonitor.init();
+    console.log('[APP] Network monitoring initialized');
+  } catch (error) {
+    console.error('[APP] Failed to initialize network monitoring:', error);
+  }
+}
+
+// Log application startup
+PerformanceMonitor.startMeasure('appStartup', {
+  timestamp: new Date().toISOString(),
+  userAgent: navigator.userAgent,
+  screenSize: `${window.innerWidth}x${window.innerHeight}`,
+  devicePixelRatio: window.devicePixelRatio
+});
+
+console.log('[APP] Application starting...');
+
+// Create the root and render the app
+const root = createRoot(document.getElementById("root")!);
+
+// Render the app
+root.render(
   <BrowserRouter>
     <App />
   </BrowserRouter>
 );
+
+// Complete the app startup measurement when the app is rendered
+window.addEventListener('load', () => {
+  // End the app startup measurement
+  PerformanceMonitor.endMeasure('appStartup', {
+    loadTime: performance.now(),
+    timestamp: new Date().toISOString()
+  });
+
+  console.log('[APP] Application loaded');
+});

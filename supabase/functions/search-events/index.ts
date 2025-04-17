@@ -1,22 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
-
-// Define the Event interface matching the frontend type
-interface Event {
-  id: string;
-  source?: string;
-  title: string;
-  description?: string;
-  date: string;
-  time: string;
-  location: string;
-  venue?: string;
-  category: string;
-  image: string;
-  coordinates?: [number, number]; // [longitude, latitude]
-  url?: string;
-  price?: string;
-}
+import { Event, SearchParams, SourceStats, SearchEventsResponse } from "./types.ts"
+import { fetchPredictHQEvents } from "./predicthq.ts"
 
 /**
  * Normalize a Ticketmaster event to our standard format
@@ -194,11 +179,23 @@ serve(async (req: Request) => {
   }
 
   try {
+    console.log('[SEARCH-EVENTS] Received request');
+    const startTime = Date.now();
+
     // Use the exact secret names as set in Supabase
     const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN');
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
     const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
     const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
+    const PREDICTHQ_API_KEY = Deno.env.get('PREDICTHQ_API_KEY');
+
+    // Log API key availability (not the actual keys)
+    console.log('[SEARCH-EVENTS] API keys available:', {
+      MAPBOX_TOKEN: !!MAPBOX_TOKEN,
+      TICKETMASTER_KEY: !!TICKETMASTER_KEY,
+      SERPAPI_KEY: !!SERPAPI_KEY,
+      PREDICTHQ_API_KEY: !!PREDICTHQ_API_KEY
+    });
 
     // Get Eventbrite tokens - check all possible env var names
     const EVENTBRITE_TOKEN = Deno.env.get('EVENTBRITE_TOKEN') || Deno.env.get('EVENTBRITE_PRIVATE_TOKEN');
@@ -209,6 +206,7 @@ serve(async (req: Request) => {
     // Debug: Log the presence of API keys (masking sensitive parts)
     console.log('[DEBUG] TICKETMASTER_KEY:', TICKETMASTER_KEY ? TICKETMASTER_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] SERPAPI_KEY:', SERPAPI_KEY ? SERPAPI_KEY.slice(0,4) + '...' : 'NOT SET');
+    console.log('[DEBUG] PREDICTHQ_API_KEY:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_TOKEN:', EVENTBRITE_TOKEN ? EVENTBRITE_TOKEN.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_API_KEY:', EVENTBRITE_API_KEY ? EVENTBRITE_API_KEY.slice(0,4) + '...' : 'NOT SET');
     console.log('[DEBUG] EVENTBRITE_PUBLIC_TOKEN:', EVENTBRITE_PUBLIC_TOKEN ? EVENTBRITE_PUBLIC_TOKEN.slice(0,4) + '...' : 'NOT SET');
@@ -229,6 +227,8 @@ serve(async (req: Request) => {
 
     // Parse request parameters
     const params = await req.json();
+    console.log('[SEARCH-EVENTS] Request parameters:', JSON.stringify(params, null, 2));
+
     const {
       keyword = '',
       lat,
@@ -281,6 +281,7 @@ serve(async (req: Request) => {
     let ticketmasterCount = 0, ticketmasterError: string | null = null
     let eventbriteCount = 0, eventbriteError: string | null = null
     let serpapiCount = 0, serpapiError: string | null = null
+    let predicthqCount = 0, predicthqError: string | null = null
 
     // Fetch from Ticketmaster API
     try {
@@ -374,6 +375,41 @@ serve(async (req: Request) => {
     // No Eventbrite API integration - removed as requested
     eventbriteCount = 0;
     eventbriteError = null;
+
+    // PredictHQ API integration
+    // Docs: https://docs.predicthq.com/
+    if (PREDICTHQ_API_KEY) {
+      try {
+        console.log('[DEBUG] Using PredictHQ API to fetch events');
+
+        const { events: predicthqEvents, error } = await fetchPredictHQEvents({
+          apiKey: PREDICTHQ_API_KEY,
+          latitude: userLat ? Number(userLat) : undefined,
+          longitude: userLng ? Number(userLng) : undefined,
+          radius: Number(radius),
+          startDate,
+          endDate,
+          categories,
+          location,
+          keyword,
+          limit: 100
+        });
+
+        if (error) {
+          predicthqError = error;
+          console.error('[PredictHQ] API error:', error);
+        } else {
+          console.log(`[PredictHQ] Successfully fetched ${predicthqEvents.length} events`);
+          allEvents = [...allEvents, ...predicthqEvents];
+          predicthqCount = predicthqEvents.length;
+        }
+      } catch (err) {
+        predicthqError = err instanceof Error ? err.message : String(err);
+        console.error('[PredictHQ] Error fetching events:', predicthqError);
+      }
+    } else {
+      console.log('[DEBUG] PredictHQ API key not available, skipping');
+    }
 
     // SerpApi Google Events API integration - Enhanced to replace Eventbrite
     // Docs: https://serpapi.com/google-events-api
@@ -644,12 +680,37 @@ serve(async (req: Request) => {
       filteredEvents = filteredEvents.slice(0, limit);
     }
 
+    // Calculate execution time
+    const executionTime = Date.now() - startTime;
+    console.log(`[SEARCH-EVENTS] Execution completed in ${executionTime}ms`);
+    console.log(`[SEARCH-EVENTS] Returning ${filteredEvents.length} events`);
+
+    // Log event sources breakdown
+    console.log('[SEARCH-EVENTS] Events by source:', {
+      ticketmaster: ticketmasterCount,
+      eventbrite: eventbriteCount,
+      serpapi: serpapiCount,
+      total: filteredEvents.length
+    });
+
+    // Log events with/without coordinates
+    const eventsWithCoords = filteredEvents.filter(event => event.coordinates && event.coordinates.length === 2);
+    console.log(`[SEARCH-EVENTS] ${eventsWithCoords.length} of ${filteredEvents.length} events have valid coordinates`);
+
+    // Return the response
     return new Response(JSON.stringify({
       events: filteredEvents,
       sourceStats: {
         ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
         eventbrite: { count: eventbriteCount, error: eventbriteError },
-        serpapi: { count: serpapiCount, error: serpapiError }
+        serpapi: { count: serpapiCount, error: serpapiError },
+        predicthq: { count: predicthqCount, error: predicthqError }
+      },
+      meta: {
+        executionTime,
+        totalEvents: filteredEvents.length,
+        eventsWithCoordinates: eventsWithCoords.length,
+        timestamp: new Date().toISOString()
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -657,10 +718,42 @@ serve(async (req: Request) => {
     })
   } catch (error) {
     // Improved error reporting: include stack trace if available
-    console.error('Error:', error)
+    console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
+
+    // Extract detailed error information
+    let errorMessage = 'Unknown error occurred';
+    let errorStack = '';
+    let errorType = 'Unknown';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorStack = error.stack || '';
+      errorType = error.name || 'Error';
+      console.error(`[SEARCH-EVENTS] ${errorType}: ${errorMessage}`);
+      console.error('[SEARCH-EVENTS] Stack trace:', errorStack);
+    } else if (typeof error === 'object' && error !== null) {
+      try {
+        errorMessage = JSON.stringify(error);
+      } catch (e) {
+        errorMessage = '[Object cannot be stringified]';
+      }
+    } else {
+      errorMessage = String(error);
+    }
+
+    // Return a structured error response
     return new Response(JSON.stringify({
-      error: error && error.message ? error.message : String(error),
-      stack: error && error.stack ? error.stack : undefined
+      error: errorMessage,
+      errorType,
+      stack: errorStack,
+      timestamp: new Date().toISOString(),
+      events: [],
+      sourceStats: {
+        ticketmaster: { count: 0, error: 'Function execution failed' },
+        eventbrite: { count: 0, error: 'Function execution failed' },
+        serpapi: { count: 0, error: 'Function execution failed' },
+        predicthq: { count: 0, error: 'Function execution failed' }
+      }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,

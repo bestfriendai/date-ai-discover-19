@@ -1,7 +1,44 @@
-import React from 'react';
+import React, { memo, useMemo } from 'react';
 import { MapPin, Music, Trophy, Palette, Users, Utensils, CalendarDays } from 'lucide-react'; // Import icons
 import { cn } from '@/lib/utils';
 import type { Event } from '@/types'; // Import Event type
+
+// Pre-define category icons for better performance
+const CATEGORY_ICONS = {
+  music: Music,
+  sports: Trophy,
+  arts: Palette,
+  theatre: Palette,
+  family: Users,
+  food: Utensils,
+  restaurant: Utensils,
+  default: CalendarDays
+};
+
+// Pre-define category colors for better performance
+const CATEGORY_COLORS = {
+  music: "bg-blue-500/80",
+  sports: "bg-green-500/80",
+  arts: "bg-pink-500/80",
+  theatre: "bg-pink-500/80",
+  family: "bg-yellow-400/80",
+  food: "bg-orange-500/80",
+  restaurant: "bg-orange-500/80",
+  default: "bg-gray-700/80"
+};
+
+// Selected state styles
+const SELECTED_STYLES = {
+  bg: "bg-primary/40 ring-2 ring-primary shadow-lg shadow-primary/30",
+  text: "text-primary",
+  scale: "scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]"
+};
+
+// Default state styles
+const DEFAULT_STYLES = {
+  text: "text-white",
+  scale: "scale-100"
+};
 
 interface EventMarkerProps {
   event: Event; // Add event prop
@@ -9,50 +46,29 @@ interface EventMarkerProps {
   onClick?: () => void;
 }
 
-const EventMarker = ({ event, isSelected = false, onClick }: EventMarkerProps) => {
+const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerProps) => {
+  // Use memoized values for better performance
+  const markerStyles = useMemo(() => {
+    // Get category (lowercase and fallback to default)
+    const category = (event.category || 'default').toLowerCase();
 
-  // Function to get icon based on category
-  const getCategoryIcon = (category: string) => {
-    switch (category?.toLowerCase()) {
-      case 'music':
-        return Music;
-      case 'sports':
-        return Trophy;
-      case 'arts':
-      case 'theatre': // Combine arts & theatre
-        return Palette;
-      case 'family':
-        return Users;
-      case 'food':
-      case 'restaurant': // Combine food & restaurant
-        return Utensils;
-      default:
-        return CalendarDays; // Default icon for other/uncategorized events
-    }
-  };
+    // Get icon component
+    const IconComponent = CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
 
-  const IconComponent = getCategoryIcon(event.category);
+    // Get background color
+    const bgColor = isSelected ? SELECTED_STYLES.bg : (CATEGORY_COLORS[category] || CATEGORY_COLORS.default);
 
-  // Category-based background color
-  const getCategoryBg = (category: string, isSelected: boolean) => {
-    if (isSelected) return "bg-primary/40 ring-2 ring-primary shadow-lg shadow-primary/30";
-    switch (category?.toLowerCase()) {
-      case 'music':
-        return "bg-blue-500/80";
-      case 'sports':
-        return "bg-green-500/80";
-      case 'arts':
-      case 'theatre':
-        return "bg-pink-500/80";
-      case 'family':
-        return "bg-yellow-400/80";
-      case 'food':
-      case 'restaurant':
-        return "bg-orange-500/80";
-      default:
-        return "bg-gray-700/80";
-    }
-  };
+    // Get text color
+    const textColor = isSelected ? SELECTED_STYLES.text : DEFAULT_STYLES.text;
+
+    // Get scale
+    const scale = isSelected ? SELECTED_STYLES.scale : DEFAULT_STYLES.scale;
+
+    return { IconComponent, bgColor, textColor, scale };
+  }, [event.category, isSelected]);
+
+  // Destructure the memoized styles
+  const { IconComponent, bgColor, textColor, scale } = markerStyles;
 
   return (
     <button
@@ -60,8 +76,8 @@ const EventMarker = ({ event, isSelected = false, onClick }: EventMarkerProps) =
       onClick={onClick}
       className={cn(
         "cursor-pointer transition-transform duration-150 ease-in-out hover:scale-110 focus:outline-none p-1 rounded-full flex items-center justify-center border border-border/50 shadow-md backdrop-blur-sm",
-        getCategoryBg(event.category, isSelected),
-        isSelected ? "scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" : "scale-100"
+        bgColor,
+        scale
       )}
       aria-label={`Event: ${event.title}`}
       title={event.title}
@@ -70,14 +86,12 @@ const EventMarker = ({ event, isSelected = false, onClick }: EventMarkerProps) =
       <IconComponent
         className={cn(
           "h-4 w-4",
-          isSelected
-            ? "text-primary"
-            : "text-white"
+          textColor
         )}
         strokeWidth={2}
       />
     </button>
   );
-};
+});
 
 export default EventMarker;

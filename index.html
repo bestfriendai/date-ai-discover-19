@@ -27,18 +27,52 @@
     <script src="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.js"></script>
     <link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet" />
 
-    <!-- Fallback Mapbox token in case the server fails -->
+    <!-- Global error handlers and debugging tools -->
     <script>
+      // Fallback Mapbox token in case the server fails
       window.FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+
+      // Set up global error handlers for better debugging
+      window.onerror = function(message, source, lineno, colno, error) {
+        console.error('[GLOBAL ERROR]', {
+          message: message,
+          source: source,
+          lineno: lineno,
+          colno: colno,
+          error: error ? {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          } : null
+        });
+        return false; // Let default error handling continue
+      };
+
+      // Handle unhandled promise rejections
+      window.addEventListener('unhandledrejection', function(event) {
+        console.error('[UNHANDLED PROMISE REJECTION]', {
+          reason: event.reason instanceof Error ? {
+            message: event.reason.message,
+            stack: event.reason.stack,
+            name: event.reason.name
+          } : event.reason
+        });
+      });
 
       // Check if Mapbox GL JS is loaded
       window.addEventListener('DOMContentLoaded', function() {
+        console.log('[APP] DOM content loaded');
         if (!window.mapboxgl) {
           console.error('[MAPBOX] Mapbox GL JS failed to load');
           document.getElementById('root').innerHTML = '<div style="padding: 20px; text-align: center;"><h2>Error Loading Map</h2><p>There was a problem loading the map library. Please refresh the page or try again later.</p></div>';
         } else {
           console.log('[MAPBOX] Mapbox GL JS loaded successfully');
         }
+
+        // Log browser and device information for debugging
+        console.log('[APP] Browser info:', navigator.userAgent);
+        console.log('[APP] Window dimensions:', window.innerWidth, 'x', window.innerHeight);
+        console.log('[APP] Device pixel ratio:', window.devicePixelRatio);
       });
     </script>
   </head>

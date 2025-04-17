@@ -1,6 +1,6 @@
 
 import { useState } from 'react';
-import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite, Loader2 } from 'lucide-react';
+import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite, Loader2, ArrowDownUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from '@/hooks/use-toast';
@@ -13,15 +13,12 @@ import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from "@/components/ui/checkbox";
 import { Slider } from "@/components/ui/slider";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { EventFilters as BaseEventFilters, MapStyle } from '@/types';
 
 
-// Define Filter state structure
-export interface EventFilters {
-  dateRange?: DateRange;
-  categories?: string[];
-    priceRange?: [number, number]; // [min, max] in USD
-    distance?: number; // in miles
-    // Add other filters like time of day later
+// Extend the base EventFilters with UI-specific properties
+export interface EventFilters extends BaseEventFilters {
   showInViewOnly?: boolean;
   onShowInViewOnlyChange?: (val: boolean) => void;
 }
@@ -329,6 +326,39 @@ export const MapControls = ({
                  </div>
                </div>
 
+               {/* Sort By Dropdown */}
+               <div className="grid gap-2 mt-4">
+                 <Label htmlFor="sort-by">Sort Events By</Label>
+                 <Select
+                   value={filters.sortBy || 'date'}
+                   onValueChange={(value) => onFiltersChange({ sortBy: value as 'date' | 'distance' | 'price' })}
+                 >
+                   <SelectTrigger id="sort-by" className="w-full">
+                     <SelectValue placeholder="Sort by date" />
+                   </SelectTrigger>
+                   <SelectContent>
+                     <SelectItem value="date">
+                       <div className="flex items-center">
+                         <CalendarIcon className="mr-2 h-4 w-4" />
+                         <span>Date (soonest first)</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="distance">
+                       <div className="flex items-center">
+                         <MapPin className="mr-2 h-4 w-4" />
+                         <span>Distance (closest first)</span>
+                       </div>
+                     </SelectItem>
+                     <SelectItem value="price">
+                       <div className="flex items-center">
+                         <ArrowDownUp className="mr-2 h-4 w-4" />
+                         <span>Price (lowest first)</span>
+                       </div>
+                     </SelectItem>
+                   </SelectContent>
+                 </Select>
+               </div>
+
                {/* Show in View Only Checkbox */}
                <div className="flex items-center gap-2 mt-4">
                  <Checkbox
@@ -341,7 +371,7 @@ export const MapControls = ({
                  </label>
                </div>
                {/* Clear Filters Button */}
-               {(filters.dateRange?.from || filters.categories?.length || filters.priceRange || filters.distance) && (
+               {(filters.dateRange?.from || filters.categories?.length || filters.priceRange || filters.distance || filters.sortBy !== 'date') && (
                  <Button
                    variant="outline"
                    size="sm"
@@ -349,10 +379,11 @@ export const MapControls = ({
                      dateRange: undefined,
                      categories: undefined,
                      priceRange: undefined,
-                     distance: undefined
+                     distance: undefined,
+                     sortBy: 'date'
                    })}
                  >
-                   Clear Filters
+                   Reset All Filters
                  </Button>
                )}
              </div>
