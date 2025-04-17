@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
@@ -17,13 +16,25 @@ const Favorites = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
+  if (!user) {
+    return (
+      <div className="flex flex-col items-center justify-center py-20 text-center">
+        <div className="bg-primary/10 p-6 rounded-full mb-4">
+          <LogIn className="h-10 w-10 text-primary" />
+        </div>
+        <h2 className="text-xl font-semibold mb-2">Sign in to view your favorites</h2>
+        <p className="text-muted-foreground mb-6 max-w-md">
+          Create an account or sign in to save and view your favorite events.
+        </p>
+        <Button onClick={() => navigate('/')} className="gap-2">
+          Sign In
+        </Button>
+      </div>
+    );
+  }
+
   useEffect(() => {
     const loadFavorites = async () => {
-      if (!user) {
-        setLoading(false);
-        return;
-      }
-
       try {
         setLoading(true);
         const favoritesData = await getFavorites();
@@ -41,7 +52,7 @@ const Favorites = () => {
     };
 
     loadFavorites();
-  }, [user, toast]);
+  }, [toast]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -59,20 +70,7 @@ const Favorites = () => {
               </div>
             </div>
 
-            {!user ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="bg-primary/10 p-6 rounded-full mb-4">
-                  <LogIn className="h-10 w-10 text-primary" />
-                </div>
-                <h2 className="text-xl font-semibold mb-2">Sign in to view your favorites</h2>
-                <p className="text-muted-foreground mb-6 max-w-md">
-                  Create an account or sign in to save and view your favorite events.
-                </p>
-                <Button onClick={() => navigate('/')} className="gap-2">
-                  Sign In
-                </Button>
-              </div>
-            ) : loading ? (
+            {loading ? (
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="ml-2 text-muted-foreground">Loading favorites...</span>

@@ -1,4 +1,3 @@
-
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -96,7 +95,9 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           // These parameters are handled in the service layer
           // @ts-ignore - limit and excludeIds are valid parameters
           limit: 3,
-          excludeIds: [event.id]
+          excludeIds: [event.id],
+          // Ensure we request all fields needed for full cards
+          fields: ['id', 'title', 'image', 'category', 'date', 'location', 'price', 'url', 'description']
         });
 
         // Handle the response structure
@@ -324,7 +325,15 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                           <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]/70">
                             <Calendar className="h-3 w-3" />
                             <span>{relatedEvent.date}</span>
+                            {relatedEvent.location && (
+                              <><span className="mx-1">·</span><MapPin className="h-3 w-3 inline" /> {relatedEvent.location}</>
+                            )}
                           </div>
+                          {relatedEvent.price && (
+                            <div className="text-xs text-[hsl(var(--sidebar-foreground))]/60 mt-1">
+                              Price: {relatedEvent.price}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>

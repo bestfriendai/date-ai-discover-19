@@ -20,6 +20,8 @@ import bbox from '@turf/bbox';
 import { motion } from 'framer-motion';
 import { applyFilters, sortEvents } from '@/utils/eventFilters';
 import PerformanceMonitor from '@/utils/performanceMonitor';
+import Supercluster from 'supercluster';
+import { point } from '@turf/helpers';
 
 // Debounce utility function was removed since we no longer need automatic fetching on map movement
 import { MapMarkers } from './components/MapMarkers';
@@ -479,9 +481,109 @@ const MapComponent = ({
     // initialBoundsFitted handles the "only once" logic.
   }, [events, mapLoaded, isLoading]);
 
-  // We'll just remove the debounced version since we're not using it anymore
-  // If needed in the future, it can be re-implemented
+  // --- Add State and Ref for Clustering ---
+  const clustererRef = useRef<Supercluster | null>(null);
+  const [clusters, setClusters] = useState<any[]>([]); // State to hold cluster and point features
+  // --- End State and Ref for Clustering ---
 
+  // --- Effect to initialize/update the Supercluster index ---
+  useEffect(() => {
+    if (!mapLoaded || !events) {
+      setClusters([]); // Clear clusters if map not loaded or no events
+      return;
+    }
+
+    // Only use events with valid coordinates for clustering
+    const points = events.filter(e => e.coordinates && e.coordinates.length === 2).map(e => ({
+      type: "Feature" as const,
+      properties: {
+        id: e.id,
+        title: e.title,
+        category: e.category || 'other',
+      },
+      geometry: {
+        type: "Point" as const,
+        coordinates: e.coordinates as [number, number]
+      }
+    }));
+
+    // Initialize or update the Supercluster instance
+    clustererRef.current = new Supercluster({
+      radius: 60, // Cluster radius in pixels
+      maxZoom: 16, // Max zoom level at which clusters are generated
+    }).load(points);
+
+    // Re-query clusters for the current view after updating the index
+    if (map.current && mapLoaded) {
+      queryClusters(); // Query immediately after index is ready
+    }
+  }, [events, mapLoaded]);
+
+  // --- New: Function to query clusters based on current map view ---
+  const queryClusters = useCallback(() => {
+    if (!map.current || !clustererRef.current || !mapLoaded) {
+      setClusters([]);
+      return;
+    }
+    const bounds = (map.current as mapboxgl.Map).getBounds();
+    const zoom = Math.floor(map.current.getZoom()); // Use floor zoom for query
+    const clusteredFeatures = clustererRef.current.getClusters(
+      [bounds.getWest(), bounds.getSouth(), bounds.getEast(), bounds.getNorth()],
+      zoom
+    );
+    setClusters(clusteredFeatures); // Update the state that MapMarkers will use
+  }, [mapLoaded]);
+
+  // --- Effect to query clusters whenever the map moves or zooms ---
+  useEffect(() => {
+    if (!map.current) return;
+    map.current.on('moveend', queryClusters);
+    map.current.on('zoomend', queryClusters);
+    if (mapLoaded) {
+      queryClusters();
+    }
+    return () => {
+      if (map.current) {
+        map.current.off('moveend', queryClusters);
+        map.current.off('zoomend', queryClusters);
+      }
+    };
+  }, [mapLoaded, queryClusters]);
+
+  // --- Handler for clicking a cluster ---
+  const handleClusterClick = useCallback((clusterFeature: any) => {
+    if (!map.current || !clustererRef.current) return;
+    const clusterId = clusterFeature.properties.cluster_id;
+    clustererRef.current.getClusterExpansionZoom(
+      clusterId,
+      (err: any, zoom: number) => {
+        if (err) {
+          console.error('[CLUSTER] Error expanding cluster:', err);
+          return;
+        }
+        map.current!.flyTo({
+          center: clusterFeature.geometry.coordinates as [number, number],
+          zoom: zoom,
+          duration: 800,
+          essential: true
+        });
+      }
+    );
+    onEventSelect?.(null);
+  }, [map]);
+
+  // --- Handler for clicking an individual point (event) from clusters ---
+  const handlePointClick = useCallback((pointFeature: any) => {
+    try {
+      const eventId = pointFeature.properties.id;
+      const originalEvent = events.find(e => e.id === eventId);
+      if (originalEvent && onEventSelect) {
+        onEventSelect(originalEvent);
+      }
+    } catch (err) {
+      console.error('[CLUSTER] Error handling point click:', err);
+    }
+  }, [events, onEventSelect]);
   // --- Effect to Watch for Map Movement ---
   // This effect has been disabled to prevent automatic event fetching when the user pans or zooms
   // The user can still use the "Search This Area" button for explicit refetches
@@ -717,7 +819,7 @@ const MapComponent = ({
         setViewState({ longitude: fallbackLng, latitude: fallbackLat, zoom: 12 });
 
         setTimeout(() => {
-           isProgrammaticMove.current = false;
+          isProgrammaticMove.current = false;
         }, 2100);
 
         // --- DO *NOT* SET userHasSetLocation HERE ---
@@ -748,7 +850,7 @@ const MapComponent = ({
   // Filter events by map bounds if showInViewOnly is enabled
   let visibleEvents = events;
   if (filters.showInViewOnly && map.current) {
-    const bounds = (map.current as any).getBounds();
+    const bounds = (map.current as mapboxgl.Map).getBounds();
     visibleEvents = events.filter(ev => {
       if (!ev.coordinates || ev.coordinates.length !== 2) return false;
       const [lng, lat] = ev.coordinates;
@@ -790,11 +892,17 @@ const MapComponent = ({
       )}
 
       {/* "Search This Area" button is now rendered in MapView.tsx */}
-      {mapLoaded && map.current && (
+      {mapLoaded && map.current && clusters.length > 0 && (
         <MapMarkers
           map={map.current}
-          events={visibleEvents}
-          onMarkerClick={handleMarkerClick}
+          events={clusters} // IMPORTANT: Pass the clustered features, not the raw events list
+          onMarkerClick={(feature: any) => {
+            if (feature.properties && feature.properties.cluster) {
+              handleClusterClick(feature); // Handle cluster click
+            } else {
+              handlePointClick(feature); // Handle individual point click
+            }
+          }}
           selectedEvent={selectedEvent}
         />
       )}

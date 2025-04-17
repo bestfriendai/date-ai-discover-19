@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Itinerary } from '@/types';
@@ -6,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
 import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react'; // Import icons
 import { getItineraries, getItinerary, createItinerary, updateItinerary, deleteItinerary } from '@/services/itineraryService';
+import { useAuth } from '@/contexts/AuthContext';
 
 const DatePlan: React.FC = () => {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
@@ -13,6 +13,19 @@ const DatePlan: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
   const navigate = useNavigate(); // Initialize useNavigate
+  const { user } = useAuth();
+
+  if (!user) {
+    return (
+      <div className="container mx-auto p-4 md:p-8 flex flex-col items-center justify-center min-h-[60vh]">
+        <h2 className="text-2xl font-bold mb-2">Sign in required</h2>
+        <p className="mb-4 text-muted-foreground">You must be signed in to view your date plans.</p>
+        <Button onClick={() => navigate('/')} className="gap-2">
+          Sign In
+        </Button>
+      </div>
+    );
+  }
 
   // Fetch all itineraries on mount
   useEffect(() => {
