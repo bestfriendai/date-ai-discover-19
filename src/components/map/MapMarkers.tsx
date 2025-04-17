@@ -7,7 +7,7 @@ import type { Event } from '@/types';
 const CategoryMarker = ({ category, isSelected = false }: { category: string; isSelected?: boolean }) => {
   let bgColor = 'bg-gray-700';
   let textColor = 'text-white';
-  
+
   switch (category?.toLowerCase()) {
     case 'music':
       bgColor = 'bg-blue-500';
@@ -28,12 +28,12 @@ const CategoryMarker = ({ category, isSelected = false }: { category: string; is
       bgColor = 'bg-orange-500';
       break;
   }
-  
+
   const size = isSelected ? 'w-8 h-8' : 'w-6 h-6';
   const border = isSelected ? 'border-2 border-white shadow-lg' : '';
   const scale = isSelected ? 'scale-125' : '';
   const zIndex = isSelected ? 'z-10' : 'z-0';
-  
+
   return (
     <div className={`${bgColor} ${textColor} ${size} ${border} ${scale} ${zIndex} rounded-full flex items-center justify-center transition-all duration-200 shadow-md`}>
       {getIconForCategory(category)}
@@ -115,81 +115,91 @@ interface MapMarkersProps {
 const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMarkersProps) => {
   const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
   const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
-  
-  // Create and update markers
+
+  // Create and update markers with performance optimizations
   useEffect(() => {
-    const currentMarkerIds = Object.keys(markersRef.current);
-    const newMarkerIds = events.map(event => event.id);
-    
+    // Skip processing if no events or map
+    if (!events.length || !map) return;
+
+    // Use Set for faster lookups
+    const currentMarkerIds = new Set(Object.keys(markersRef.current));
+    const newMarkerIds = new Set(events.map(event => event.id));
+
     // Remove markers that are no longer in the events array
     currentMarkerIds.forEach(id => {
-      if (!newMarkerIds.includes(id)) {
+      if (!newMarkerIds.has(id)) {
         markersRef.current[id].remove();
         delete markersRef.current[id];
       }
     });
-    
-    // Add or update markers
-    events.forEach(event => {
-      if (!event.coordinates || event.coordinates.length !== 2) return;
-      
-      const [lng, lat] = event.coordinates;
-      const isSelected = selectedEvent?.id === event.id;
-      
-      // Create marker element
-      const markerHtml = ReactDOMServer.renderToString(
-        <CategoryMarker category={event.category || 'other'} isSelected={isSelected} />
-      );
-      
-      const el = document.createElement('div');
-      el.innerHTML = markerHtml;
-      el.className = 'marker cursor-pointer';
-      el.addEventListener('click', () => onMarkerClick(event));
-      el.addEventListener('mouseenter', () => setHoveredEvent(event.id));
-      el.addEventListener('mouseleave', () => setHoveredEvent(null));
-      
-      // Add or update marker
-      if (markersRef.current[event.id]) {
-        // Update existing marker
-        markersRef.current[event.id].setLngLat([lng, lat]);
-        
-        // Update marker element if selected state changed
-        if (isSelected !== (markersRef.current[event.id].getElement().querySelector('.scale-125') !== null)) {
-          markersRef.current[event.id].remove();
+
+    // Process events in batches to avoid UI freezing
+    const processEvents = (startIdx: number, batchSize: number) => {
+      const endIdx = Math.min(startIdx + batchSize, events.length);
+
+      for (let i = startIdx; i < endIdx; i++) {
+        const event = events[i];
+        if (!event.coordinates || event.coordinates.length !== 2) continue;
+
+        const [lng, lat] = event.coordinates;
+        const isSelected = selectedEvent?.id === event.id;
+
+        // Only create new DOM elements if needed
+        if (!markersRef.current[event.id] ||
+            (isSelected !== (markersRef.current[event.id].getElement().querySelector('.scale-125') !== null))) {
+
+          // Create marker element
+          const markerHtml = ReactDOMServer.renderToString(
+            <CategoryMarker category={event.category || 'other'} isSelected={isSelected} />
+          );
+
+          const el = document.createElement('div');
+          el.innerHTML = markerHtml;
+          el.className = 'marker cursor-pointer';
+          el.addEventListener('click', () => onMarkerClick(event));
+          el.addEventListener('mouseenter', () => setHoveredEvent(event.id));
+          el.addEventListener('mouseleave', () => setHoveredEvent(null));
+
+          // Remove old marker if it exists
+          if (markersRef.current[event.id]) {
+            markersRef.current[event.id].remove();
+          }
+
+          // Create new marker
           markersRef.current[event.id] = new mapboxgl.Marker({ element: el })
             .setLngLat([lng, lat])
             .addTo(map);
+        } else {
+          // Just update position if marker already exists
+          markersRef.current[event.id].setLngLat([lng, lat]);
         }
-      } else {
-        // Create new marker
-        markersRef.current[event.id] = new mapboxgl.Marker({ element: el })
-          .setLngLat([lng, lat])
-          .addTo(map);
       }
-      
-      // Bring selected marker to front
-      if (isSelected && markersRef.current[event.id]) {
-        markersRef.current[event.id].remove();
-        markersRef.current[event.id].addTo(map);
+
+      // Process next batch if there are more events
+      if (endIdx < events.length) {
+        setTimeout(() => processEvents(endIdx, batchSize), 0);
       }
-    });
-    
+    };
+
+    // Start processing events in batches of 50
+    processEvents(0, 50);
+
     return () => {
       // Clean up all markers when component unmounts
       Object.values(markersRef.current).forEach(marker => marker.remove());
     };
   }, [events, map, onMarkerClick, selectedEvent]);
-  
+
   // Handle hover effects
   useEffect(() => {
     if (hoveredEvent && markersRef.current[hoveredEvent]) {
       const marker = markersRef.current[hoveredEvent];
       const element = marker.getElement();
-      
+
       // Add hover effect
       element.style.transform = 'scale(1.1)';
       element.style.zIndex = '100';
-      
+
       return () => {
         // Remove hover effect
         element.style.transform = '';
@@ -197,7 +207,7 @@ const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMarkersPro
       };
     }
   }, [hoveredEvent]);
-  
+
   return null; // This component doesn't render anything directly
 };
 

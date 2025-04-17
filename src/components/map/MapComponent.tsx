@@ -106,8 +106,12 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
 
   // --- Event Fetching ---
-  // Increase radius to 100 to maximize event fetching
-  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 100, currentFilters: EventFilters = {}) => {
+  // Cache for event results to avoid redundant API calls
+  const eventCache = useRef<{[key: string]: {timestamp: number, events: Event[]}}>({});
+  const CACHE_EXPIRY = 5 * 60 * 1000; // 5 minutes cache expiry
+
+  // Optimize event fetching with caching and reduced radius
+  const fetchEvents = useCallback(async (latitude: number, longitude: number, radius: number = 30, currentFilters: EventFilters = {}) => {
     // Validate coordinates before fetching
     const isValidCoord = (
       typeof latitude === 'number' && typeof longitude === 'number' &&
@@ -115,12 +119,24 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
       latitude >= -90 && latitude <= 90 &&
       longitude >= -180 && longitude <= 180
     );
+
+    // If coordinates are invalid, use default coordinates for New York
     if (!isValidCoord) {
-      setEvents([]);
-      onEventsChange?.([]);
-      setMapError("Please provide a valid location before searching for events.");
-      setLoading(false);
-      onLoadingChange?.(false);
+      console.log('[DEBUG] Invalid coordinates, using default coordinates for New York');
+      latitude = 40.7128;
+      longitude = -74.0060;
+    }
+
+    // Create a cache key based on location and filters
+    const cacheKey = `${latitude.toFixed(2)},${longitude.toFixed(2)},${radius},${JSON.stringify(currentFilters)}`;
+    const now = Date.now();
+
+    // Check if we have a valid cached result
+    if (eventCache.current[cacheKey] &&
+        now - eventCache.current[cacheKey].timestamp < CACHE_EXPIRY) {
+      console.log('[DEBUG] Using cached events data');
+      setEvents(eventCache.current[cacheKey].events);
+      onEventsChange?.(eventCache.current[cacheKey].events);
       return;
     }
 
@@ -162,6 +178,12 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
           });
         }
 
+        // Store in cache for future use
+        eventCache.current[cacheKey] = {
+          timestamp: Date.now(),
+          events: filteredEvents
+        };
+
         setEvents(filteredEvents);
         onEventsChange?.(filteredEvents);
 
@@ -188,18 +210,31 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
       }
     } catch (error) {
       console.error('Error fetching events:', error);
+
+      // Try to extract more detailed error information
+      let errorMessage = "Failed to fetch events.";
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else if (typeof error === 'object' && error !== null) {
+        errorMessage = JSON.stringify(error);
+      }
+
       toast({
         title: "Error",
-        description: "Failed to fetch events.",
+        description: errorMessage.length > 100 ? errorMessage.substring(0, 100) + '...' : errorMessage,
         variant: "destructive"
       });
-      setMapError("Failed to fetch events.");
-      setEvents([]);
-      onEventsChange?.([]);
+
+      setMapError(errorMessage);
+
+      // Still show any events we might have cached
+      if (events.length === 0) {
+        setEvents([]);
+        onEventsChange?.([]);
+      }
     } finally {
       setLoading(false);
       onLoadingChange?.(false);
-
     }
   }, [onEventsChange, onLoadingChange]);
 
@@ -306,14 +341,24 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
     const initializeMap = async () => {
       try {
-        const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+        // Use a cached token if available to avoid an API call
+        let mapboxToken = localStorage.getItem('mapbox_token');
 
-        if (!isMounted || error || !data?.MAPBOX_TOKEN || !mapContainer.current) {
-          throw error || new Error('Map init failed');
+        if (!mapboxToken) {
+          const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+
+          if (!isMounted || error || !data?.MAPBOX_TOKEN || !mapContainer.current) {
+            throw error || new Error('Map init failed');
+          }
+
+          mapboxToken = data.MAPBOX_TOKEN;
+          // Cache the token for future use
+          localStorage.setItem('mapbox_token', mapboxToken);
         }
 
-        mapboxgl.accessToken = data.MAPBOX_TOKEN;
+        mapboxgl.accessToken = mapboxToken;
 
+        // Performance optimizations for the map
         map.current = new mapboxgl.Map({
           container: mapContainer.current,
           style: mapStyle,
@@ -322,7 +367,8 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
           pitch: 45,
           bearing: -17.6,
           attributionControl: false,
-          preserveDrawingBuffer: true
+          preserveDrawingBuffer: true,
+          fadeDuration: 0 // Reduce fade animations for better performance
         });
 
         map.current.addControl(new mapboxgl.NavigationControl(), 'bottom-right');

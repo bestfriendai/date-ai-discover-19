@@ -249,8 +249,8 @@ serve(async (req: Request) => {
     let location = params.location;
 
     // Support both lat/lng and latitude/longitude parameter formats
-    const userLat = latitude || lat;
-    const userLng = longitude || lng;
+    let userLat = latitude || lat;
+    let userLng = longitude || lng;
 
     // If location is not provided but coordinates are, reverse geocode to get city name
     if (!location && userLat && userLng && MAPBOX_TOKEN) {
@@ -260,24 +260,19 @@ serve(async (req: Request) => {
       }
     }
 
-    // ENFORCE: Do not fetch events unless a valid location or coordinates are provided
+    // Check if a valid location or coordinates are provided
     const hasValidLocation = (
       (typeof location === 'string' && location.trim().length > 0) ||
       (userLat && userLng && !isNaN(Number(userLat)) && !isNaN(Number(userLng)))
     );
+
+    // If no location is provided, use a default location (New York)
     if (!hasValidLocation) {
-      return new Response(JSON.stringify({
-        error: 'A valid location (city or coordinates) is required to search for events.',
-        events: [],
-        sourceStats: {
-          ticketmaster: { count: 0, error: 'No location provided' },
-          eventbrite: { count: 0, error: 'No location provided' },
-          serpapi: { count: 0, error: 'No location provided' }
-        }
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
+      console.log('[DEBUG] No valid location provided, using default location (New York)');
+      location = 'New York';
+      // Default coordinates for New York City
+      if (!userLat) userLat = 40.7128;
+      if (!userLng) userLng = -74.0060;
     }
 
     // Prepare results array
@@ -289,11 +284,11 @@ serve(async (req: Request) => {
 
     // Fetch from Ticketmaster API
     try {
-      // Fetch up to 600 events from Ticketmaster (with pagination)
+      // Fetch up to 200 events from Ticketmaster (reduced for performance)
       let ticketmasterEvents: any[] = [];
       let ticketmasterPage = 0;
       let ticketmasterTotalPages = 1;
-      const ticketmasterMaxPages = 3; // Increased to 3 pages (600 events total)
+      const ticketmasterMaxPages = 1; // Reduced to 1 page (200 events) for better performance
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
         // Use a stricter radius for more local results (default 25 miles)
         const effectiveRadius = Math.max(1, Math.min(Number(radius) || 25, 100));
@@ -454,11 +449,11 @@ serve(async (req: Request) => {
           console.log(`[DEBUG] SerpApi param ${k}:`, v);
         });
 
-        // Paginate SerpApi results (up to 100 events, 10 pages)
+        // Paginate SerpApi results (reduced for performance)
         let serpEvents: any[] = [];
         let serpStart = 0;
         const serpPageSize = 10;
-        const serpMaxPages = 10;
+        const serpMaxPages = 2; // Reduced to 2 pages for better performance
         let serpHasMore = true;
         let serpApiWorked = false;
         let serpApiLastError = null;
@@ -567,6 +562,81 @@ serve(async (req: Request) => {
     if (excludeIds && excludeIds.length > 0) {
       const excludeIdSet = new Set(excludeIds);
       filteredEvents = uniqueEvents.filter(event => !excludeIdSet.has(event.id));
+    }
+
+    // Sort events by date (soonest first)
+    filteredEvents.sort((a, b) => {
+      // Parse dates
+      const dateA = parseEventDate(a.date, a.time);
+      const dateB = parseEventDate(b.date, b.time);
+
+      // Sort by date (ascending)
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    // Helper function to parse event dates in various formats
+    function parseEventDate(dateStr: string, timeStr: string): Date {
+      try {
+        // Try to parse ISO date format (YYYY-MM-DD)
+        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+          const [year, month, day] = dateStr.split('-').map(Number);
+
+          // Parse time (HH:MM format)
+          let hours = 0, minutes = 0;
+          if (timeStr) {
+            const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+            if (timeParts) {
+              hours = parseInt(timeParts[1], 10);
+              minutes = parseInt(timeParts[2], 10);
+
+              // Handle AM/PM
+              if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
+                hours += 12;
+              } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
+                hours = 0;
+              }
+            }
+          }
+
+          return new Date(year, month - 1, day, hours, minutes);
+        }
+
+        // Try to parse date strings like "Mon, May 19"
+        const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
+        if (monthMatch) {
+          const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+          const month = monthNames.indexOf(monthMatch[1].toLowerCase());
+          const day = parseInt(monthMatch[2], 10);
+
+          // Use current year as default
+          const year = new Date().getFullYear();
+
+          // Parse time (HH:MM AM/PM format)
+          let hours = 0, minutes = 0;
+          if (timeStr) {
+            const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+            if (timeParts) {
+              hours = parseInt(timeParts[1], 10);
+              minutes = parseInt(timeParts[2], 10);
+
+              // Handle AM/PM
+              if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
+                hours += 12;
+              } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
+                hours = 0;
+              }
+            }
+          }
+
+          return new Date(year, month, day, hours, minutes);
+        }
+
+        // Fallback: return current date (events with unparseable dates will be sorted last)
+        return new Date();
+      } catch (error) {
+        console.error('Error parsing event date:', error, { dateStr, timeStr });
+        return new Date(); // Fallback to current date
+      }
     }
 
     // Apply limit if specified

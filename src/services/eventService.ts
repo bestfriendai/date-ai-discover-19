@@ -33,12 +33,17 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
       excludeIds: params.excludeIds || []
     };
 
+    console.log('[DEBUG] Sending search params to search-events function:', searchParams);
+
     // Call Supabase function to fetch events from multiple sources
     const { data, error } = await supabase.functions.invoke('search-events', {
       body: searchParams
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('[ERROR] Supabase function error:', error);
+      throw error;
+    }
 
     if (data?.sourceStats) {
       console.log(
