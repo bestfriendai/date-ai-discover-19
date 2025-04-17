@@ -22,19 +22,7 @@ import { motion } from 'framer-motion';
 import { applyFilters, sortEvents } from '@/utils/eventFilters';
 import PerformanceMonitor from '@/utils/performanceMonitor';
 
-// Debounce utility function
-function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
-  let timeout: NodeJS.Timeout | null = null;
-
-  return function(...args: Parameters<T>) {
-    if (timeout) clearTimeout(timeout);
-
-    timeout = setTimeout(() => {
-      func(...args);
-      timeout = null;
-    }, wait);
-  };
-}
+// Debounce utility function was removed since we no longer need automatic fetching on map movement
 import { MapMarkers } from './components/MapMarkers';
 
 // Define map styles
@@ -104,6 +92,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const map = useRef<mapboxgl.Map | null>(null);
   const hoverPopup = useRef<mapboxgl.Popup | null>(null);
   const isProgrammaticMove = useRef(false);
+  const initialBoundsFitted = useRef(false); // Track if initial bounds have been fitted
   // Center on the US/globe by default
   const [viewState, setViewState] = useState({ longitude: -98.5795, latitude: 39.8283, zoom: 3.5 });
   const [events, setEvents] = useState<Event[]>([]);
@@ -591,6 +580,9 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
           });
           map.current = new mapboxgl.Map(mapOptions);
 
+          // We want to keep scroll zoom enabled for normal map interactions
+          // The map will still be fully interactive with scroll wheel zooming
+
           console.log('[MAP] Mapbox instance created successfully');
 
           // Add error event listener to catch map-specific errors
@@ -687,13 +679,17 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
               };
 
               console.log('[MAP] Map moved to:', newViewState);
-              setViewState(newViewState);
+              setViewState(newViewState); // Still update coordinates display
 
-              // Only set mapHasMoved if this was a user interaction (not programmatic)
+              // We're only setting mapHasMoved to true to show the "Search This Area" button
+              // We've disabled the automatic event fetching that used to happen on map movement
+              // The user can still use the "Search This Area" button for explicit refetches
+
+              // Only show the Search This Area button if this was a user interaction (not programmatic)
               const isUserInteraction = e.originalEvent || (e as any).isUserInteraction;
               if (!isProgrammaticMove.current && mapLoaded && isUserInteraction) {
-                console.log('[MAP] User moved map, will trigger event fetch');
-                setMapHasMoved(true);
+                console.log('[MAP] User moved map, showing Search This Area button');
+                setMapHasMoved(true); // This only shows the button, doesn't trigger automatic fetch
               }
             } catch (moveError) {
               console.error('[MAP] Error during map move:', moveError);
@@ -785,22 +781,30 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     };
   }, [filters, mapLoaded, mapStyle]);
 
-  // --- Effect to Update Map Bounds Based on Events ---
+  // --- Effect to Update Map Bounds Based on Events (Initial Load Only) ---
   useEffect(() => {
-    if (!map.current || !mapLoaded || loading || mapHasMoved || events.length === 0) return;
+    // Conditions: Map ready, not loading, HAVE events, and initial bounds NOT fitted yet
+    if (!map.current || !mapLoaded || loading || events.length === 0 || initialBoundsFitted.current) {
+      console.log('[MAP] Skipping initial fitBounds. Conditions:', { mapLoaded, loading, eventCount: events.length, initialBoundsFitted: initialBoundsFitted.current });
+      return;
+    }
 
-    // Debounce the bounds update to prevent excessive calculations
+    // --- If conditions met, proceed to fit bounds ---
+    console.log('[MAP] Performing initial fitBounds');
+
+    // Mark as fitted immediately to prevent race conditions
+    initialBoundsFitted.current = true;
+
     const boundsUpdateTimer = setTimeout(() => {
       try {
-        console.log('[MAP] Updating bounds based on events');
-
         // Only use events with valid coordinates
         const eventsWithCoords = events.filter(e =>
           e.coordinates && Array.isArray(e.coordinates) && e.coordinates.length === 2
         );
 
         if (eventsWithCoords.length === 0) {
-          console.log('[MAP] No events with coordinates to fit bounds');
+          console.log('[MAP] No events with coordinates to fit bounds on initial load');
+          initialBoundsFitted.current = false; // Reset if no coordinates
           return;
         }
 
@@ -815,12 +819,12 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
             // Add padding based on screen size for better UX
             const padding = {
               top: Math.max(100, window.innerHeight * 0.1),
-              bottom: Math.max(50, window.innerHeight * 0.05),
+              bottom: Math.max(150, window.innerHeight * 0.05),
               left: Math.max(50, window.innerWidth * 0.05),
               right: Math.max(50, window.innerWidth * 0.05)
             };
 
-            console.log('[MAP] Fitting to bounds with padding:', padding);
+            console.log('[MAP] Fitting to initial bounds with padding:', padding);
             map.current.fitBounds(bounds, {
               padding,
               maxZoom: 15,
@@ -831,37 +835,40 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
               isProgrammaticMove.current = false;
             }, 1100);
           } catch (e) {
-            console.error("[MAP] Error fitting bounds:", e);
+            console.error("[MAP] Error fitting initial bounds:", e);
+            initialBoundsFitted.current = false; // Reset if fitting fails
           }
+        } else {
+          initialBoundsFitted.current = false; // Reset if no features
         }
       } catch (err) {
-        console.error("[MAP] Error updating map bounds:", err);
+        console.error("[MAP] Error in initial bounds useEffect:", err);
+        initialBoundsFitted.current = false; // Reset on error
       }
-    }, 250); // 250ms debounce
+    }, 500); // Debounce slightly
 
     return () => clearTimeout(boundsUpdateTimer);
-  }, [events, mapLoaded, loading, mapHasMoved]);
+    // Depend only on events, mapLoaded, and loading state.
+    // initialBoundsFitted handles the "only once" logic.
+  }, [events, mapLoaded, loading]);
 
-  // Create a debounced version of fetchEvents
-  const debouncedFetchEvents = useCallback(
-    debounce((lat: number, lng: number, radius: number, filters: EventFilters) => {
-      console.log('[MAP] Debounced fetch events triggered');
-      fetchEvents(lat, lng, radius, filters);
-    }, 750), // 750ms debounce delay
-    [fetchEvents]
-  );
+  // We'll just remove the debounced version since we're not using it anymore
+  // If needed in the future, it can be re-implemented
 
   // --- Effect to Watch for Map Movement ---
+  // This effect has been disabled to prevent automatic event fetching when the user pans or zooms
+  // The user can still use the "Search This Area" button for explicit refetches
+  /*
   useEffect(() => {
     if (!mapLoaded || !map.current) return;
 
     if (mapHasMoved) {
-      console.log('[MAP] Map has moved, triggering debounced fetch');
-      const center = map.current.getCenter();
-      debouncedFetchEvents(center.lat, center.lng, 30, filters);
-      setMapHasMoved(false);
+      console.log('[MAP] Map has moved, but no longer triggering automatic fetch');
+      // We no longer automatically fetch events here
+      // setMapHasMoved(false); // We'll reset this when the user clicks "Search This Area"
     }
-  }, [mapHasMoved, mapLoaded, debouncedFetchEvents, filters]);
+  }, [mapHasMoved, mapLoaded]);
+  */
 
   // --- Effect to Handle Map Style Changes ---
   useEffect(() => {
@@ -882,11 +889,14 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     if (!map.current) return;
 
     console.log('[MAP] Search This Area button clicked');
-    setMapHasMoved(false);
+    setMapHasMoved(false); // Reset the flag
+
+    // Reset initialBoundsFitted to allow fitBounds to run for these results
+    initialBoundsFitted.current = false;
 
     const center = map.current.getCenter();
     // Use the regular fetchEvents here (not debounced) since this is a direct user action
-    fetchEvents(center.lat, center.lng, 30, filters);
+    fetchEvents(center.lat, center.lng, filters.distance || 30, filters);
 
     toast({
       title: "Searching Area",
@@ -896,6 +906,8 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
   const handleClearSearch = () => {
     setMapHasMoved(false);
+    // Reset initialBoundsFitted to allow fitBounds to run for these results
+    initialBoundsFitted.current = false;
     fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
   };
 
@@ -909,6 +921,9 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     setLoading(true);
     onLoadingChange?.(true);
     setMapHasMoved(false);
+
+    // Reset initialBoundsFitted to allow fitBounds to run for the new search results
+    initialBoundsFitted.current = false;
 
     toast({
       title: "Searching",
@@ -947,22 +962,31 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         toast({ title: "Location not found", variant: "destructive" });
         setLoading(false);
         onLoadingChange?.(false);
+
+        // Prevent fitBounds if search yields nothing
+        initialBoundsFitted.current = true;
       }
     } catch (error) {
       console.error('Geocoding error:', error);
       toast({ title: "Search Error", variant: "destructive" });
       setLoading(false);
       onLoadingChange?.(false);
+
+      // Prevent fitBounds on error
+      initialBoundsFitted.current = true;
     }
   };
 
   const handleGetUserLocation = async () => {
     setLocationRequested(true);
-    setMapHasMoved(false);
+    setMapHasMoved(false); // Prevent potential race condition with search this area button
+    // Reset initialBoundsFitted to allow fitBounds to run for the new location
+    initialBoundsFitted.current = false;
 
     try {
-      const [longitude, latitude] = await getUserLocation();
+      const [longitude, latitude] = await getUserLocation(); // Await the promise
 
+      // --- THIS BLOCK RUNS ONLY ON SUCCESS ---
       if (!map.current) throw new Error("Map not initialized");
 
       if (userMarker) userMarker.remove();
@@ -981,22 +1005,25 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
       setViewState({ longitude, latitude, zoom: 14 });
       map.current.jumpTo({ center: [longitude, latitude], zoom: 14 });
 
+      // Add a slight delay for the easeTo animation
       setTimeout(() => {
         if (map.current) {
           map.current.easeTo({
-            pitch: 50,
+            pitch: 50, // Add some visual flair
             bearing: Math.random() * 60 - 30,
             duration: 1500
           });
         }
-        isProgrammaticMove.current = false;
+        // Set programmatic move to false after animation might have started
+        setTimeout(() => {
+          isProgrammaticMove.current = false;
+        }, 1600);
       }, 100);
 
+      // Try reverse geocode
       try {
-        // Reverse geocode
         const response = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`);
         const data = await response.json();
-
         if (data.features?.length) {
           const place = data.features.find((f: any) => f.place_type.includes('place') || f.place_type.includes('locality'));
           if (place) setCurrentLocation(place.text);
@@ -1005,37 +1032,72 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         console.error('Reverse geocode error:', geoError);
       }
 
+      // --- SET USER HAS SET LOCATION ON SUCCESS ---
       setUserHasSetLocation(true);
-      fetchEvents(latitude, longitude, 30, filters);
+      // --- FETCH EVENTS FOR THE *USER'S* LOCATION ---
+      fetchEvents(latitude, longitude, filters.distance || 30, filters);
+      // --- END SUCCESS BLOCK ---
+
     } catch (error) {
+      // --- THIS BLOCK RUNS ON GEOLOCATION FAILURE ---
       console.error('Get location error:', error);
 
-      const fallbackLng = -73.9712, fallbackLat = 40.7831;
+      // Use popular cities as fallback locations instead of just New York
+      const fallbackLocations = [
+        { name: "New York", lng: -74.0060, lat: 40.7128 },
+        { name: "Los Angeles", lng: -118.2437, lat: 34.0522 },
+        { name: "Chicago", lng: -87.6298, lat: 41.8781 },
+        { name: "Miami", lng: -80.1918, lat: 25.7617 },
+        { name: "Las Vegas", lng: -115.1398, lat: 36.1699 },
+        { name: "San Francisco", lng: -122.4194, lat: 37.7749 },
+        { name: "New Orleans", lng: -90.0715, lat: 29.9511 },
+        { name: "Austin", lng: -97.7431, lat: 30.2672 }
+      ];
+
+      // Select a random popular city
+      const randomIndex = Math.floor(Math.random() * fallbackLocations.length);
+      const fallbackLocation = fallbackLocations[randomIndex];
+      const { name: locationName, lng: fallbackLng, lat: fallbackLat } = fallbackLocation;
+
+      toast({
+        title: "Using Popular Location",
+        description: `Showing events in ${locationName}. You can search for a specific location using the search bar above.`,
+        duration: 5000
+      });
+
+      setCurrentLocation(locationName);
 
       if (map.current) {
         if (userMarker) userMarker.remove();
 
-        const fallbackMarkerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="red" />);
+        // Add a visual indicator for the fallback location
+        const fallbackMarkerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="red" />); // Red for fallback
         const fallbackEl = document.createElement('div');
         fallbackEl.innerHTML = fallbackMarkerHtml;
 
         const marker = new mapboxgl.Marker({ element: fallbackEl.firstChild as HTMLElement })
           .setLngLat([fallbackLng, fallbackLat])
           .addTo(map.current);
-
         setUserMarker(marker);
 
         isProgrammaticMove.current = true;
-        map.current.jumpTo({ center: [fallbackLng, fallbackLat], zoom: 14 });
+        map.current.flyTo({
+          center: [fallbackLng, fallbackLat],
+          zoom: 12,
+          duration: 2000,
+          essential: true
+        });
+        setViewState({ longitude: fallbackLng, latitude: fallbackLat, zoom: 12 });
 
         setTimeout(() => {
-          isProgrammaticMove.current = false;
-        }, 100);
+           isProgrammaticMove.current = false;
+        }, 2100);
 
-        setViewState({ longitude: fallbackLng, latitude: fallbackLat, zoom: 14 });
-        setUserHasSetLocation(true);
-        fetchEvents(fallbackLat, fallbackLng, 30, filters);
+        // --- DO *NOT* SET userHasSetLocation HERE ---
+        // --- FETCH EVENTS FOR THE *FALLBACK* LOCATION ---
+        fetchEvents(fallbackLat, fallbackLng, filters.distance || 30, filters);
       }
+      // --- END FAILURE BLOCK ---
     } finally {
       setLocationRequested(false);
     }

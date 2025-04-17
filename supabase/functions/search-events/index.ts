@@ -392,7 +392,7 @@ serve(async (req: Request) => {
           categories,
           location,
           keyword,
-          limit: 100
+          limit: 200 // Increased limit to get more events
         });
 
         if (error) {
