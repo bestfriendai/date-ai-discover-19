@@ -77,6 +77,7 @@ const MapView = () => {
           location: activeFilters.location,
         };
         const result = await searchEvents(searchParams);
+        console.log('[MapView DEBUG] Raw API Result:', result); // <-- ADDED DEBUG LOG
         const fetchedEvents = result.events;
         setRawEvents(fetchedEvents);
 
@@ -186,6 +187,7 @@ const MapView = () => {
   // Map move handler
   const handleMapMoveEnd = useCallback(
     (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => {
+      console.log('[MapView DEBUG] Map Move End - Center:', center, 'Zoom:', zoom, 'User Interaction:', isUserInteraction); // <-- ADDED DEBUG LOG
       setMapCenter(center);
       setMapZoom(zoom);
       if (isUserInteraction && mapLoaded) {
