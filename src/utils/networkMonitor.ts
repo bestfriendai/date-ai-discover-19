@@ -27,7 +27,16 @@ export function initNetworkMonitor() {
   
   // Override the fetch function
   window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
-    const url = typeof input === 'string' ? input : input.url;
+    let url: string;
+    if (typeof input === 'string') {
+      url = input;
+    } else if (input instanceof Request) {
+      url = input.url;
+    } else if (input instanceof URL) {
+      url = input.toString();
+    } else {
+      url = '';
+    }
     const method = init?.method || 'GET';
     const requestId = `${method}-${url}-${Date.now()}`;
     

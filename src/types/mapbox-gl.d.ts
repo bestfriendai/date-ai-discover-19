@@ -129,6 +129,7 @@ declare module 'mapbox-gl' {
     addTo(map: Map): this;
     setPopup(popup: Popup): this;
     remove(): void;
+    getElement(): HTMLElement;
   }
 
   export class Popup {

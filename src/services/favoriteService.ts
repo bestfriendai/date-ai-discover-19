@@ -55,18 +55,15 @@ export const addFavorite = async (event: Event): Promise<boolean> => {
     const { error: eventError } = await supabase
       .from('events')
       .upsert({
-        id: event.id,
+        external_id: event.id,
         title: event.title,
         description: event.description || '',
-        date: event.date,
-        time: event.time,
-        location: event.location,
-        venue: event.venue || '',
+        date_start: event.date,
+        location_address: event.location,
+        venue_name: event.venue || '',
         category: event.category,
-        image: event.image,
-        coordinates: event.coordinates,
-        url: event.url || '',
-        price: event.price || '',
+        image_url: event.image,
+        location_coordinates: event.coordinates,
         source: event.source || ''
       }, { onConflict: 'id' });
     

@@ -36,3 +36,28 @@ export interface EventFilters {
  * Map style options
  */
 export type MapStyle = 'streets' | 'outdoors' | 'light' | 'dark' | 'satellite';
+/**
+ * Represents a single item in an itinerary (e.g., an event or activity)
+ */
+export interface ItineraryItem {
+  id: string;
+  eventId: string; // Reference to Event.id
+  startTime?: string; // ISO string
+  endTime?: string; // ISO string
+  notes?: string;
+  event?: Event; // Optionally embed the event details
+}
+
+/**
+ * Represents a user's itinerary (a plan for a date or trip)
+ */
+export interface Itinerary {
+  id: string;
+  name: string;
+  userId?: string;
+  date?: string; // ISO date string
+  items: ItineraryItem[];
+  createdAt?: string;
+  updatedAt?: string;
+}
+
