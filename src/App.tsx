@@ -2,18 +2,23 @@
 import { AnimatePresence } from 'framer-motion';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { PageTransition } from './components/animations/PageTransition';
+import { AuthProvider } from './contexts/AuthContext';
+import { Toaster } from './components/ui/toaster';
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import MapView from "./pages/MapView";
 import DatePlan from "./pages/DatePlan";
 import Favorites from "./pages/Favorites";
+import Chat from "./pages/Chat";
+import Profile from "./pages/Profile";
 
 const App = () => {
   const location = useLocation();
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
+    <AuthProvider>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
         <Route path="/" element={
           <PageTransition>
             <Index />
@@ -39,13 +44,25 @@ const App = () => {
             <Favorites />
           </PageTransition>
         } />
+        <Route path="/chat" element={
+          <PageTransition>
+            <Chat />
+          </PageTransition>
+        } />
+        <Route path="/profile" element={
+          <PageTransition>
+            <Profile />
+          </PageTransition>
+        } />
         <Route path="*" element={
           <PageTransition>
             <NotFound />
           </PageTransition>
         } />
-      </Routes>
-    </AnimatePresence>
+        </Routes>
+        <Toaster />
+      </AnimatePresence>
+    </AuthProvider>
   );
 };
 

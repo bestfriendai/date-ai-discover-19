@@ -156,14 +156,15 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
           // Show Skeletons while loading
           Array.from({ length: skeletonCount }).map((_, index) => (
             <div key={index} className="p-4 border-b border-[hsl(var(--sidebar-border))]">
-              <div className="flex">
+              <div className="flex items-start">
                 <Skeleton className="w-16 h-16 rounded-md mr-3 flex-shrink-0" />
-                <div className="flex-1 space-y-2">
-                  <Skeleton className="h-4 w-3/4" />
+                <div className="flex-1 space-y-1.5">
+                  <Skeleton className="h-5 w-3/4" />
                   <Skeleton className="h-3 w-1/2" />
-                  <div className="flex items-center justify-between">
-                    <Skeleton className="h-3 w-1/4" />
-                    <Skeleton className="h-3 w-1/4" />
+                  <Skeleton className="h-3 w-full" />
+                  <div className="flex items-center gap-2 pt-1">
+                    <Skeleton className="h-4 w-16 rounded-full" />
+                    <Skeleton className="h-4 w-24 ml-auto" />
                   </div>
                 </div>
               </div>
@@ -246,7 +247,14 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
           <div className="p-8 flex flex-col items-center text-center text-[hsl(var(--sidebar-foreground))]/60">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-30" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 15h8M9 9h.01M15 9h.01"/></svg>
             <span className="font-medium">No events found for the current view or filters.</span>
-            <span className="text-xs mt-2">Try adjusting your search or filter options.</span>
+            <span className="text-sm mt-2 max-w-xs">Try adjusting your search criteria, changing location, or exploring a different area on the map.</span>
+            <button
+              className="mt-4 text-sm text-primary hover:text-primary/80 font-medium flex items-center gap-1"
+              onClick={() => onClose()}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+              Search in a different area
+            </button>
           </div>
         )}
       </div>

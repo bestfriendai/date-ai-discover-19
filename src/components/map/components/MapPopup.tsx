@@ -5,7 +5,7 @@ import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Clock, MapPin as MapPinIcon } from 'lucide-react';
+import { Clock, MapPin as MapPinIcon, Heart, Plus, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface MapPopupProps {
@@ -112,25 +112,41 @@ export const MapPopup = ({ map, event, onClose, onViewDetails }: MapPopupProps) 
                 View Details
               </Button>
             )}
-            {/* Add to Plan and Favorite (stub actions) */}
+            {/* Add to Plan button */}
             <Button
-              size="sm"
-              className="h-8"
+              size="icon"
               variant="outline"
+              className="h-8 w-8"
               aria-label="Add to Plan"
+              id={`popup-add-plan-btn-${event.id}`}
               tabIndex={0}
             >
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+              <Plus className="h-4 w-4" />
             </Button>
+            {/* Favorite button */}
             <Button
-              size="sm"
-              className="h-8"
+              size="icon"
               variant="ghost"
+              className="h-8 w-8"
               aria-label="Favorite"
+              id={`popup-favorite-btn-${event.id}`}
               tabIndex={0}
             >
-              <svg width="16" height="16" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path d="M12 21C12 21 4 13.5 4 8.5C4 5.5 6.5 3 9.5 3C11.24 3 12.91 4.01 13.5 5.09C14.09 4.01 15.76 3 17.5 3C20.5 3 23 5.5 23 8.5C23 13.5 15 21 12 21Z"/></svg>
+              <Heart className="h-4 w-4" />
             </Button>
+            {/* External link button if URL exists */}
+            {event.url && (
+              <Button
+                size="icon"
+                variant="ghost"
+                className="h-8 w-8"
+                aria-label="Open event website"
+                id={`popup-external-btn-${event.id}`}
+                tabIndex={0}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -149,7 +165,7 @@ export const MapPopup = ({ map, event, onClose, onViewDetails }: MapPopupProps) 
     if (popupRef.current) {
       // If popup exists, update its location
       popupRef.current.setLngLat([event.coordinates[0], event.coordinates[1]]);
-      
+
       // Use setHTML instead of setDOMContent for TypeScript compatibility
       popupRef.current.setHTML(popupHtml);
     } else {
@@ -167,17 +183,52 @@ export const MapPopup = ({ map, event, onClose, onViewDetails }: MapPopupProps) 
       popupRef.current.on('close', onClose);
     }
 
-    // --- Add Event Listener for the Button ---
-    // We need to re-attach the listener every time content updates
-    const buttonElement = document.getElementById(`popup-details-btn-${event.id}`);
-    if (buttonElement && onViewDetails) {
-        const clickHandler = () => {
+    // --- Add Event Listeners for the Buttons ---
+    // We need to re-attach the listeners every time content updates
+
+    // View Details button
+    const detailsButton = document.getElementById(`popup-details-btn-${event.id}`);
+    if (detailsButton && onViewDetails) {
+        const detailsClickHandler = () => {
             onViewDetails(event);
             popupRef.current?.remove();
         };
         // Remove previous listener if any before adding new one
-        buttonElement.removeEventListener('click', clickHandler);
-        buttonElement.addEventListener('click', clickHandler);
+        detailsButton.removeEventListener('click', detailsClickHandler);
+        detailsButton.addEventListener('click', detailsClickHandler);
+    }
+
+    // Add to Plan button
+    const addPlanButton = document.getElementById(`popup-add-plan-btn-${event.id}`);
+    if (addPlanButton) {
+        const addPlanClickHandler = () => {
+            console.log('Add to plan clicked:', event.id);
+            // TODO: Implement add to plan functionality
+            // This would open the AddToPlanModal or similar
+        };
+        addPlanButton.removeEventListener('click', addPlanClickHandler);
+        addPlanButton.addEventListener('click', addPlanClickHandler);
+    }
+
+    // Favorite button
+    const favoriteButton = document.getElementById(`popup-favorite-btn-${event.id}`);
+    if (favoriteButton) {
+        const favoriteClickHandler = () => {
+            console.log('Favorite clicked:', event.id);
+            // TODO: Implement favorite functionality
+        };
+        favoriteButton.removeEventListener('click', favoriteClickHandler);
+        favoriteButton.addEventListener('click', favoriteClickHandler);
+    }
+
+    // External link button
+    const externalButton = document.getElementById(`popup-external-btn-${event.id}`);
+    if (externalButton && event.url) {
+        const externalClickHandler = () => {
+            window.open(event.url, '_blank');
+        };
+        externalButton.removeEventListener('click', externalClickHandler);
+        externalButton.addEventListener('click', externalClickHandler);
     }
 
     // --- Cleanup ---

@@ -12,13 +12,18 @@ import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { cn } from '@/lib/utils';
 import { Checkbox } from "@/components/ui/checkbox";
+import { Slider } from "@/components/ui/slider";
 
 
 // Define Filter state structure
 export interface EventFilters {
   dateRange?: DateRange;
   categories?: string[];
-  // Add other filters like price, distance later
+    priceRange?: [number, number]; // [min, max] in USD
+    distance?: number; // in miles
+    // Add other filters like time of day later
+  showInViewOnly?: boolean;
+  onShowInViewOnlyChange?: (val: boolean) => void;
 }
 
 interface MapControlsProps {
@@ -32,6 +37,8 @@ interface MapControlsProps {
   onMapStyleChange: (styleUrl: string) => void;
   onFindMyLocation: () => void;
   locationRequested: boolean;
+  showInViewOnly?: boolean;
+  onShowInViewOnlyChange?: (val: boolean) => void;
 }
 
 export const MapControls = ({
@@ -44,6 +51,8 @@ export const MapControls = ({
   onFiltersChange,
   currentMapStyle, // Destructure style props
   onMapStyleChange, // Destructure style props
+  showInViewOnly = false,
+  onShowInViewOnlyChange,
   onFindMyLocation,
   locationRequested,
 }: MapControlsProps) => {
@@ -196,7 +205,7 @@ export const MapControls = ({
              >
                <Filter className="h-4 w-4" />
                {/* Optional: Add a badge if filters are active */}
-               {(filters.dateRange?.from || filters.categories?.length) && (
+               {(filters.dateRange?.from || filters.categories?.length || filters.priceRange || filters.distance) && (
                  <span className="absolute top-0 right-0 block h-2 w-2 rounded-full bg-primary ring-2 ring-background" />
                )}
              </Button>
@@ -206,7 +215,7 @@ export const MapControls = ({
                <div className="space-y-2">
                  <h4 className="font-medium leading-none">Filters</h4>
                  <p className="text-sm text-muted-foreground">
-                   Refine events by date and category.
+                   Refine events by date, category, price, and distance.
                  </p>
                </div>
                <div className="grid gap-2">
@@ -281,16 +290,71 @@ export const MapControls = ({
                    </div>
                  </div>
                </div>
-                {/* Clear Filters Button */}
-                {(filters.dateRange?.from || filters.categories?.length) && (
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onFiltersChange({ dateRange: undefined, categories: undefined })}
-                    >
-                        Clear Filters
-                    </Button>
-                )}
+               {/* Price Range Filter */}
+               <div className="grid gap-2 mt-4">
+                 <Label>Price Range ($)</Label>
+                 <div className="px-2">
+                   <Slider
+                     defaultValue={[0, 500]}
+                     max={1000}
+                     step={10}
+                     value={filters.priceRange || [0, 500]}
+                     onValueChange={(value) => onFiltersChange({ priceRange: value as [number, number] })}
+                     className="mt-2"
+                   />
+                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                     <span>${filters.priceRange?.[0] ?? 0}</span>
+                     <span>${filters.priceRange?.[1] ?? 500}+</span>
+                   </div>
+                 </div>
+               </div>
+               {/* Distance Filter */}
+               <div className="grid gap-2 mt-4">
+                 <Label>Distance (miles)</Label>
+                 <div className="px-2">
+                   <Slider
+                     defaultValue={[30]}
+                     min={1}
+                     max={100}
+                     step={1}
+                     value={[filters.distance ?? 30]}
+                     onValueChange={(value) => onFiltersChange({ distance: value[0] })}
+                     className="mt-2"
+                   />
+                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                     <span>1 mi</span>
+                     <span>{filters.distance ?? 30} mi</span>
+                     <span>100 mi</span>
+                   </div>
+                 </div>
+               </div>
+
+               {/* Show in View Only Checkbox */}
+               <div className="flex items-center gap-2 mt-4">
+                 <Checkbox
+                   id="show-in-view-only"
+                   checked={showInViewOnly}
+                   onCheckedChange={(checked) => onShowInViewOnlyChange?.(!!checked)}
+                 />
+                 <label htmlFor="show-in-view-only" className="text-sm cursor-pointer select-none">
+                   Show only events in current map view
+                 </label>
+               </div>
+               {/* Clear Filters Button */}
+               {(filters.dateRange?.from || filters.categories?.length || filters.priceRange || filters.distance) && (
+                 <Button
+                   variant="outline"
+                   size="sm"
+                   onClick={() => onFiltersChange({
+                     dateRange: undefined,
+                     categories: undefined,
+                     priceRange: undefined,
+                     distance: undefined
+                   })}
+                 >
+                   Clear Filters
+                 </Button>
+               )}
              </div>
            </PopoverContent>
          </Popover>

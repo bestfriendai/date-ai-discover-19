@@ -1,38 +1,81 @@
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Card, CardContent } from '@/components/ui/card';
+import { useState, useEffect } from 'react';
+import { searchEvents } from '@/services/eventService';
+import { addFavorite, removeFavorite, isFavorite } from '@/services/favoriteService';
+import { useAuth } from '@/contexts/AuthContext';
+import AddToPlanModal from './AddToPlanModal';
+import { toast } from '@/hooks/use-toast';
+import { Event } from '@/types';
+import { ExternalLink, MapPin, Calendar, Clock, Heart, Plus, Share2, Ticket } from 'lucide-react';
 
 interface EventDetailProps {
-  event: {
-    id: string;
-    title: string;
-    description?: string;
-    date: string;
-    time: string;
-    location: string;
-    category: string;
-    image: string;
-  };
+  event: Event;
   onClose: () => void;
 }
 
-import { useState } from 'react';
-import { toggleFavorite } from '@/services/eventService';
-import AddToPlanModal from './AddToPlanModal';
-import { toast } from '@/hooks/use-toast';
-
 const EventDetail = ({ event, onClose }: EventDetailProps) => {
-  const [isFavorite, setIsFavorite] = useState(false);
+  const [favorited, setFavorited] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
+  const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
+  const [loadingRelated, setLoadingRelated] = useState(false);
+  const { user } = useAuth();
 
+  // Check if event is favorited on component mount
+  useEffect(() => {
+    const checkFavoriteStatus = async () => {
+      if (user) {
+        try {
+          const result = await isFavorite(event.id);
+          setFavorited(result);
+        } catch (error) {
+          console.error('Error checking favorite status:', error);
+        }
+      }
+    };
+
+    checkFavoriteStatus();
+  }, [event.id, user]);
+
+  // Toggle favorite status
   const handleToggleFavorite = async () => {
+    if (!user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please sign in to save favorites.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
     setFavoriteLoading(true);
     try {
-      const newStatus = await toggleFavorite(event.id);
-      setIsFavorite(newStatus);
-      toast({ title: newStatus ? 'Added to Favorites' : 'Removed from Favorites', description: event.title });
+      if (favorited) {
+        await removeFavorite(event.id);
+        setFavorited(false);
+        toast({
+          title: 'Removed from Favorites',
+          description: 'Event removed from your favorites.'
+        });
+      } else {
+        await addFavorite(event);
+        setFavorited(true);
+        toast({
+          title: 'Added to Favorites',
+          description: 'Event added to your favorites.'
+        });
+      }
     } catch (error) {
-      toast({ title: 'Error', description: 'Failed to update favorite status', variant: 'destructive' });
+      console.error('Error toggling favorite:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update favorite status. Please try again.',
+        variant: 'destructive'
+      });
     } finally {
       setFavoriteLoading(false);
     }
@@ -41,6 +84,34 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
   const handleAddToPlan = () => {
     setShowItineraryModal(true);
   };
+
+  // Fetch related events
+  useEffect(() => {
+    const fetchRelatedEvents = async () => {
+      try {
+        setLoadingRelated(true);
+        // Search for events in the same category
+        const results = await searchEvents({
+          categories: [event.category],
+          // These parameters are handled in the service layer
+          // @ts-ignore - limit and excludeIds are valid parameters
+          limit: 3,
+          excludeIds: [event.id]
+        });
+
+        // Handle the response structure
+        if (results && results.events) {
+          setRelatedEvents(results.events);
+        }
+      } catch (error) {
+        console.error('Error fetching related events:', error);
+      } finally {
+        setLoadingRelated(false);
+      }
+    };
+
+    fetchRelatedEvents();
+  }, [event.id, event.category]);
 
   return (
     <section
@@ -59,7 +130,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
-      
+
       <div className="flex-1 overflow-y-auto">
         <div className="h-48 bg-[hsl(var(--sidebar-accent))] rounded-b-xl">
           <img
@@ -72,65 +143,197 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
             }}
           />
         </div>
-        
+
         <div className="p-6">
           <h2 className="text-2xl font-bold mb-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h2>
-          
-          <div className="flex items-center gap-4 mb-6">
-            <div className="text-sm px-3 py-1 bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-primary))] rounded-full">{event.category}</div>
-            
-            <button
-              className="ml-auto text-[hsl(var(--sidebar-primary))] hover:text-[hsl(var(--sidebar-primary-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
+
+          <div className="flex flex-wrap items-center gap-2 mb-4">
+            <Badge variant="secondary" className="capitalize">{event.category}</Badge>
+            {event.source && <Badge variant="outline" className="capitalize">{event.source}</Badge>}
+            {event.price && <Badge variant="outline" className="capitalize">{event.price}</Badge>}
+          </div>
+
+          <div className="flex items-center gap-2 mb-6">
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
               onClick={handleToggleFavorite}
               disabled={favoriteLoading}
-              aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+              aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
             >
-              {isFavorite ? (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" fill="currentColor"/></svg>
-              ) : (
-                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
-              )}
-            </button>
+              <Heart className="h-4 w-4" fill={favorited ? "currentColor" : "none"} />
+            </Button>
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={handleAddToPlan}
+              aria-label="Add to plan"
+            >
+              <Plus className="h-4 w-4" />
+            </Button>
+
+            {event.url && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => window.open(event.url, '_blank')}
+                aria-label="Visit website"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            )}
+
+            <Button
+              variant="outline"
+              size="icon"
+              className="h-8 w-8"
+              onClick={() => {
+                if (navigator.share) {
+                  navigator.share({
+                    title: event.title,
+                    text: `Check out this event: ${event.title}`,
+                    url: window.location.href,
+                  }).catch(err => console.error('Error sharing:', err));
+                } else {
+                  navigator.clipboard.writeText(window.location.href);
+                  toast({ title: "Link copied", description: "Event link copied to clipboard" });
+                }
+              }}
+              aria-label="Share event"
+            >
+              <Share2 className="h-4 w-4" />
+            </Button>
           </div>
-          
+
           <div className="border border-[hsl(var(--sidebar-border))] rounded-md p-4 mb-6 bg-[hsl(var(--sidebar-accent))]/40">
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Date</p>
                 <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                  <Calendar className="h-4 w-4 mr-2" />
                   <p>{event.date}</p>
                 </div>
               </div>
-              
+
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Time</p>
                 <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <Clock className="h-4 w-4 mr-2" />
                   <p>{event.time}</p>
                 </div>
               </div>
-              
+
               <div className="col-span-2">
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Location</p>
                 <div className="flex items-center">
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                  <MapPin className="h-4 w-4 mr-2" />
                   <p>{event.location}</p>
                 </div>
               </div>
+
+              {event.venue && event.venue !== event.location && (
+                <div className="col-span-2">
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Venue</p>
+                  <p>{event.venue}</p>
+                </div>
+              )}
+
+              {event.coordinates && (
+                <div className="col-span-2 mt-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs"
+                    onClick={() => {
+                      // Open in Google Maps
+                      const [lng, lat] = event.coordinates!;
+                      window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
+                    }}
+                  >
+                    <MapPin className="h-3 w-3 mr-1" /> View on Map
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
-          
+
           {event.description && (
             <div className="mb-6">
               <h3 className="text-lg font-semibold mb-2 text-[hsl(var(--sidebar-primary))]">About</h3>
               <p className="text-[hsl(var(--sidebar-foreground))]/80">{event.description}</p>
             </div>
           )}
-          
+
           <div className="flex gap-4">
-            <Button className="flex-1 bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-primary))]/90 transition">Buy Tickets</Button>
-            <Button variant="outline" className="flex-1 border-[hsl(var(--sidebar-border))] text-[hsl(var(--sidebar-primary))] hover:bg-[hsl(var(--sidebar-accent))]/60 transition" onClick={handleAddToPlan}>Add to Plan</Button>
+            {event.url && (
+              <Button
+                className="flex-1 bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-primary))]/90 transition"
+                onClick={() => window.open(event.url, '_blank')}
+              >
+                <Ticket className="h-4 w-4 mr-2" /> Buy Tickets
+              </Button>
+            )}
+            <Button
+              variant="outline"
+              className="flex-1 border-[hsl(var(--sidebar-border))] text-[hsl(var(--sidebar-primary))] hover:bg-[hsl(var(--sidebar-accent))]/60 transition"
+              onClick={handleAddToPlan}
+            >
+              <Plus className="h-4 w-4 mr-2" /> Add to Plan
+            </Button>
+          </div>
+
+          {/* Related Events Section */}
+          <div className="mt-8">
+            <h3 className="text-lg font-semibold mb-4 text-[hsl(var(--sidebar-primary))]">Related Events</h3>
+
+            {loadingRelated ? (
+              <div className="space-y-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex gap-3">
+                    <Skeleton className="h-16 w-16 rounded-md" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-40" />
+                      <Skeleton className="h-3 w-24" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : relatedEvents.length > 0 ? (
+              <div className="space-y-3">
+                {relatedEvents.map((relatedEvent) => (
+                  <Card key={relatedEvent.id} className="overflow-hidden hover:bg-[hsl(var(--sidebar-accent))]/20 transition cursor-pointer">
+                    <CardContent className="p-3">
+                      <div className="flex gap-3">
+                        <div className="h-16 w-16 rounded-md overflow-hidden bg-[hsl(var(--sidebar-accent))]">
+                          <img
+                            src={relatedEvent.image}
+                            alt={relatedEvent.title}
+                            className="h-full w-full object-cover"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).onerror = null;
+                              (e.target as HTMLImageElement).src = '/placeholder.svg';
+                            }}
+                          />
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="font-medium text-sm line-clamp-2">{relatedEvent.title}</h4>
+                          <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]/70">
+                            <Calendar className="h-3 w-3" />
+                            <span>{relatedEvent.date}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <p className="text-[hsl(var(--sidebar-foreground))]/70 text-sm">No related events found.</p>
+            )}
           </div>
         </div>
       </div>

@@ -40,6 +40,8 @@ interface SearchFilters {
 interface AdvancedSearchProps {
   onSearch: (filters: SearchFilters) => void;
   initialFilters?: Partial<SearchFilters>;
+  initialParams?: any;
+  loading?: boolean;
 }
 
 const categories = [
@@ -51,7 +53,7 @@ const categories = [
   { id: 'community', label: 'Community' }
 ];
 
-const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
+const AdvancedSearch = ({ onSearch, initialFilters, initialParams, loading = false }: AdvancedSearchProps) => {
   const [filters, setFilters] = useState<SearchFilters>({
     keyword: initialFilters?.keyword || '',
     location: initialFilters?.location || '',
@@ -60,17 +62,17 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
     priceRange: initialFilters?.priceRange || [0, 500],
     radius: initialFilters?.radius || 10
   });
-  
+
   const [showFilters, setShowFilters] = useState(false);
   const debouncedKeyword = useDebounce(filters.keyword, 500);
-  
+
   // Trigger search when debounced keyword changes
   useEffect(() => {
     if (debouncedKeyword !== undefined) {
       onSearch(filters);
     }
   }, [debouncedKeyword, filters.location, filters.dateRange, filters.categories, filters.radius]);
-  
+
   // Handle input changes
   const handleInputChange = (field: keyof SearchFilters, value: any) => {
     setFilters(prev => ({
@@ -78,26 +80,26 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
       [field]: value
     }));
   };
-  
+
   // Toggle category selection
   const toggleCategory = (categoryId: string) => {
     setFilters(prev => {
       const categories = [...prev.categories];
       const index = categories.indexOf(categoryId);
-      
+
       if (index === -1) {
         categories.push(categoryId);
       } else {
         categories.splice(index, 1);
       }
-      
+
       return {
         ...prev,
         categories
       };
     });
   };
-  
+
   return (
     <div className="w-full bg-card border border-border rounded-lg p-4">
       <div className="flex flex-col space-y-4">
@@ -113,7 +115,7 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
               className="pl-9"
             />
           </div>
-          
+
           <Button
             variant="outline"
             size="icon"
@@ -122,12 +124,12 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
           >
             <Filter className="h-4 w-4" />
           </Button>
-          
-          <Button type="submit" onClick={() => onSearch(filters)}>
-            Search
+
+          <Button type="submit" onClick={() => onSearch(filters)} disabled={loading}>
+            {loading ? 'Searching...' : 'Search'}
           </Button>
         </div>
-        
+
         {/* Location and date picker */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
@@ -140,7 +142,7 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
               className="pl-9"
             />
           </div>
-          
+
           <Popover>
             <PopoverTrigger asChild>
               <Button variant="outline" className="justify-start text-left font-normal">
@@ -171,7 +173,7 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
             </PopoverContent>
           </Popover>
         </div>
-        
+
         {/* Advanced filters */}
         {showFilters && (
           <div className="space-y-4 pt-2 border-t border-border">
@@ -195,7 +197,7 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
                 ))}
               </div>
             </div>
-            
+
             <div>
               <h3 className="text-sm font-medium mb-2">Distance (miles)</h3>
               <div className="px-2">
@@ -213,7 +215,7 @@ const AdvancedSearch = ({ onSearch, initialFilters }: AdvancedSearchProps) => {
                 </div>
               </div>
             </div>
-            
+
             <div>
               <h3 className="text-sm font-medium mb-2">Price Range</h3>
               <div className="px-2">

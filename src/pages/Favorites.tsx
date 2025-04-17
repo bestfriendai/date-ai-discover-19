@@ -1,21 +1,47 @@
 
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import Header from '@/components/layout/Header';
 import EventGrid from '@/components/events/EventGrid';
 import EmptyState from '@/components/shared/EmptyState';
-import { getFavoriteEvents } from '@/services/eventService';
-import { Loader2 } from 'lucide-react';
+import { getFavorites } from '@/services/favoriteService';
+import { useAuth } from '@/contexts/AuthContext';
+import { Button } from '@/components/ui/button';
+import { Loader2, Heart, LogIn } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Favorites = () => {
   const [favorites, setFavorites] = useState([]);
   const [loading, setLoading] = useState(true);
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const { toast } = useToast();
 
   useEffect(() => {
-    setLoading(true);
-    getFavoriteEvents()
-      .then(setFavorites)
-      .finally(() => setLoading(false));
-  }, []);
+    const loadFavorites = async () => {
+      if (!user) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        const favoritesData = await getFavorites();
+        setFavorites(favoritesData);
+      } catch (error) {
+        console.error('Error loading favorites:', error);
+        toast({
+          title: 'Error',
+          description: 'Failed to load favorites. Please try again.',
+          variant: 'destructive'
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadFavorites();
+  }, [user, toast]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -32,8 +58,21 @@ const Favorites = () => {
                 <p className="text-sm xs:text-base text-muted-foreground">Your saved events</p>
               </div>
             </div>
-            
-            {loading ? (
+
+            {!user ? (
+              <div className="flex flex-col items-center justify-center py-20 text-center">
+                <div className="bg-primary/10 p-6 rounded-full mb-4">
+                  <LogIn className="h-10 w-10 text-primary" />
+                </div>
+                <h2 className="text-xl font-semibold mb-2">Sign in to view your favorites</h2>
+                <p className="text-muted-foreground mb-6 max-w-md">
+                  Create an account or sign in to save and view your favorite events.
+                </p>
+                <Button onClick={() => navigate('/')} className="gap-2">
+                  Sign In
+                </Button>
+              </div>
+            ) : loading ? (
               <div className="flex justify-center items-center py-20">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 <span className="ml-2 text-muted-foreground">Loading favorites...</span>
@@ -42,10 +81,10 @@ const Favorites = () => {
               <EventGrid events={favorites} />
             ) : (
               <EmptyState
-                icon="heart"
+                icon={<Heart className="h-12 w-12" />}
                 title="No favorite events yet"
-                description="Browse events and save the ones you like to see them here."
-                actionLabel="Browse Events"
+                description="Looks like you haven't saved any events. Why not explore the map and find something exciting for your next date?"
+                actionLabel="Explore Events on Map"
                 actionHref="/map"
               />
             )}

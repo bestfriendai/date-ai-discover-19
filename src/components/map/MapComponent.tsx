@@ -94,7 +94,9 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
   const [loading, setLoading] = useState(true);
+const [showInViewOnly, setShowInViewOnly] = useState(false);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [userHasSetLocation, setUserHasSetLocation] = useState(false);
   const [currentView, setCurrentView] = useState<'list' | 'grid'>('list');
   const [locationRequested, setLocationRequested] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
@@ -132,7 +134,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
       const rawResponse = await searchEvents({
         latitude,
         longitude,
-        radius,
+        radius: currentFilters.distance ?? radius,
         startDate,
         endDate,
         categories: currentFilters.categories
@@ -143,8 +145,25 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
       if (rawResponse && rawResponse.events) {
         const { events: fetchedEvents, sourceStats } = rawResponse;
 
-        setEvents(fetchedEvents);
-        onEventsChange?.(fetchedEvents);
+        let filteredEvents = fetchedEvents;
+
+        // Client-side filtering for priceRange if backend does not support it
+        if (currentFilters.priceRange) {
+          const [minPrice, maxPrice] = currentFilters.priceRange;
+          filteredEvents = filteredEvents.filter(ev => {
+            if (typeof ev.price === 'number') {
+              return ev.price >= minPrice && ev.price <= maxPrice;
+            }
+            if (typeof ev.price === 'string') {
+              const priceNum = parseFloat(ev.price.replace(/[^0-9.]/g, ''));
+              return !isNaN(priceNum) && priceNum >= minPrice && priceNum <= maxPrice;
+            }
+            return true;
+          });
+        }
+
+        setEvents(filteredEvents);
+        onEventsChange?.(filteredEvents);
 
         if (sourceStats) {
           console.log('[Events][SourceStats]', sourceStats);
@@ -200,6 +219,87 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
     setSelectedEvent(eventItem);
     onEventSelect?.(eventItem);
   };
+  // Define the search callback function
+  const registerSearchCallback = useCallback(() => {
+    (window as any).mapSearchCallback = (params: any) => {
+      console.log('[Map] Search callback received params:', params);
+      if (params.latitude && params.longitude) {
+        fetchEvents(params.latitude, params.longitude, params.radius || 30, {
+          categories: params.categories,
+          dateRange: params.startDate && params.endDate ? {
+            from: new Date(params.startDate),
+            to: new Date(params.endDate)
+          } : undefined
+        });
+      } else if (params.location) {
+        // Use the location search function
+        if (params.location.trim() && mapboxgl.accessToken) {
+          setLoading(true);
+          onLoadingChange?.(true);
+          setMapHasMoved(false);
+
+          const location = params.location;
+
+          toast({
+            title: "Searching",
+            description: `Looking for events near ${location}...`
+          });
+
+          // Geocode the location and fetch events
+          const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+          fetch(geocodeUrl)
+            .then(response => response.json())
+            .then(data => {
+              if (data.features?.length) {
+                const feature = data.features[0];
+                const [longitude, latitude] = feature.center;
+                const placeName = feature.text || location;
+
+                setCurrentLocation(placeName);
+                setUserHasSetLocation(true);
+
+                if (map.current) {
+                  isProgrammaticMove.current = true;
+                  map.current.easeTo({
+                    center: [longitude, latitude],
+                    zoom: 13,
+                    duration: 1500
+                  });
+
+                  setTimeout(() => {
+                    isProgrammaticMove.current = false;
+                  }, 1600);
+
+                  setViewState({ longitude, latitude, zoom: 13 });
+                  fetchEvents(latitude, longitude, 30, filters);
+                }
+              } else {
+                toast({ title: "Location not found", variant: "destructive" });
+                setLoading(false);
+                onLoadingChange?.(false);
+              }
+            })
+            .catch(error => {
+              console.error('Geocoding error:', error);
+              toast({ title: "Search Error", variant: "destructive" });
+              setLoading(false);
+              onLoadingChange?.(false);
+            });
+        }
+      }
+    };
+  }, [fetchEvents, filters, isProgrammaticMove, map, onLoadingChange, setCurrentLocation, setLoading, setMapHasMoved, setUserHasSetLocation, setViewState, toast]);
+
+  // Register the search callback on the window object
+  useEffect(() => {
+    registerSearchCallback();
+
+    return () => {
+      // Clean up the callback when component unmounts
+      delete (window as any).mapSearchCallback;
+    };
+  }, [registerSearchCallback]);
+
   // --- Map Initialization Effect ---
   useEffect(() => {
     let isMounted = true;
@@ -238,7 +338,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
         map.current.on('load', () => {
           if (!isMounted || !map.current) return;
           setMapLoaded(true);
-          fetchEvents(viewState.latitude, viewState.longitude, 30, filters);
+          // Do not fetch events until user provides a location
         });
 
         map.current.on('move', (e) => {
@@ -367,6 +467,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
         const placeName = feature.text || location;
 
         setCurrentLocation(placeName);
+        setUserHasSetLocation(true);
 
         if (map.current) {
           isProgrammaticMove.current = true;
@@ -445,6 +546,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
         console.error('Reverse geocode error:', geoError);
       }
 
+      setUserHasSetLocation(true);
       fetchEvents(latitude, longitude, 30, filters);
     } catch (error) {
       console.error('Get location error:', error);
@@ -472,6 +574,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
         }, 100);
 
         setViewState({ longitude: fallbackLng, latitude: fallbackLat, zoom: 14 });
+        setUserHasSetLocation(true);
         fetchEvents(fallbackLat, fallbackLng, 30, filters);
       }
     } finally {
@@ -493,6 +596,17 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
   };
 
   // --- Render ---
+
+  // Filter events by map bounds if showInViewOnly is enabled
+  let visibleEvents = events;
+  if (showInViewOnly && map.current) {
+    const bounds = (map.current as any).getBounds();
+    visibleEvents = events.filter(ev => {
+      if (!ev.coordinates || ev.coordinates.length !== 2) return false;
+      const [lng, lat] = ev.coordinates;
+      return bounds.contains([lng, lat]);
+    });
+  }
 
   return (
     <div className="w-full h-full relative">
@@ -528,6 +642,8 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
           onMapStyleChange={handleMapStyleChange}
           onFindMyLocation={handleGetUserLocation}
           locationRequested={locationRequested}
+          showInViewOnly={showInViewOnly}
+          onShowInViewOnlyChange={setShowInViewOnly}
         />
       )}
 
@@ -550,7 +666,7 @@ const MapComponent = ({ onEventSelect, onLoadingChange, onEventsChange }: MapCom
       {mapLoaded && map.current && (
         <MapMarkers
           map={map.current}
-          events={events}
+          events={visibleEvents}
           onMarkerClick={handleMarkerClick}
           selectedEvent={selectedEvent}
         />
