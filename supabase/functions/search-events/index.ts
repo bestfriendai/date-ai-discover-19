@@ -289,11 +289,11 @@ serve(async (req: Request) => {
 
     // Fetch from Ticketmaster API
     try {
-      // Fetch up to 200 events from Ticketmaster (no pagination)
+      // Fetch up to 600 events from Ticketmaster (with pagination)
       let ticketmasterEvents: any[] = [];
       let ticketmasterPage = 0;
       let ticketmasterTotalPages = 1;
-      const ticketmasterMaxPages = 1; // Limit to 200 events as requested
+      const ticketmasterMaxPages = 3; // Increased to 3 pages (600 events total)
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
         // Use a stricter radius for more local results (default 25 miles)
         const effectiveRadius = Math.max(1, Math.min(Number(radius) || 25, 100));

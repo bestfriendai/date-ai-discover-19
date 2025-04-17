@@ -1,4 +1,3 @@
-
 import { useState } from 'react';
 import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
 import type { Event } from '@/types'; // Import Event type
@@ -72,6 +71,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
   // const [location, setLocation] = useState('New York, USA'); // Remove mock state
   // const [events, setEvents] = useState(mockEvents); // Remove mock state
   const [view, setView] = useState<'list' | 'grid'>('list');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Determine the number of events to display or skeletons to show
   const displayEvents = isLoading ? [] : events; // Use passed events when not loading
@@ -145,103 +145,194 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
             className="p-1.5 rounded-full bg-[hsl(var(--sidebar-accent))]/80 border border-[hsl(var(--sidebar-border))]/50 hover:bg-[hsl(var(--sidebar-accent))]/60 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
             aria-label="Filter events"
             tabIndex={0}
+            onClick={() => setShowFilters(!showFilters)}
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
           </button>
         </div>
+        
+        {/* Filter panel */}
+        {showFilters && (
+          <div className="mt-4 p-3 bg-[hsl(var(--sidebar-accent))]/30 rounded-md border border-[hsl(var(--sidebar-border))]">
+            <h3 className="text-sm font-medium mb-2">Filter Events</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="text-xs font-medium block mb-1">Categories</label>
+                <div className="flex flex-wrap gap-1">
+                  {['music', 'sports', 'arts', 'family', 'food'].map(category => (
+                    <button 
+                      key={category}
+                      className="text-xs px-2 py-1 rounded-full border border-[hsl(var(--sidebar-border))] hover:bg-[hsl(var(--sidebar-accent))]"
+                    >
+                      {category}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium block mb-1">Date Range</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="date" 
+                    className="text-xs p-1 rounded border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-background))] flex-1"
+                  />
+                  <input 
+                    type="date" 
+                    className="text-xs p-1 rounded border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-background))] flex-1"
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button className="text-xs px-3 py-1 bg-[hsl(var(--sidebar-accent))] rounded hover:bg-[hsl(var(--sidebar-accent))]/80">
+                  Apply Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
           // Show Skeletons while loading
-          Array.from({ length: skeletonCount }).map((_, index) => (
-            <div key={index} className="p-4 border-b border-[hsl(var(--sidebar-border))]">
-              <div className="flex items-start">
-                <Skeleton className="w-16 h-16 rounded-md mr-3 flex-shrink-0" />
-                <div className="flex-1 space-y-1.5">
-                  <Skeleton className="h-5 w-3/4" />
-                  <Skeleton className="h-3 w-1/2" />
-                  <Skeleton className="h-3 w-full" />
-                  <div className="flex items-center gap-2 pt-1">
-                    <Skeleton className="h-4 w-16 rounded-full" />
-                    <Skeleton className="h-4 w-24 ml-auto" />
+          <div className={view === 'grid' ? 'grid grid-cols-2 gap-3 p-3' : ''}>
+            {Array.from({ length: skeletonCount }).map((_, index) => (
+              <div key={index} className="p-4 border-b border-[hsl(var(--sidebar-border))]">
+                <div className={view === 'grid' ? '' : 'flex items-start'}>
+                  <Skeleton className={view === 'grid' ? 'w-full h-32 rounded-md mb-2' : 'w-16 h-16 rounded-md mr-3 flex-shrink-0'} />
+                  <div className="flex-1 space-y-1.5">
+                    <Skeleton className="h-5 w-3/4" />
+                    <Skeleton className="h-3 w-1/2" />
+                    <Skeleton className="h-3 w-full" />
+                    <div className="flex items-center gap-2 pt-1">
+                      <Skeleton className="h-4 w-16 rounded-full" />
+                      <Skeleton className="h-4 w-24 ml-auto" />
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : displayEvents.length > 0 ? (
           // Show actual events when loaded
-          displayEvents.map(event => (
-            <div
-              key={event.id}
-              className="p-4 border-b border-[hsl(var(--sidebar-border))] hover:bg-[hsl(var(--sidebar-accent))]/50 cursor-pointer transition-colors rounded-md focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
-              onClick={() => onEventSelect && onEventSelect(event)}
-              tabIndex={0}
-              role="button"
-              aria-pressed="false"
-              aria-label={`View details for ${event.title}`}
-              onKeyDown={e => {
-                if (e.key === 'Enter' || e.key === ' ') {
-                  onEventSelect && onEventSelect(event);
-                }
-              }}
-            >
-              <div className="flex">
-                <div className="w-16 h-16 rounded-md overflow-hidden mr-3 bg-[hsl(var(--sidebar-accent))] flex-shrink-0">
-                  <img
-                    src={event.image}
-                    alt={event.title}
-                    className="w-full h-full object-cover"
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).onerror = null;
-                      (e.target as HTMLImageElement).src = '/placeholder.svg';
-                    }}
-                  />
-                </div>
-                <div className="flex-1">
-                  <h3 className="font-semibold text-base mb-0.5 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
-                  {/* Description snippet */}
-                  {event.description && (
-                    <div className="text-xs text-[hsl(var(--sidebar-foreground))]/80 mb-1 line-clamp-2">
-                      {event.description.slice(0, 100)}
-                      {event.description.length > 100 ? '…' : ''}
+          <div className={view === 'grid' ? 'grid grid-cols-2 gap-3 p-3' : ''}>
+            {displayEvents.map(event => (
+              <div
+                key={event.id}
+                className={`${view === 'grid' 
+                  ? 'p-3 border border-[hsl(var(--sidebar-border))] rounded-lg' 
+                  : 'p-4 border-b border-[hsl(var(--sidebar-border))]'} 
+                  hover:bg-[hsl(var(--sidebar-accent))]/50 cursor-pointer transition-colors 
+                  focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]`}
+                onClick={() => onEventSelect && onEventSelect(event)}
+                tabIndex={0}
+                role="button"
+                aria-pressed="false"
+                aria-label={`View details for ${event.title}`}
+                onKeyDown={e => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    onEventSelect && onEventSelect(event);
+                  }
+                }}
+              >
+                {view === 'grid' ? (
+                  // Grid view layout
+                  <div className="flex flex-col">
+                    <div className="w-full h-32 rounded-md overflow-hidden bg-[hsl(var(--sidebar-accent))] mb-2">
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).onerror = null;
+                          (e.target as HTMLImageElement).src = '/placeholder.svg';
+                        }}
+                      />
                     </div>
-                  )}
-                  <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/70 mb-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
-                    {event.date} • <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 mr-1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-                    {event.time}
-                  </div>
-                  <div className="flex items-center gap-1">
-                    {/* Category badge with color */}
-                    <div className={`
-                      text-xs rounded px-1.5 py-0.5 capitalize font-medium mr-1
-                      ${event.category?.toLowerCase() === 'music' ? 'bg-blue-500/80 text-white'
-                        : event.category?.toLowerCase() === 'sports' ? 'bg-green-500/80 text-white'
-                        : event.category?.toLowerCase() === 'arts' || event.category?.toLowerCase() === 'theatre' ? 'bg-pink-500/80 text-white'
-                        : event.category?.toLowerCase() === 'family' ? 'bg-yellow-400/80 text-gray-900'
-                        : event.category?.toLowerCase() === 'food' || event.category?.toLowerCase() === 'restaurant' ? 'bg-orange-500/80 text-white'
-                        : 'bg-gray-700/80 text-white'
-                      }
-                    `}>
-                      {event.category}
+                    <h3 className="font-semibold text-sm mb-0.5 line-clamp-1 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
+                    <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/70 mb-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                      {event.date}
                     </div>
-                    {/* Price */}
-                    {event.price && (
-                      <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">
-                        {event.price}
+                    <div className="flex items-center gap-1 flex-wrap">
+                      <div className={`
+                        text-xs rounded px-1.5 py-0.5 capitalize font-medium mr-1
+                        ${event.category?.toLowerCase() === 'music' ? 'bg-blue-500/80 text-white'
+                          : event.category?.toLowerCase() === 'sports' ? 'bg-green-500/80 text-white'
+                          : event.category?.toLowerCase() === 'arts' || event.category?.toLowerCase() === 'theatre' ? 'bg-pink-500/80 text-white'
+                          : event.category?.toLowerCase() === 'family' ? 'bg-yellow-400/80 text-gray-900'
+                          : event.category?.toLowerCase() === 'food' || event.category?.toLowerCase() === 'restaurant' ? 'bg-orange-500/80 text-white'
+                          : 'bg-gray-700/80 text-white'
+                        }
+                      `}>
+                        {event.category}
                       </div>
-                    )}
-                    <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/60 ml-auto">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                      <span className="truncate max-w-[120px]">{event.location}</span>
+                      {event.price && (
+                        <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">
+                          {event.price}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
+                ) : (
+                  // List view layout
+                  <div className="flex">
+                    <div className="w-16 h-16 rounded-md overflow-hidden mr-3 bg-[hsl(var(--sidebar-accent))] flex-shrink-0">
+                      <img
+                        src={event.image}
+                        alt={event.title}
+                        className="w-full h-full object-cover"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).onerror = null;
+                          (e.target as HTMLImageElement).src = '/placeholder.svg';
+                        }}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <h3 className="font-semibold text-base mb-0.5 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
+                      {/* Description snippet */}
+                      {event.description && (
+                        <div className="text-xs text-[hsl(var(--sidebar-foreground))]/80 mb-1 line-clamp-2">
+                          {event.description.slice(0, 100)}
+                          {event.description.length > 100 ? '…' : ''}
+                        </div>
+                      )}
+                      <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/70 mb-1">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
+                        {event.date} • <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="ml-1 mr-1"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        {event.time}
+                      </div>
+                      <div className="flex items-center gap-1">
+                        {/* Category badge with color */}
+                        <div className={`
+                          text-xs rounded px-1.5 py-0.5 capitalize font-medium mr-1
+                          ${event.category?.toLowerCase() === 'music' ? 'bg-blue-500/80 text-white'
+                            : event.category?.toLowerCase() === 'sports' ? 'bg-green-500/80 text-white'
+                            : event.category?.toLowerCase() === 'arts' || event.category?.toLowerCase() === 'theatre' ? 'bg-pink-500/80 text-white'
+                            : event.category?.toLowerCase() === 'family' ? 'bg-yellow-400/80 text-gray-900'
+                            : event.category?.toLowerCase() === 'food' || event.category?.toLowerCase() === 'restaurant' ? 'bg-orange-500/80 text-white'
+                            : 'bg-gray-700/80 text-white'
+                          }
+                        `}>
+                          {event.category}
+                        </div>
+                        {/* Price */}
+                        {event.price && (
+                          <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">
+                            {event.price}
+                          </div>
+                        )}
+                        <div className="flex items-center text-xs text-[hsl(var(--sidebar-foreground))]/60 ml-auto">
+                          <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-1"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+                          <span className="truncate max-w-[120px]">{event.location}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
-            </div>
-          ))
+            ))}
+          </div>
         ) : (
           // Show empty state if not loading and no events
           <div className="p-8 flex flex-col items-center text-center text-[hsl(var(--sidebar-foreground))]/60">
