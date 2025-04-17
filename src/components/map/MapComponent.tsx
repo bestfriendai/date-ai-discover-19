@@ -127,6 +127,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
     console.log('[EVENTS] Starting event fetch with params:', { latitude, longitude, radius, filters: currentFilters });
     setLoading(true);
+    console.log('[EVENTS_DEBUG] fetchEvents called with:', { latitude, longitude, radius, currentFilters });
     onLoadingChange?.(true);
 
     // Validate coordinates before fetching
@@ -139,8 +140,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
 
     // If coordinates are invalid, use default coordinates for New York
     if (!isValidCoord) {
-      console.warn('[EVENTS] Invalid coordinates provided:', { latitude, longitude });
-      console.log('[EVENTS] Using default coordinates for New York');
+      console.warn('[EVENTS_DEBUG] Invalid coordinates, using default NY.', { latitude, longitude });
       latitude = 40.7128;
       longitude = -74.0060;
     }
@@ -152,9 +152,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     // Check if we have a valid cached result
     if (eventCache.current[cacheKey] &&
         now - eventCache.current[cacheKey].timestamp < CACHE_EXPIRY) {
-      console.log('[EVENTS] Using cached events data from', new Date(eventCache.current[cacheKey].timestamp).toLocaleTimeString());
-      console.log('[EVENTS] Cached events count:', eventCache.current[cacheKey].events.length);
-
+      console.log('[EVENTS_DEBUG] Using cache for key:', cacheKey);
       setEvents(eventCache.current[cacheKey].events);
       onEventsChange?.(eventCache.current[cacheKey].events);
 
@@ -171,10 +169,9 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
       return;
     }
 
-    console.log('[EVENTS] No valid cache found, fetching fresh data');
+    console.log('[EVENTS_DEBUG] No valid cache found, fetching fresh data for key:', cacheKey);
 
     try {
-      console.log('[EVENTS] Preparing search parameters');
       const startDate = currentFilters.dateRange?.from ? formatISO(currentFilters.dateRange.from, { representation: 'date' }) : undefined;
       const endDate = currentFilters.dateRange?.to ? formatISO(currentFilters.dateRange.to, { representation: 'date' }) : undefined;
 
@@ -197,7 +194,7 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         searchParams.keyword = (currentFilters as any).keyword;
       }
 
-      console.log('[EVENTS] Calling searchEvents with params:', searchParams);
+      console.log('[EVENTS_DEBUG] Calling searchEvents service with:', searchParams);
 
       // Start measuring API call performance
       PerformanceMonitor.startMeasure('apiCall', { endpoint: 'searchEvents', params: searchParams });
@@ -212,42 +209,33 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
         responseSize: JSON.stringify(rawResponse).length
       });
 
-      console.log(`[EVENTS] searchEvents call took ${elapsed}ms`);
-
-      console.log('[EVENTS] Raw backend response:', rawResponse);
+      console.log(`[EVENTS_DEBUG] searchEvents call took ${elapsed}ms`);
+      console.log('[EVENTS_DEBUG] Response from searchEvents service:', rawResponse);
 
       if (!rawResponse) {
-        console.error('[EVENTS] No response returned from searchEvents');
+        console.error('[EVENTS_DEBUG] No response returned from searchEvents');
         throw new Error('No response returned from event search');
       }
 
       if (!rawResponse.events) {
-        console.error('[EVENTS] Response missing events array:', rawResponse);
+        console.error('[EVENTS_DEBUG] Invalid response structure from service:', rawResponse);
         throw new Error('Invalid response format from event search');
       }
 
       const { events: fetchedEvents, sourceStats } = rawResponse;
-      console.log(`[EVENTS] Received ${fetchedEvents.length} events from search-events function`);
-
-      if (sourceStats) {
-        console.log('[EVENTS] Source statistics:', sourceStats);
-        // Log detailed stats for each source
-        Object.entries(sourceStats).forEach(([source, stats]) => {
-          const typedStats = stats as any; // Type assertion for logging
-          console.log(`[EVENTS] ${source}: ${typedStats.count || 0} events${typedStats.error ? `, Error: ${typedStats.error}` : ''}`);
-        });
-      }
+      console.log(`[EVENTS_DEBUG] Received ${fetchedEvents.length} raw events from backend.`);
+      if (sourceStats) console.log('[EVENTS_DEBUG] Source Stats:', sourceStats);
 
       // Check if we have events with coordinates
       const eventsWithCoords = fetchedEvents.filter(event => event.coordinates && event.coordinates.length === 2);
-      console.log(`[EVENTS] ${eventsWithCoords.length} of ${fetchedEvents.length} events have valid coordinates`);
+      console.log(`[EVENTS_DEBUG] ${eventsWithCoords.length} of ${fetchedEvents.length} events have valid coordinates`);
 
       if (eventsWithCoords.length === 0 && fetchedEvents.length > 0) {
-        console.warn('[EVENTS] No events have coordinates! Check the search-events function normalization logic');
+        console.warn('[EVENTS_DEBUG] No events have coordinates! Check the search-events function normalization logic');
       }
 
       // Apply client-side filtering using our utility functions
-      console.log('[EVENTS] Applying client-side filters to events');
+      console.log('[EVENTS_DEBUG] Applying client-side filters/sort...');
 
       // Start measuring filtering performance
       PerformanceMonitor.startMeasure('eventFiltering', {
@@ -482,121 +470,96 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
       });
 
       try {
-        console.log('[MAP] Starting map initialization...');
-
-        // Check if mapboxgl is available
+        console.log('[MAP_DEBUG] Starting map initialization...');
+        // Check if mapboxgl is loaded
         if (typeof mapboxgl === 'undefined') {
-          console.error('[MAP] CRITICAL ERROR: Mapbox GL JS library is not loaded');
-          console.error('[MAP] Check if the script tag in index.html is loading correctly');
-          setMapError("Mapbox library failed to load. Please refresh the page or check your internet connection.");
-          throw new Error('Mapbox GL JS library is not loaded');
+          console.error('[MAP_DEBUG] CRITICAL: mapboxgl is undefined!');
+          setMapError("Map library failed to load.");
+          return;
+        } else {
+          console.log('[MAP_DEBUG] mapboxgl object is defined:', mapboxgl);
+        }
+
+        // Check map container
+        if (!mapContainer.current) {
+          console.error('[MAP_DEBUG] Map container ref is null!');
+          setMapError("Map container not found.");
+          return;
+        } else {
+          console.log('[MAP_DEBUG] Map container element found:', mapContainer.current);
         }
 
         // Get the fallback token from the window object (defined in index.html)
         const FALLBACK_MAPBOX_TOKEN = (window as any).FALLBACK_MAPBOX_TOKEN || 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
-        console.log('[MAP] Fallback token available:', !!FALLBACK_MAPBOX_TOKEN);
-
-        // Check if map container exists
-        if (!mapContainer.current) {
-          console.error('[MAP] Map container DOM element not found');
-          setMapError("Map container not found. This is likely a DOM rendering issue.");
-          throw new Error('Map container not found');
-        }
-        console.log('[MAP] Map container found:', mapContainer.current);
+        console.log('[MAP_DEBUG] Fallback token available:', !!FALLBACK_MAPBOX_TOKEN);
 
         let mapboxToken: string;
-
         try {
-          // Get a fresh token from the server
-          console.log('[MAP] Fetching Mapbox token from server...');
-          const startTime = Date.now();
+          console.log('[MAP_DEBUG] Fetching Mapbox token...');
           const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-          const elapsed = Date.now() - startTime;
-          console.log(`[MAP] Token fetch took ${elapsed}ms`);
-
-          if (!isMounted) {
-            console.log('[MAP] Component unmounted during token fetch');
-            return;
-          }
-
           if (error) {
-            console.error('[MAP] Error fetching Mapbox token:', error);
-            console.error('[MAP] Error details:', error.message || 'Unknown error');
+            console.error('[MAP_DEBUG] Error fetching token from function:', error);
             throw error;
           }
-
           if (!data?.MAPBOX_TOKEN) {
-            console.error('[MAP] No Mapbox token returned from server. Response data:', data);
+            console.error('[MAP_DEBUG] No MAPBOX_TOKEN in function response:', data);
             throw new Error('No Mapbox token returned from server');
           }
-
           mapboxToken = data.MAPBOX_TOKEN;
-          console.log('[MAP] Successfully retrieved token from server');
+          // !!! TEMPORARY DEBUGGING ONLY - REMOVE LATER !!!
+          console.log('[MAP_DEBUG] Received token (first 10 chars):', mapboxToken.substring(0, 10));
+          // !!! END TEMPORARY DEBUGGING !!!
         } catch (tokenError) {
-          console.error('[MAP] Using fallback Mapbox token due to error:', tokenError);
-          toast({
-            title: "Using fallback map configuration",
-            description: "Could not connect to map service. Limited functionality available.",
-            variant: "destructive"
-          });
-          mapboxToken = FALLBACK_MAPBOX_TOKEN;
+          console.error('[MAP_DEBUG] Token fetch failed, using fallback.', tokenError);
+          mapboxToken = FALLBACK_MAPBOX_TOKEN || '';
+          if (!mapboxToken) {
+            console.error('[MAP_DEBUG] Fallback token is also missing!');
+            setMapError("Map token configuration error.");
+            return;
+          }
+          // !!! TEMPORARY DEBUGGING ONLY - REMOVE LATER !!!
+          console.log('[MAP_DEBUG] Using fallback token (first 10 chars):', mapboxToken.substring(0, 10));
+          // !!! END TEMPORARY DEBUGGING !!!
         }
 
-        // Set the token
-        console.log('[MAP] Setting Mapbox access token...');
         mapboxgl.accessToken = mapboxToken;
-        console.log('[MAP] Mapbox token set successfully');
+        console.log('[MAP_DEBUG] Mapbox access token set.');
 
         // Performance optimizations for the map
-        console.log('[MAP] Creating Mapbox instance with token:', mapboxToken.substring(0, 8) + '...');
-        console.log('[MAP] Map container:', mapContainer.current);
-        console.log('[MAP] Map style:', mapStyle);
-        console.log('[MAP] Initial coordinates:', [viewState.longitude, viewState.latitude]);
+        const mapOptions: mapboxgl.MapboxOptions = {
+          container: mapContainer.current,
+          style: mapStyle,
+          center: [viewState.longitude, viewState.latitude] as [number, number],
+          zoom: viewState.zoom,
+          pitch: 45,
+          bearing: -17.6,
+          attributionControl: false,
+          preserveDrawingBuffer: true,
+          fadeDuration: 0,
+          maxZoom: 18,
+          minZoom: 2,
+          trackResize: true,
+          antialias: false
+        };
+        console.log('[MAP_DEBUG] Creating map instance...');
+        map.current = new mapboxgl.Map(mapOptions);
+        console.log('[MAP_DEBUG] Map instance created (or attempted).');
 
-        try {
-          // Create map with performance optimizations
-          const mapOptions: mapboxgl.MapboxOptions = {
-            container: mapContainer.current,
-            style: mapStyle,
-            center: [viewState.longitude, viewState.latitude] as [number, number],
-            zoom: viewState.zoom,
-            pitch: 45,
-            bearing: -17.6,
-            attributionControl: false,
-            preserveDrawingBuffer: true,
-            fadeDuration: 0, // Reduce fade animations for better performance
-            maxZoom: 18,
-            minZoom: 2,
-            trackResize: true,
-            antialias: false // Disable antialiasing for better performance
-          };
+        map.current.on('load', () => {
+          console.log('[MAP_DEBUG] Map "load" event fired!');
+          // ... existing load handler code ...
+          setMapLoaded(true);
+        });
 
-          console.log('[MAP] Creating map with options:', {
-            style: mapOptions.style,
-            center: mapOptions.center,
-            zoom: mapOptions.zoom,
-            pitch: mapOptions.pitch,
-            bearing: mapOptions.bearing
-          });
-          map.current = new mapboxgl.Map(mapOptions);
+        map.current.on('error', (e: any) => {
+          console.error('[MAP_DEBUG] Mapbox specific error event:', e);
+          const errorMessage = e.error ? e.error.message : 'Unknown map error';
+          setMapError(`Map error: ${errorMessage}`);
+        });
 
-          // We want to keep scroll zoom enabled for normal map interactions
-          // The map will still be fully interactive with scroll wheel zooming
-
-          console.log('[MAP] Mapbox instance created successfully');
-
-          // Add error event listener to catch map-specific errors
-          map.current.on('error', (e: any) => {
-            console.error('[MAP] Mapbox error event:', e);
-            const errorMessage = e.error ? e.error.message : 'Unknown map error';
-            setMapError(`Map error: ${errorMessage}`);
-          });
-
-          // Add a debug event listener for style loading
-          map.current.on('styledata', () => {
-            console.log('[MAP] Style loaded successfully');
-          });
-
+        map.current.on('styledata', () => {
+          console.log('[MAP_DEBUG] Style loaded successfully');
+        });
         } catch (mapError) {
           console.error('[MAP] Error creating Mapbox instance:', mapError);
           setMapError(`Failed to initialize map: ${mapError.message}`);
@@ -708,6 +671,8 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
           console.error('[MAP] Error setting up map event listeners:', eventError);
           setMapError(`Failed to set up map events: ${eventError.message}`);
           throw eventError;
+        }
+
         }
       } catch (error) {
         if (!isMounted) {
@@ -1214,5 +1179,6 @@ const [showInViewOnly, setShowInViewOnly] = useState(false);
     </div>
   );
 };
-
 export default MapComponent;
+
+
