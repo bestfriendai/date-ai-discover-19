@@ -203,18 +203,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                       {event.date}
                     </div>
                     <div className="flex items-center gap-1 flex-wrap">
-                      <div className={`
-                        text-xs rounded px-1.5 py-0.5 capitalize font-medium mr-1
-                        ${event.category?.toLowerCase() === 'music' ? 'bg-blue-500/80 text-white'
-                          : event.category?.toLowerCase() === 'sports' ? 'bg-green-500/80 text-white'
-                          : event.category?.toLowerCase() === 'arts' || event.category?.toLowerCase() === 'theatre' ? 'bg-pink-500/80 text-white'
-                          : event.category?.toLowerCase() === 'family' ? 'bg-yellow-400/80 text-gray-900'
-                          : event.category?.toLowerCase() === 'food' || event.category?.toLowerCase() === 'restaurant' ? 'bg-orange-500/80 text-white'
-                          : 'bg-gray-700/80 text-white'
-                        }
-                      `}>
-                        {event.category}
-                      </div>
+                      {/* Category badge removed */}
                       {event.price && (
                         <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">
                           {event.price}
@@ -251,19 +240,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                         {event.time}
                       </div>
                       <div className="flex items-center gap-1">
-                        {/* Category badge with color */}
-                        <div className={`
-                          text-xs rounded px-1.5 py-0.5 capitalize font-medium mr-1
-                          ${event.category?.toLowerCase() === 'music' ? 'bg-blue-500/80 text-white'
-                            : event.category?.toLowerCase() === 'sports' ? 'bg-green-500/80 text-white'
-                            : event.category?.toLowerCase() === 'arts' || event.category?.toLowerCase() === 'theatre' ? 'bg-pink-500/80 text-white'
-                            : event.category?.toLowerCase() === 'family' ? 'bg-yellow-400/80 text-gray-900'
-                            : event.category?.toLowerCase() === 'food' || event.category?.toLowerCase() === 'restaurant' ? 'bg-orange-500/80 text-white'
-                            : 'bg-gray-700/80 text-white'
-                          }
-                        `}>
-                          {event.category}
-                        </div>
+                        {/* Category badge removed */}
                         {/* Price */}
                         {event.price && (
                           <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">

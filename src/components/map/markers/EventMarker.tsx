@@ -1,13 +1,14 @@
+// src/components/map/markers/EventMarker.tsx
 import React, { memo, useMemo } from 'react';
 import { MapPin, Music, Trophy, Palette, Users, Utensils, CalendarDays } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import type { ClusterFeature } from '../clustering/useSupercluster';
+import { cn } from '../../../lib/utils';
+import type { Event } from '../../../types';
 import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
   TooltipProvider,
-} from '@/components/ui/tooltip';
+} from '../../ui/tooltip';
 
 // Pre-define category icons for better performance
 const CATEGORY_ICONS = {
@@ -18,26 +19,28 @@ const CATEGORY_ICONS = {
   family: Users,
   food: Utensils,
   restaurant: Utensils,
+  other: CalendarDays,
   default: CalendarDays,
 };
 
-// Pre-define category colors for better performance
-const CATEGORY_COLORS = {
-  music: 'bg-blue-500/80',
-  sports: 'bg-green-500/80',
-  arts: 'bg-pink-500/80',
-  theatre: 'bg-pink-500/80',
-  family: 'bg-yellow-400/80',
-  food: 'bg-orange-500/80',
-  restaurant: 'bg-orange-500/80',
-  default: 'bg-gray-700/80',
+// Pre-define category colors for better performance (using hex for Mapbox)
+const CATEGORY_COLORS: { [key: string]: string } = {
+  music: '#3b82f6', // blue-500
+  sports: '#22c55e', // green-500
+  arts: '#ec4899', // pink-500
+  theatre: '#ec4899', // pink-500
+  family: '#facc15', // yellow-400
+  food: '#f97316', // orange-500
+  restaurant: '#f97316', // orange-500
+  other: '#6b7280', // gray-500
+  default: '#3b82f6', // blue-500
 };
 
 // Selected state styles
 const SELECTED_STYLES = {
-  bg: 'bg-primary/40 ring-2 ring-primary shadow-lg shadow-primary/30',
-  text: 'text-primary',
-  scale: 'scale-110 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]',
+  bg: 'bg-primary ring-2 ring-primary-foreground shadow-lg shadow-primary/30',
+  text: 'text-primary-foreground',
+  scale: 'scale-125 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]',
 };
 
 // Default state styles
@@ -47,49 +50,43 @@ const DEFAULT_STYLES = {
 };
 
 interface EventMarkerProps {
-  event: ClusterFeature;
+  event: Event;
   isSelected?: boolean;
-  onClick?: () => void;
+  onClick?: (event: Event) => void;
 }
 
 const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerProps) => {
-  // Determine if this is a cluster or an event
-  const isCluster = !!event.properties.cluster;
-  const count = event.properties.point_count;
-  const title = event.properties.title || 'Cluster';
+  const title = event.title || 'Unknown Event';
+  const category = (event.category || 'default').toLowerCase();
 
-  // Use memoized values for better performance
   const markerStyles = useMemo(() => {
-    const category = (event.properties.category || 'default').toLowerCase();
     const IconComponent = CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
-    const bgColor = isSelected ? SELECTED_STYLES.bg : CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
+    const baseColor = CATEGORY_COLORS[category] || CATEGORY_COLORS.default;
+    const bgColor = isSelected ? SELECTED_STYLES.bg : `bg-[${baseColor}]`;
     const textColor = isSelected ? SELECTED_STYLES.text : DEFAULT_STYLES.text;
     const scale = isSelected ? SELECTED_STYLES.scale : DEFAULT_STYLES.scale;
     return { IconComponent, bgColor, textColor, scale, category };
-  }, [event.properties.category, isSelected]);
+  }, [category, isSelected]);
 
-  const { IconComponent, bgColor, textColor, scale, category } = markerStyles;
+  const { IconComponent, bgColor, textColor, scale } = markerStyles;
 
-  // Tooltip content for clusters and events
-  const tooltipContent = isCluster ? (
-    <div>
-      <div className="font-semibold">Cluster of {count} events</div>
-      <div className="text-xs text-muted-foreground">Click to zoom in and expand</div>
-    </div>
-  ) : (
+  const tooltipContent = useMemo(() => (
     <div>
       <div className="font-semibold">{title}</div>
-      {event.properties.category && (
-        <div className="text-xs text-muted-foreground capitalize">{event.properties.category}</div>
+      {event.date && (
+        <div className="text-xs">{event.date}</div>
       )}
-      {event.properties.date && (
-        <div className="text-xs">{event.properties.date}</div>
-      )}
-      {event.properties.venue && (
-        <div className="text-xs">{event.properties.venue}</div>
+      {event.venue && (
+        <div className="text-xs">{event.venue}</div>
       )}
     </div>
-  );
+  ), [title, event.date, event.venue]);
+
+  const handleClick = () => {
+    if (onClick) {
+      onClick(event);
+    }
+  };
 
   return (
     <TooltipProvider>
@@ -97,20 +94,20 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
         <TooltipTrigger asChild>
           <button
             type="button"
-            onClick={onClick}
+            onClick={handleClick}
             className={cn(
               'cursor-pointer transition-transform duration-150 ease-in-out hover:scale-110 focus:outline-none p-1 rounded-full flex items-center justify-center border border-border/50 shadow-md backdrop-blur-sm',
               bgColor,
-              scale
+              scale,
+              {
+                'w-6 h-6': true,
+                'z-20': isSelected,
+                'z-0': !isSelected,
+              }
             )}
-            aria-label={isCluster ? `Cluster of ${count} events` : `Event: ${title}`}
-            style={isSelected ? { zIndex: 10 } : {}}
+            aria-label={`Event: ${title}`}
           >
-            {isCluster ? (
-              <span style={{ fontWeight: 700, fontSize: 14, color: '#fff' }}>{count}</span>
-            ) : (
-              <IconComponent className={cn('h-4 w-4', textColor)} strokeWidth={2} />
-            )}
+            <IconComponent className={cn('h-4 w-4', textColor)} strokeWidth={2} />
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" align="center">
@@ -120,5 +117,7 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
     </TooltipProvider>
   );
 });
+
+EventMarker.displayName = 'EventMarker';
 
 export default EventMarker;

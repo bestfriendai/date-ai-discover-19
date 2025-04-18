@@ -1,28 +1,29 @@
-import EventMarkerLegend from './markers/EventMarkerLegend';
-
-
+// src/components/map/MapComponent.tsx
 import { useRef, useState, useCallback, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import type { Event } from '@/types';
+import type { Event } from '../../types';
 import { EventFilters } from './components/MapControls';
-import { MapPopup } from './components/MapPopup';
-import { MapMarkers } from './components/MapMarkers';
-import WelcomeHeader from './components/WelcomeHeader';
-import DebugOverlay from './overlays/DebugOverlay';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
 import { MapDebugOverlay } from './components/MapDebugOverlay';
-import { DirectMapMarkers } from './components/DirectMapMarkers';
+import MapMarkers from './MapMarkers';
+import WelcomeHeader from './components/WelcomeHeader';
+import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
-import { useSupercluster } from './clustering/useSupercluster';
+import { MapPopup } from './components/MapPopup';
+import { useMapPopup } from './hooks/useMapPopup';
 import { useMapInitialization } from './hooks/useMapInitialization';
 import { useMapControls } from './hooks/useMapControls';
-import { useMapPopup } from './hooks/useMapPopup';
+import { useMapState } from './hooks/useMapState';
+import { useMapFilters } from './hooks/useMapFilters';
+import { useMapEvents } from './hooks/useMapEvents';
+import EventMarkerLegend from './markers/EventMarkerLegend';
 
 const MAP_STYLES = {
   dark: 'mapbox://styles/mapbox/dark-v11',
   light: 'mapbox://styles/mapbox/light-v11',
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  streets: 'mapbox://styles/mapbox/streets-v12'
 };
 
 interface MapComponentProps {
@@ -35,15 +36,14 @@ interface MapComponentProps {
   onMapLoad: () => void;
   onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
-  onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }) => void;
+  onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
 }
 
 const MapComponent = ({
   events,
   selectedEvent,
-  isLoading,
+  isLoading: isEventsLoading,
   filters,
-  mapLoaded: initialMapLoaded,
   onMapMoveEnd,
   onMapLoad,
   onEventSelect,
@@ -51,7 +51,7 @@ const MapComponent = ({
   onFetchEvents,
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const [viewState, setViewState] = useState({
+  const [initialViewState] = useState({
     longitude: -98.5795,
     latitude: 39.8283,
     zoom: 3.5,
@@ -61,23 +61,15 @@ const MapComponent = ({
 
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
 
+  // Use map initialization hook
   const { map, mapError, mapLoaded } = useMapInitialization(
     mapContainer,
-    viewState,
+    initialViewState,
     mapStyle,
     onMapLoad
   );
 
-  const handleMapMove = useCallback((newCenter: { lng: number; lat: number }, newZoom: number, userInteraction: boolean) => {
-    setViewState(prev => ({
-      ...prev,
-      longitude: newCenter.lng,
-      latitude: newCenter.lat,
-      zoom: newZoom
-    }));
-    onMapMoveEnd({ latitude: newCenter.lat, longitude: newCenter.lng }, newZoom, userInteraction);
-  }, [onMapMoveEnd]);
-
+  // Use map controls hook
   const {
     searchTerm,
     setSearchTerm,
@@ -89,145 +81,165 @@ const MapComponent = ({
     map,
     onLoadingChange,
     onEventSelect,
-    // Pass callback to fetch events when location is found
     (coords) => {
       if (onFetchEvents) {
-        console.log('[MAP_COMPONENT] Location found, fetching events for:', coords);
-        onFetchEvents(filters, coords);
+        onFetchEvents(filters, coords, filters.distance);
       }
     }
   );
 
-  const bounds = map ? (map.getBounds().toArray().flat() as [number, number, number, number]) : null;
-  const { clusters, supercluster } = useSupercluster(events, bounds, viewState.zoom);
+  // Use Map Events hook
+  const { handleMapMoveEnd: handleMapMoveEndFromHook } = useMapEvents(
+     (center) => {
+       const { lat, lng } = center as any;
+       onMapMoveEnd({ latitude: lat, longitude: lng }, map?.getZoom() ?? initialViewState.zoom, true);
+     },
+     (zoom) => {
+        onMapMoveEnd(map?.getCenter() as any, zoom, true);
+     },
+     (moved) => {},
+     mapLoaded
+  );
 
-  const handleMapStyleChange = (newStyle: string) => {
-    if (mapStyle !== newStyle && map) {
-      setMapStyle(newStyle);
-      if (onEventSelect) onEventSelect(null);
-    }
-  };
+  useEffect(() => {
+      if (map) {
+          const onMoveEnd = () => {
+              const center = map.getCenter();
+              const zoom = map.getZoom();
+              handleMapMoveEndFromHook(center as any, zoom, true);
+          };
 
-  let visibleEvents = events;
-  if (filters.showInViewOnly && map) {
-    try {
-      const bounds = map.getBounds();
-      visibleEvents = events.filter(ev => {
-        if (!ev.coordinates || ev.coordinates.length !== 2) return false;
-        const [lng, lat] = ev.coordinates;
-        return bounds.contains([lng, lat]);
-      });
-    } catch (e) {
-      console.error('Error filtering events by map bounds:', e);
+          map.on('moveend', onMoveEnd);
+
+          return () => {
+              map.off('moveend', onMoveEnd);
+          };
+      }
+  }, [map, handleMapMoveEndFromHook]);
+
+  // Use Map Popup hook
+  const popupRef = useMapPopup(map, selectedEvent, () => onEventSelect?.(null));
+
+  // Function to handle clicks on markers (events)
+  const handleMarkerClick = useCallback((event: Event) => {
+    if (!map || !onEventSelect) return;
+
+    onEventSelect(event);
+    map.flyTo({
+      center: event.coordinates as [number, number],
+      zoom: Math.max(map.getZoom(), 14),
+      duration: 600
+    });
+  }, [map, onEventSelect]);
+
+  // Handle map background click to deselect
+  useEffect(() => {
+    if (map && onEventSelect) {
+        const handleClick = () => {
+            onEventSelect(null);
+        };
+        map.on('click', handleClick);
+
+        return () => {
+            map.off('click', handleClick);
+        };
     }
-  }
+  }, [map, onEventSelect]);
+
+  // For WelcomeHeader conditional
+  const mapCenter = map?.getCenter();
 
   return (
     <div className="w-full h-full relative">
+      {/* Map Legend */}
       <EventMarkerLegend />
+
+      {/* Map Container */}
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
 
-      {mapLoaded && <WelcomeHeader />}
+      {/* Welcome Header (Conditional) */}
+      {mapLoaded && !mapCenter && <WelcomeHeader />}
 
+      {/* Debug Overlay (Conditional) */}
       <DebugOverlay
-        events={clusters}
-        clusters={clusters}
+        events={events}
+        clusters={[]} // No clusters
         mapLoaded={mapLoaded}
         mapError={mapError}
-        viewState={viewState}
+        viewState={{
+          latitude: map?.getCenter()?.lat ?? initialViewState.latitude,
+          longitude: map?.getCenter()?.lng ?? initialViewState.longitude,
+          zoom: map?.getZoom() ?? initialViewState.zoom,
+        }}
         filters={filters}
       />
 
+      {/* Loading Overlay (Conditional) */}
       {!mapLoaded && <MapLoadingOverlay />}
 
+      {/* Map Error Display (Conditional) */}
       {mapError && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
             <strong className="font-bold">Map Error: </strong>
             <span className="block sm:inline">{mapError}</span>
+            {mapError.includes('Map token configuration error') && (
+                 <p className="mt-2 text-sm">This is likely a server issue with fetching the Mapbox token. Please try again later.</p>
+            )}
           </div>
         </div>
       )}
 
-      {/* Debug overlay */}
-      <MapDebugOverlay
-        eventsCount={events.length}
-        clustersCount={clusters.length}
-        markersCount={events.length}
-        isVisible={mapLoaded}
-      />
-
-      {/* Cluster markers */}
-      {mapLoaded && map && clusters.length > 0 && (
-        <MapMarkers
-          map={map}
-          events={clusters}
-          onMarkerClick={(feature: any) => {
-            if (feature.properties && feature.properties.cluster) {
-              if (!map || !supercluster) return;
-              const clusterId = feature.properties.cluster_id;
-              try {
-                const zoom = supercluster.getClusterExpansionZoom(clusterId);
-                map.flyTo({
-                  center: feature.geometry.coordinates as [number, number],
-                  zoom: zoom,
-                  duration: 800,
-                  essential: true
-                });
-              } catch (err) {
-                console.error('[CLUSTER] Error expanding cluster:', err);
-              }
-              if (onEventSelect) onEventSelect(null);
-            } else {
-              const eventId = feature.properties.id;
-              const originalEvent = events.find(e => e.id === eventId);
-              if (originalEvent && onEventSelect) {
-                onEventSelect(originalEvent);
-              }
-            }
-          }}
-          selectedEvent={selectedEvent as any}
-        />
+      {/* Map Debug Overlay (Counts) */}
+      {mapLoaded && (
+         <MapDebugOverlay
+           eventsCount={events.length}
+           clustersCount={0}
+           markersCount={0} // markerMap is not accessible here; can be passed via context if needed
+           isVisible={true}
+         />
       )}
 
-      {/* Direct markers */}
+      {/* Map Markers (One per event) */}
       {mapLoaded && map && events.length > 0 && (
-        <DirectMapMarkers
+        <MapMarkers
           map={map}
-          events={events}
-          onEventSelect={onEventSelect}
+          features={events}
+          onMarkerClick={handleMarkerClick}
+          selectedFeatureId={selectedEvent?.id || null}
         />
       )}
 
       {/* Warning for no markers */}
-      {mapLoaded && map && events.length > 0 && clusters.length === 0 && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
-          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
-            <strong className="font-bold">No markers to display: </strong>
-            <span className="block sm:inline">Events found but no valid coordinates for markers.</span>
-          </div>
-        </div>
-      )}
+      {mapLoaded && map && events.length === 0 && (
+         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
+           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+             <strong className="font-bold">No markers to display: </strong>
+             <span className="block sm:inline">Events found but could not be mapped. Check event coordinates.</span>
+           </div>
+         </div>
+       )}
 
-      {selectedEvent && map && (
-        <MapPopup
-          map={map}
-          event={selectedEvent}
-          onClose={() => onEventSelect?.(null)}
-          onViewDetails={onEventSelect}
+      {/* Map Popup (Conditional, uses selectedEvent from MapView state) */}
+      {/* The popup will be managed by the useMapPopup hook */}
+
+      {/* Map Controls (Search bar, Locate, Style Switch) */}
+      {mapLoaded && (
+        <MapControlsContainer
+          mapLoaded={mapLoaded}
+          viewState={{
+             latitude: map?.getCenter()?.lat ?? initialViewState.latitude,
+             longitude: map?.getCenter()?.lng ?? initialViewState.longitude,
+             zoom: map?.getZoom() ?? initialViewState.zoom,
+          }}
+          filters={filters}
+          currentMapStyle={mapStyle}
+          locationRequested={locationRequested}
+          onLocationSearch={handleLocationSearch}
+          onMapStyleChange={setMapStyle}
+          onFindMyLocation={handleGetUserLocation}
         />
       )}
-
-      <MapControlsContainer
-        mapLoaded={mapLoaded}
-        viewState={viewState}
-        filters={filters}
-        currentMapStyle={mapStyle}
-        locationRequested={locationRequested}
-        onLocationSearch={handleLocationSearch}
-        onMapStyleChange={handleMapStyleChange}
-        onFindMyLocation={handleGetUserLocation}
-      />
     </div>
   );
 };
