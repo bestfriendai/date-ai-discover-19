@@ -28,6 +28,20 @@ declare module 'mapbox-gl' {
   // --- Bounds Type ---
   export type LngLatBoundsLike = [number, number, number, number] | [[number, number], [number, number]];
 
+  // --- New Bounds interface ---
+  export interface LngLatBounds {
+    extend(lngLat: [number, number]): this;
+    getCenter(): { lng: number; lat: number };
+    getSouth(): number;
+    getWest(): number;
+    getNorth(): number;
+    getEast(): number;
+    isEmpty(): boolean;
+    toArray(): [[number, number], [number, number]];
+    toString(): string;
+    contains(lngLat: [number, number]): boolean;
+  }
+
   // --- GeolocateControl ---
   export class GeolocateControl {
     constructor(options?: any);
@@ -44,6 +58,7 @@ declare module 'mapbox-gl' {
     fitBounds(bounds: LngLatBoundsLike, options?: any): void;
     jumpTo(options: { center: [number, number]; zoom: number }): void;
     isStyleLoaded(): boolean;
+    getBounds(): LngLatBounds;
   }
 
   export interface MapboxOptions {
