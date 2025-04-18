@@ -25,6 +25,7 @@ interface MapContentProps {
   onSearchThisArea: () => void;
   onMapMoveEnd: (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => void;
   onMapLoad: () => void;
+  onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }) => void;
 }
 
 export const MapContent = ({
@@ -46,6 +47,7 @@ export const MapContent = ({
   onSearchThisArea,
   onMapMoveEnd,
   onMapLoad,
+  onFetchEvents,
 }: MapContentProps) => {
   return (
     <>
@@ -71,6 +73,7 @@ export const MapContent = ({
           mapLoaded={mapLoaded}
           onMapMoveEnd={onMapMoveEnd}
           onMapLoad={onMapLoad}
+          onFetchEvents={onFetchEvents}
         />
 
         <MapControlsArea

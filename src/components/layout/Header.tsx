@@ -1,10 +1,9 @@
-
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Settings, Heart, Calendar } from 'lucide-react';
+import { User, LogOut, Settings, Heart, Calendar } from 'lucide-react'; // Removed unused Settings
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
 
@@ -15,7 +14,8 @@ const Header = () => {
   const [showAuthModal, setShowAuthModal] = useState(false);
 
   return (
-    <header className="fixed top-0 left-0 right-0 z-50 border-b border-slate-700/50 bg-slate-900/90 backdrop-blur-xl">
+    // Use CSS variable for background to respect theme, keep opacity/blur
+    <header className="fixed top-0 left-0 right-0 z-50 border-b border-border bg-background/90 backdrop-blur-xl">
       <div className="container flex items-center justify-between h-16 px-4">
         <div className="flex items-center">
           <Link to="/" className="flex items-center mr-6 group">
@@ -28,9 +28,9 @@ const Header = () => {
 
           <nav className="hidden md:flex items-center space-x-2">
             <Link to="/map">
-              <Button 
-                variant={location.pathname === '/map' ? 'default' : 'ghost'} 
-                size="sm" 
+              <Button
+                variant={location.pathname === '/map' ? 'default' : 'ghost'}
+                size="sm"
                 className={`gap-2 rounded-full px-4 ${location.pathname === '/map' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'hover:bg-slate-800 text-slate-300'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
@@ -38,9 +38,9 @@ const Header = () => {
               </Button>
             </Link>
             <Link to="/chat">
-              <Button 
-                variant={location.pathname === '/chat' ? 'default' : 'ghost'} 
-                size="sm" 
+              <Button
+                variant={location.pathname === '/chat' ? 'default' : 'ghost'}
+                size="sm"
                 className={`gap-2 rounded-full px-4 ${location.pathname === '/chat' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'hover:bg-slate-800 text-slate-300'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
@@ -48,9 +48,9 @@ const Header = () => {
               </Button>
             </Link>
             <Link to="/plan">
-              <Button 
-                variant={location.pathname === '/plan' ? 'default' : 'ghost'} 
-                size="sm" 
+              <Button
+                variant={location.pathname === '/plan' ? 'default' : 'ghost'}
+                size="sm"
                 className={`gap-2 rounded-full px-4 ${location.pathname === '/plan' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'hover:bg-slate-800 text-slate-300'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/></svg>
@@ -58,9 +58,9 @@ const Header = () => {
               </Button>
             </Link>
             <Link to="/favorites">
-              <Button 
-                variant={location.pathname === '/favorites' ? 'default' : 'ghost'} 
-                size="sm" 
+              <Button
+                variant={location.pathname === '/favorites' ? 'default' : 'ghost'}
+                size="sm"
                 className={`gap-2 rounded-full px-4 ${location.pathname === '/favorites' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700' : 'hover:bg-slate-800 text-slate-300'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>

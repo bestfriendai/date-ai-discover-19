@@ -12,6 +12,7 @@ export const useMapControls = (
   map: mapboxgl.Map | null,
   onLoadingChange?: (isLoading: boolean) => void,
   onEventSelect?: (event: Event | null) => void,
+  onLocationFound?: (coords: { latitude: number; longitude: number }) => void,
 ) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
@@ -23,7 +24,7 @@ export const useMapControls = (
     if (!location.trim() || !mapboxgl.accessToken || !map) return;
 
     onLoadingChange?.(true);
-    
+
     toast({
       title: "Searching",
       description: `Looking for events near ${location}...`
@@ -59,7 +60,7 @@ export const useMapControls = (
 
   const handleGetUserLocation = useCallback(async () => {
     if (!map) return;
-    
+
     setLocationRequested(true);
 
     try {
@@ -80,10 +81,16 @@ export const useMapControls = (
 
       setUserMarker(marker);
 
-      map.jumpTo({ 
-        center: [longitude, latitude], 
+      map.jumpTo({
+        center: [longitude, latitude],
         zoom: 14
       });
+
+      // Trigger event loading with the new coordinates
+      if (onLocationFound) {
+        console.log('[MAP_CONTROLS] Location found, triggering event loading:', { latitude, longitude });
+        onLocationFound({ latitude, longitude });
+      }
 
       // Try reverse geocode
       try {
@@ -92,7 +99,7 @@ export const useMapControls = (
         );
         const data = await response.json();
         if (data.features?.length) {
-          const place = data.features.find((f: any) => 
+          const place = data.features.find((f: any) =>
             f.place_type.includes('place') || f.place_type.includes('locality')
           );
           if (place) setCurrentLocation(place.text);
@@ -143,7 +150,7 @@ export const useMapControls = (
     const marker = new mapboxgl.Marker({ element: fallbackEl.firstChild as HTMLElement })
       .setLngLat([fallback.lng, fallback.lat])
       .addTo(map);
-    
+
     setUserMarker(marker);
 
     map.flyTo({
@@ -152,6 +159,12 @@ export const useMapControls = (
       duration: 2000,
       essential: true
     });
+
+    // Trigger event loading with the fallback coordinates
+    if (onLocationFound) {
+      console.log('[MAP_CONTROLS] Using fallback location, triggering event loading:', { latitude: fallback.lat, longitude: fallback.lng });
+      onLocationFound({ latitude: fallback.lat, longitude: fallback.lng });
+    }
   };
 
   return {

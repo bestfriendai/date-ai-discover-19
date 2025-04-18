@@ -28,6 +28,18 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
     const clusters = events.filter(e => e.properties.cluster);
     const points = events.filter(e => !e.properties.cluster);
     console.log(`[MARKERS] Breakdown: ${clusters.length} clusters, ${points.length} points`);
+
+    // Log sample points for debugging
+    if (points.length > 0) {
+      const samplePoint = points[0];
+      console.log('[MARKERS] Sample point:', JSON.stringify(samplePoint));
+      console.log('[MARKERS] Sample point coordinates:', samplePoint.geometry.coordinates);
+    } else {
+      console.warn('[MARKERS] No individual points to display!');
+    }
+
+    // Check if any markers are already in the DOM
+    console.log('[MARKERS] Current markers in ref:', Object.keys(markersRef.current).length);
   }, [events]);
 
   // Memoize the click handler to prevent unnecessary re-renders
@@ -46,16 +58,16 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
     }
 
     const endIdx = Math.min(startIdx + MARKER_BATCH_SIZE, validFeatures.length);
-    
+
     // Process this batch
     for (let i = startIdx; i < endIdx; i++) {
       const feature = validFeatures[i];
-      
+
       // Skip invalid features
       if (!feature || !feature.geometry || !feature.geometry.coordinates) {
         continue;
       }
-      
+
       const id = String(feature.properties?.id ?? feature.properties?.cluster_id);
       if (!id) continue;
 
@@ -116,14 +128,14 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
 
     // Filter features with valid coordinates
     const validFeatures = events.filter(f => (
-      f && 
-      f.geometry && 
-      Array.isArray(f.geometry.coordinates) && 
+      f &&
+      f.geometry &&
+      Array.isArray(f.geometry.coordinates) &&
       f.geometry.coordinates.length === 2 &&
-      !isNaN(f.geometry.coordinates[0]) && 
+      !isNaN(f.geometry.coordinates[0]) &&
       !isNaN(f.geometry.coordinates[1])
     ));
-    
+
     console.log(`[MARKERS] ${validFeatures.length} features have valid coordinates`);
 
     // Find markers to remove (not in current features)

@@ -1,16 +1,19 @@
+import EventMarkerLegend from './markers/EventMarkerLegend';
 
-import { useRef, useState, useCallback } from 'react';
+
+import { useRef, useState, useCallback, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Event } from '@/types';
-import type { EventFilters } from './components/MapControls';
+import { EventFilters } from './components/MapControls';
 import { MapPopup } from './components/MapPopup';
 import { MapMarkers } from './components/MapMarkers';
-import { CoordinatesDisplay } from './components/CoordinatesDisplay';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
-import { MapStyleControls } from './components/MapStyleControls';
+import { MapDebugOverlay } from './components/MapDebugOverlay';
+import { DirectMapMarkers } from './components/DirectMapMarkers';
+import { MapControlsContainer } from './components/MapControlsContainer';
 import { useSupercluster } from './clustering/useSupercluster';
 import { useMapInitialization } from './hooks/useMapInitialization';
 import { useMapControls } from './hooks/useMapControls';
@@ -32,6 +35,7 @@ interface MapComponentProps {
   onMapLoad: () => void;
   onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
+  onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }) => void;
 }
 
 const MapComponent = ({
@@ -44,16 +48,17 @@ const MapComponent = ({
   onMapLoad,
   onEventSelect,
   onLoadingChange,
+  onFetchEvents,
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
-  const [viewState, setViewState] = useState({ 
-    longitude: -98.5795, 
-    latitude: 39.8283, 
+  const [viewState, setViewState] = useState({
+    longitude: -98.5795,
+    latitude: 39.8283,
     zoom: 3.5,
     pitch: 0,
     bearing: 0
   });
-  
+
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
 
   const { map, mapError, mapLoaded } = useMapInitialization(
@@ -80,7 +85,18 @@ const MapComponent = ({
     locationRequested,
     handleLocationSearch,
     handleGetUserLocation
-  } = useMapControls(map, onLoadingChange, onEventSelect);
+  } = useMapControls(
+    map,
+    onLoadingChange,
+    onEventSelect,
+    // Pass callback to fetch events when location is found
+    (coords) => {
+      if (onFetchEvents) {
+        console.log('[MAP_COMPONENT] Location found, fetching events for:', coords);
+        onFetchEvents(filters, coords);
+      }
+    }
+  );
 
   const bounds = map ? (map.getBounds().toArray().flat() as [number, number, number, number]) : null;
   const { clusters, supercluster } = useSupercluster(events, bounds, viewState.zoom);
@@ -108,8 +124,9 @@ const MapComponent = ({
 
   return (
     <div className="w-full h-full relative">
+      <EventMarkerLegend />
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
-      
+
       {mapLoaded && <WelcomeHeader />}
 
       <DebugOverlay
@@ -132,6 +149,15 @@ const MapComponent = ({
         </div>
       )}
 
+      {/* Debug overlay */}
+      <MapDebugOverlay
+        eventsCount={events.length}
+        clustersCount={clusters.length}
+        markersCount={events.length}
+        isVisible={mapLoaded}
+      />
+
+      {/* Cluster markers */}
       {mapLoaded && map && clusters.length > 0 && (
         <MapMarkers
           map={map}
@@ -164,6 +190,25 @@ const MapComponent = ({
         />
       )}
 
+      {/* Direct markers */}
+      {mapLoaded && map && events.length > 0 && (
+        <DirectMapMarkers
+          map={map}
+          events={events}
+          onEventSelect={onEventSelect}
+        />
+      )}
+
+      {/* Warning for no markers */}
+      {mapLoaded && map && events.length > 0 && clusters.length === 0 && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
+          <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
+            <strong className="font-bold">No markers to display: </strong>
+            <span className="block sm:inline">Events found but no valid coordinates for markers.</span>
+          </div>
+        </div>
+      )}
+
       {selectedEvent && map && (
         <MapPopup
           map={map}
@@ -173,21 +218,16 @@ const MapComponent = ({
         />
       )}
 
-      {mapLoaded && (
-        <>
-          <CoordinatesDisplay
-            latitude={viewState.latitude}
-            longitude={viewState.longitude}
-            zoom={viewState.zoom}
-          />
-          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20">
-            <MapStyleControls
-              currentMapStyle={mapStyle}
-              onMapStyleChange={handleMapStyleChange}
-            />
-          </div>
-        </>
-      )}
+      <MapControlsContainer
+        mapLoaded={mapLoaded}
+        viewState={viewState}
+        filters={filters}
+        currentMapStyle={mapStyle}
+        locationRequested={locationRequested}
+        onLocationSearch={handleLocationSearch}
+        onMapStyleChange={handleMapStyleChange}
+        onFindMyLocation={handleGetUserLocation}
+      />
     </div>
   );
 };

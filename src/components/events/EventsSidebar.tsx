@@ -1,91 +1,34 @@
 import { useState } from 'react';
-import { Skeleton } from "@/components/ui/skeleton"; // Import Skeleton
-import type { Event } from '@/types'; // Import Event type
+import { Skeleton } from "@/components/ui/skeleton";
+import type { Event } from '@/types';
 
-// Mock data - this would come from an API in a real app
-const mockEvents = [
-  {
-    id: '1',
-    title: 'Hamilton',
-    date: 'Sat, May 17',
-    time: '07:00 PM',
-    location: 'Richard Rodgers Theatre-NY',
-    category: 'arts & theatre',
-    image: '/lovable-uploads/hamilton.jpg'
-  },
-  {
-    id: '2',
-    title: 'Harry Potter and the Cursed Child',
-    date: 'Mon, May 19',
-    time: '07:00 PM',
-    location: 'Lyric Theatre - NY',
-    category: 'arts & theatre',
-    image: '/lovable-uploads/harry-potter.jpg'
-  },
-  {
-    id: '3',
-    title: 'Hamilton',
-    date: 'Mon, May 19',
-    time: '07:00 PM',
-    location: 'Richard Rodgers Theatre-NY',
-    category: 'arts & theatre',
-    image: '/lovable-uploads/hamilton.jpg'
-  },
-  {
-    id: '4',
-    title: 'Harry Potter and the Cursed Child',
-    date: 'Tue, May 20',
-    time: '07:00 PM',
-    location: 'Lyric Theatre - NY',
-    category: 'arts & theatre',
-    image: '/lovable-uploads/harry-potter.jpg'
-  },
-  {
-    id: '5',
-    title: 'Hamilton',
-    date: 'Tue, May 20',
-    time: '07:00 PM',
-    location: 'Richard Rodgers Theatre-NY',
-    category: 'arts & theatre',
-    image: '/lovable-uploads/hamilton.jpg'
-  },
-  {
-    id: '6',
-    title: 'Harry Potter and the Cursed Child',
-    date: 'Wed, May 21',
-    time: '07:00 PM',
-    location: 'Lyric Theatre - NY',
-    category: 'arts & theatre',
-    image: '/lovable-uploads/harry-potter.jpg'
-  }
-];
+// Mock data removed as it's passed via props
 
 interface EventsSidebarProps {
   onClose: () => void;
-  onEventSelect?: (event: Event) => void; // Use Event type
-  isLoading?: boolean; // Add isLoading prop
-  events: Event[]; // Add events prop (will replace mock data later)
+  onEventSelect?: (event: Event) => void;
+  isLoading?: boolean;
+  events: Event[];
 }
 
 const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSidebarProps) => {
-  // const [location, setLocation] = useState('New York, USA'); // Remove mock state
-  // const [events, setEvents] = useState(mockEvents); // Remove mock state
   const [view, setView] = useState<'list' | 'grid'>('list');
   const [showFilters, setShowFilters] = useState(false);
 
-  // Determine the number of events to display or skeletons to show
-  const displayEvents = isLoading ? [] : events; // Use passed events when not loading
-  const skeletonCount = 5; // Number of skeletons to show while loading
+  const displayEvents = isLoading ? [] : events;
+  const skeletonCount = 5;
 
   return (
     <aside
-      className="h-full flex flex-col bg-slate-900 border-r border-slate-700/50 shadow-lg rounded-r-xl"
+      // Use theme variables for background and border
+      className="h-full flex flex-col bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] shadow-lg rounded-r-xl"
       role="complementary"
       aria-label="Events Sidebar"
-      tabIndex={0}
+      tabIndex={0} // Keep tabIndex if needed for accessibility
     >
       {/* Sticky header with animated transition */}
-      <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-4 transition-all duration-300">
+      {/* Use theme variables for background and border */}
+      <div className="sticky top-0 z-10 bg-[hsl(var(--sidebar-background))]/95 backdrop-blur-md border-b border-[hsl(var(--sidebar-border))] p-4 transition-all duration-300">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
             <h2 className="text-xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Events</h2>
@@ -113,7 +56,8 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
               id="event-search"
               type="text"
               placeholder="Search events..."
-              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-700/70 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition placeholder:text-slate-400"
+              // Use theme variables for input styling
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-accent))]/50 text-[hsl(var(--sidebar-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))] transition placeholder:text-[hsl(var(--muted-foreground))]"
               aria-label="Search events"
               disabled={isLoading}
             />
@@ -154,7 +98,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
           </button>
         </div>
-        
+
         {/* Filter panel */}
         {showFilters && (
           <div className="mt-4 p-3 bg-[hsl(var(--sidebar-accent))]/30 rounded-md border border-[hsl(var(--sidebar-border))]">
@@ -164,7 +108,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                 <label className="text-xs font-medium block mb-1">Categories</label>
                 <div className="flex flex-wrap gap-1">
                   {['music', 'sports', 'arts', 'family', 'food'].map(category => (
-                    <button 
+                    <button
                       key={category}
                       className="text-xs px-2 py-1 rounded-full border border-[hsl(var(--sidebar-border))] hover:bg-[hsl(var(--sidebar-accent))]"
                     >
@@ -176,12 +120,12 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
               <div>
                 <label className="text-xs font-medium block mb-1">Date Range</label>
                 <div className="flex gap-2">
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     className="text-xs p-1 rounded border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-background))] flex-1"
                   />
-                  <input 
-                    type="date" 
+                  <input
+                    type="date"
                     className="text-xs p-1 rounded border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-background))] flex-1"
                   />
                 </div>
@@ -223,10 +167,10 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
             {displayEvents.map(event => (
               <div
                 key={event.id}
-                className={`${view === 'grid' 
-                  ? 'p-3 border border-[hsl(var(--sidebar-border))] rounded-lg' 
-                  : 'p-4 border-b border-[hsl(var(--sidebar-border))]'} 
-                  hover:bg-[hsl(var(--sidebar-accent))]/50 cursor-pointer transition-colors 
+                className={`${view === 'grid'
+                  ? 'p-3 border border-[hsl(var(--sidebar-border))] rounded-lg'
+                  : 'p-4 border-b border-[hsl(var(--sidebar-border))]'}
+                  hover:bg-[hsl(var(--sidebar-accent))]/50 cursor-pointer transition-colors
                   focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]`}
                 onClick={() => onEventSelect && onEventSelect(event)}
                 tabIndex={0}

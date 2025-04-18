@@ -1,12 +1,12 @@
-
 import React from 'react';
 import { motion } from 'framer-motion';
-import { MapPin, Search, Compass } from 'lucide-react';
+import { Compass } from 'lucide-react'; // Removed unused MapPin, Search
 
 const WelcomeHeader = () => {
   return (
-    <motion.div 
-      className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 w-full max-w-3xl text-center"
+    <motion.div
+      // Use left-0 right-0 mx-auto for robust centering
+      className="absolute top-4 left-0 right-0 mx-auto z-20 w-full max-w-3xl text-center"
       initial={{ y: -20, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.5, delay: 0.2 }}

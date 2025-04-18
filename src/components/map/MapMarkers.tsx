@@ -1,109 +1,38 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
-import ReactDOMServer from 'react-dom/server';
 import type { Event } from '@/types';
+// Import specific GeoJSON types
+import type { FeatureCollection, Point, Feature } from 'geojson';
+// Removed problematic MapboxGeoJSONFeature import
 
-// Custom marker component for different categories
-const CategoryMarker = ({ category, isSelected = false }: { category: string; isSelected?: boolean }) => {
-  let bgColor = 'bg-gray-700';
-  let textColor = 'text-white';
-
+// Helper to map category to an emoji icon
+const getEmojiForCategory = (category: string): string => {
   switch (category?.toLowerCase()) {
-    case 'music':
-      bgColor = 'bg-blue-500';
-      break;
-    case 'sports':
-      bgColor = 'bg-green-500';
-      break;
+    case 'music': return '🎵';
+    case 'sports': return '⚽';
     case 'arts':
-    case 'theatre':
-      bgColor = 'bg-pink-500';
-      break;
-    case 'family':
-      bgColor = 'bg-yellow-400';
-      textColor = 'text-gray-900';
-      break;
+    case 'theatre': return '🎭';
+    case 'family': return '👨‍👩‍👧‍👦';
     case 'food':
-    case 'restaurant':
-      bgColor = 'bg-orange-500';
-      break;
-  }
-
-  const size = isSelected ? 'w-8 h-8' : 'w-6 h-6';
-  const border = isSelected ? 'border-2 border-white shadow-lg' : '';
-  const scale = isSelected ? 'scale-125' : '';
-  const zIndex = isSelected ? 'z-10' : 'z-0';
-
-  return (
-    <div className={`${bgColor} ${textColor} ${size} ${border} ${scale} ${zIndex} rounded-full flex items-center justify-center transition-all duration-200 shadow-md`}>
-      {getIconForCategory(category)}
-    </div>
-  );
-};
-
-// Helper function to get the appropriate icon for each category
-const getIconForCategory = (category: string) => {
-  switch (category?.toLowerCase()) {
-    case 'music':
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M9 18V5l12-2v13" />
-          <circle cx="6" cy="18" r="3" />
-          <circle cx="18" cy="16" r="3" />
-        </svg>
-      );
-    case 'sports':
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20" />
-          <path d="M2 12h20" />
-        </svg>
-      );
-    case 'arts':
-    case 'theatre':
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M2 7h20" />
-          <path d="M20 7v14" />
-          <path d="M4 7v14" />
-          <path d="M12 7v14" />
-          <path d="M12 21h8" />
-          <path d="M4 21h8" />
-          <path d="M15 4h-3" />
-          <path d="M10 4H7" />
-          <path d="M17 4h3" />
-          <path d="M12 4v3" />
-        </svg>
-      );
-    case 'family':
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" />
-          <circle cx="9" cy="7" r="4" />
-          <path d="M23 21v-2a4 4 0 0 0-3-3.87" />
-          <path d="M16 3.13a4 4 0 0 1 0 7.75" />
-        </svg>
-      );
-    case 'food':
-    case 'restaurant':
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <path d="M7 10h10" />
-          <path d="M7 14h10" />
-          <circle cx="12" cy="12" r="10" />
-        </svg>
-      );
-    default:
-      return (
-        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-          <circle cx="12" cy="12" r="10" />
-          <line x1="12" y1="8" x2="12" y2="12" />
-          <line x1="12" y1="16" x2="12.01" y2="16" />
-        </svg>
-      );
+    case 'restaurant': return '🍔';
+    default: return '📍';
   }
 };
+
+// Helper to map category to a color
+const getColorForCategory = (category: string): string => {
+    switch (category?.toLowerCase()) {
+      case 'music': return '#3b82f6';
+      case 'sports': return '#22c55e';
+      case 'arts':
+      case 'theatre': return '#ec4899';
+      case 'family': return '#facc15';
+      case 'food':
+      case 'restaurant': return '#f97316';
+      default: return '#6b7280';
+    }
+  };
+
 
 interface MapMarkersProps {
   map: mapboxgl.Map;
@@ -112,103 +41,254 @@ interface MapMarkersProps {
   selectedEvent: Event | null;
 }
 
+const SOURCE_ID = 'event-markers-source';
+const LAYER_ID = 'event-markers-layer';
+
+// Use 'any' for event type if specific Mapbox types cause issues
+type MapEventHandler = any;
+
 const MapMarkers = ({ map, events, onMarkerClick, selectedEvent }: MapMarkersProps) => {
-  const markersRef = useRef<{ [key: string]: mapboxgl.Marker }>({});
-  const [hoveredEvent, setHoveredEvent] = useState<string | null>(null);
+  const hoveredEventId = useRef<string | number | null>(null);
+  const eventMap = useRef<{ [key: string]: Event }>({});
 
-  // Create and update markers with performance optimizations
+  // 1. Setup Source and Layer
   useEffect(() => {
-    // Skip processing if no events or map
-    if (!events.length || !map) return;
+    // Use getCanvas() as a proxy for map validity
+    if (!map || !map.getCanvas()) return;
 
-    // Use Set for faster lookups
-    const currentMarkerIds = new Set(Object.keys(markersRef.current));
-    const newMarkerIds = new Set(events.map(event => event.id));
-
-    // Remove markers that are no longer in the events array
-    currentMarkerIds.forEach(id => {
-      if (!newMarkerIds.has(id)) {
-        markersRef.current[id].remove();
-        delete markersRef.current[id];
-      }
-    });
-
-    // Process events in batches to avoid UI freezing
-    const processEvents = (startIdx: number, batchSize: number) => {
-      const endIdx = Math.min(startIdx + batchSize, events.length);
-
-      for (let i = startIdx; i < endIdx; i++) {
-        const event = events[i];
-        if (!event.coordinates || event.coordinates.length !== 2) continue;
-
-        const [lng, lat] = event.coordinates;
-        const isSelected = selectedEvent?.id === event.id;
-
-        // Only create new DOM elements if needed
-        if (!markersRef.current[event.id] ||
-            (isSelected !== (markersRef.current[event.id].getElement().querySelector('.scale-125') !== null))) {
-
-          // Create marker element
-          const markerHtml = ReactDOMServer.renderToString(
-            <CategoryMarker category={event.category || 'other'} isSelected={isSelected} />
-          );
-
-          const el = document.createElement('div');
-          el.innerHTML = markerHtml;
-          el.className = 'marker cursor-pointer';
-          el.addEventListener('click', () => onMarkerClick(event));
-          el.addEventListener('mouseenter', () => setHoveredEvent(event.id));
-          el.addEventListener('mouseleave', () => setHoveredEvent(null));
-
-          // Remove old marker if it exists
-          if (markersRef.current[event.id]) {
-            markersRef.current[event.id].remove();
+    // Define handlers within useEffect to capture props/state correctly
+    const handleClick = (e: MapEventHandler) => {
+        if (e.features && e.features.length > 0) {
+          const featureProps = e.features[0].properties;
+          const featureId = featureProps?.id;
+          const lookupId = typeof featureId === 'number' ? String(featureId) : featureId;
+          if (lookupId && eventMap.current[lookupId]) {
+            onMarkerClick(eventMap.current[lookupId]);
           }
-
-          // Create new marker
-          markersRef.current[event.id] = new mapboxgl.Marker({ element: el })
-            .setLngLat([lng, lat])
-            .addTo(map);
-        } else {
-          // Just update position if marker already exists
-          markersRef.current[event.id].setLngLat([lng, lat]);
         }
-      }
-
-      // Process next batch if there are more events
-      if (endIdx < events.length) {
-        setTimeout(() => processEvents(endIdx, batchSize), 0);
-      }
     };
 
-    // Start processing events in batches of 50
-    processEvents(0, 50);
+    const handleMouseMove = (e: MapEventHandler) => {
+        if (!map || !map.getCanvas()) return;
+        if (e.features && e.features.length > 0) {
+          const currentFeature = e.features[0];
+          const currentFeatureId = currentFeature.id ?? currentFeature.properties?.id;
 
-    return () => {
-      // Clean up all markers when component unmounts
-      Object.values(markersRef.current).forEach(marker => marker.remove());
+          if (currentFeatureId !== undefined && hoveredEventId.current !== currentFeatureId) {
+            if (hoveredEventId.current !== null && map.getSource(SOURCE_ID)) {
+              map.setFeatureState(
+                { source: SOURCE_ID, id: hoveredEventId.current },
+                { hover: false }
+              );
+            }
+            hoveredEventId.current = currentFeatureId;
+             if (map.getSource(SOURCE_ID)) {
+                map.setFeatureState(
+                  { source: SOURCE_ID, id: hoveredEventId.current },
+                  { hover: true }
+                );
+             }
+             if (map.getCanvas()) {
+                map.getCanvas().style.cursor = 'pointer';
+             }
+          }
+        } else {
+            handleMouseLeave();
+        }
     };
-  }, [events, map, onMarkerClick, selectedEvent]);
 
-  // Handle hover effects
-  useEffect(() => {
-    if (hoveredEvent && markersRef.current[hoveredEvent]) {
-      const marker = markersRef.current[hoveredEvent];
-      const element = marker.getElement();
+    const handleMouseLeave = () => {
+        if (!map || !map.getCanvas()) return;
+        if (hoveredEventId.current !== null && map.getSource(SOURCE_ID)) {
+          map.setFeatureState(
+            { source: SOURCE_ID, id: hoveredEventId.current },
+            { hover: false }
+          );
+        }
+        hoveredEventId.current = null;
+        if (map.getCanvas()) {
+            map.getCanvas().style.cursor = '';
+        }
+    };
 
-      // Add hover effect
-      element.style.transform = 'scale(1.1)';
-      element.style.zIndex = '100';
 
-      return () => {
-        // Remove hover effect
-        element.style.transform = '';
-        element.style.zIndex = '';
-      };
+    const setupSourceAndLayer = () => {
+        if (!map || !map.getCanvas()) return;
+
+        let source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
+        if (!source) {
+          map.addSource(SOURCE_ID, {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] },
+          });
+          source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
+        }
+
+        let layer = map.getLayer(LAYER_ID);
+        if (!layer) {
+          map.addLayer({
+            id: LAYER_ID,
+            type: 'symbol',
+            source: SOURCE_ID,
+            layout: {
+              'icon-image': '',
+              'text-field': ['get', 'icon'],
+              'text-font': ['Open Sans Semibold', 'Arial Unicode MS Bold'],
+              'text-size': [
+                'case',
+                ['boolean', ['feature-state', 'selected'], false], 28,
+                ['boolean', ['feature-state', 'hover'], false], 24,
+                20
+              ],
+              'text-offset': [0, -1],
+              'text-anchor': 'bottom',
+              'text-allow-overlap': true,
+              'text-ignore-placement': true,
+            },
+            paint: {
+              'text-color': [
+                'case',
+                ['boolean', ['feature-state', 'selected'], false], '#ffffff',
+                ['get', 'color']
+              ],
+              'text-halo-color': [
+                'case',
+                ['boolean', ['feature-state', 'selected'], false], ['get', 'color'],
+                'rgba(0,0,0,0)'
+              ],
+              'text-halo-width': [
+                'case',
+                ['boolean', ['feature-state', 'selected'], false], 2,
+                0
+              ],
+               'text-halo-blur': [
+                'case',
+                ['boolean', ['feature-state', 'selected'], false], 1,
+                0
+              ],
+            }
+          });
+
+          // Attach Interaction Handlers - Use LAYER_ID for layer-specific events
+          map.on('click', LAYER_ID, handleClick);
+          map.on('mousemove', LAYER_ID, handleMouseMove);
+          map.on('mouseleave', LAYER_ID, handleMouseLeave);
+        }
+    };
+
+    if (!map.isStyleLoaded()) {
+        map.once('load', setupSourceAndLayer);
+    } else {
+        setupSourceAndLayer();
     }
-  }, [hoveredEvent]);
 
-  return null; // This component doesn't render anything directly
+    // Cleanup function
+    return () => {
+      if (map && map.getCanvas()) {
+          // Use 2-argument map.off as a workaround for type error
+          map.off('click', handleClick);
+          map.off('mousemove', handleMouseMove);
+          map.off('mouseleave', handleMouseLeave);
+
+          // Wrap removals in checks for function existence and cast to 'any' to bypass type errors
+          if (typeof map.getLayer === 'function' && map.getLayer(LAYER_ID)) {
+            if (typeof (map as any).removeLayer === 'function') {
+                (map as any).removeLayer(LAYER_ID);
+            } else { console.warn('map.removeLayer function not found'); }
+          }
+          if (typeof map.getSource === 'function' && map.getSource(SOURCE_ID)) {
+            try {
+                 const style = map.getStyle();
+                 if (style && style.layers) {
+                     const sourceInUse = style.layers.some(layer => layer.source === SOURCE_ID && layer.id !== LAYER_ID);
+                     if (!sourceInUse) {
+                         if (typeof (map as any).removeSource === 'function') {
+                            (map as any).removeSource(SOURCE_ID);
+                         } else { console.warn('map.removeSource function not found'); }
+                     }
+                 } else {
+                      // Fallback: Cast to 'any' to bypass type error
+                      if (typeof (map as any).removeSource === 'function') {
+                         (map as any).removeSource(SOURCE_ID);
+                      } else { console.warn('map.removeSource function not found'); }
+                 }
+            } catch (error) {
+                console.error("Error removing source:", SOURCE_ID, error);
+            }
+          }
+      }
+    };
+  }, [map, onMarkerClick]);
+
+
+  // 2. Update Data and Selection State
+  useEffect(() => {
+    if (!map || !map.getCanvas() || !map.isStyleLoaded()) return;
+
+    const source = map.getSource(SOURCE_ID) as mapboxgl.GeoJSONSource;
+    if (!source) return;
+
+    let previouslySelectedFeatureId: string | number | undefined = undefined;
+    // Cast to 'any' to bypass type error for querySourceFeatures
+    if (typeof (map as any).querySourceFeatures === 'function') {
+        try {
+            const selectedFeatures = (map as any).querySourceFeatures(SOURCE_ID, {
+                filter: ['==', ['feature-state', 'selected'], true]
+            });
+            if (selectedFeatures && selectedFeatures.length > 0) { // Add null check for safety
+                previouslySelectedFeatureId = selectedFeatures[0].id ?? selectedFeatures[0].properties?.id;
+            }
+        } catch (error) { console.error("Error querying source features:", error); }
+    } else { console.warn('map.querySourceFeatures function not found'); }
+
+    const features: Feature<Point>[] = events
+      .filter(event => event.coordinates && event.coordinates.length === 2)
+      .map(event => {
+        eventMap.current[event.id] = event;
+        const category = event.category || 'other';
+        const feature: Feature<Point> = {
+          type: 'Feature',
+          id: event.id,
+          geometry: {
+            type: 'Point',
+            coordinates: event.coordinates,
+          },
+          properties: {
+            id: event.id,
+            category: category,
+            icon: getEmojiForCategory(category),
+            color: getColorForCategory(category),
+          },
+        };
+        return feature;
+      });
+
+    const geojsonData: FeatureCollection<Point> = {
+      type: 'FeatureCollection',
+      features: features,
+    };
+
+    source.setData(geojsonData);
+
+    // Re-apply selection state
+    if (previouslySelectedFeatureId !== undefined && previouslySelectedFeatureId !== selectedEvent?.id) {
+         if (map.getSource(SOURCE_ID)) {
+            map.setFeatureState({ source: SOURCE_ID, id: previouslySelectedFeatureId }, { selected: false });
+         }
+    }
+    if (selectedEvent) {
+         if (map.getSource(SOURCE_ID)) {
+            map.setFeatureState(
+                { source: SOURCE_ID, id: selectedEvent.id },
+                { selected: true }
+            );
+         }
+    }
+
+  }, [map, events, selectedEvent]);
+
+
+  return null;
 };
 
 export default MapMarkers;

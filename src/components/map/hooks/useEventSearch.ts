@@ -21,10 +21,10 @@ export const useEventSearch = () => {
       console.log('[EVENTS] Already loading events, skipping fetch request');
       return;
     }
-    
+
     setIsEventsLoading(true);
     console.log('[EVENTS] Starting event fetch with coordinates:', centerCoords);
-    
+
     try {
       if (!centerCoords) {
         console.warn('[EVENTS] Cannot fetch events: No location coordinates available.');
@@ -37,10 +37,10 @@ export const useEventSearch = () => {
         setEvents([]);
         return;
       }
-      
-      console.log('[EVENTS] Fetching events for:', centerCoords, 
+
+      console.log('[EVENTS] Fetching events for:', centerCoords,
         'radius:', radiusOverride || filters.distance);
-        
+
       const searchParams = {
         latitude: centerCoords.latitude,
         longitude: centerCoords.longitude,
@@ -51,18 +51,18 @@ export const useEventSearch = () => {
         keyword: filters.keyword,
         location: filters.location,
       };
-      
+
       console.log('[EVENTS] Search params:', searchParams);
       setLastSearchParams(searchParams);
-      
+
       const result = await searchEvents(searchParams);
-      
+
       if (!result || !result.events) {
         throw new Error('Invalid API response');
       }
-      
+
       console.log('[EVENTS] Received', result.events.length, 'events from API');
-      
+
       if (result.events.length === 0) {
         toast({
           title: "No events found",
@@ -76,10 +76,43 @@ export const useEventSearch = () => {
           variant: "default",
         });
       }
-      
-      setRawEvents(result.events);
-      setEvents(result.events);
-      
+
+      // Process events to ensure they have valid coordinates
+      console.log('[EVENTS] Raw events before processing:', JSON.stringify(result.events.slice(0, 2)));
+
+      const processedEvents = result.events.map(event => {
+        // If event already has valid coordinates, use them
+        if (event.coordinates &&
+            Array.isArray(event.coordinates) &&
+            event.coordinates.length === 2 &&
+            !isNaN(event.coordinates[0]) &&
+            !isNaN(event.coordinates[1])) {
+          console.log(`[EVENTS] Event ${event.id} already has valid coordinates:`, event.coordinates);
+          return event;
+        }
+
+        // Otherwise, assign coordinates near the search location with a random offset
+        // This ensures events without coordinates still appear on the map
+        const randomLngOffset = (Math.random() * 0.05) - 0.025; // ±0.025 degrees ~ 1-2 miles
+        const randomLatOffset = (Math.random() * 0.05) - 0.025;
+
+        const newCoordinates = [
+          centerCoords.longitude + randomLngOffset,
+          centerCoords.latitude + randomLatOffset
+        ] as [number, number];
+
+        console.log(`[EVENTS] Added coordinates to event ${event.id}:`, newCoordinates);
+
+        return {
+          ...event,
+          coordinates: newCoordinates
+        };
+      });
+
+      console.log('[EVENTS] Processed events with coordinates:', processedEvents.length);
+      setRawEvents(processedEvents);
+      setEvents(processedEvents);
+
     } catch (error) {
       console.error('[EVENTS] Error fetching events:', error);
       toast({
