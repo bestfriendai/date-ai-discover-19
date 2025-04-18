@@ -166,7 +166,7 @@ const MapView = () => {
         <div className="flex-1 relative">
           <MapComponent
             onEventSelect={handleEventSelect}
-            onLoadingChange={setIsEventsLoading}
+            onLoadingChange={(loading) => {/* No action needed as isEventsLoading is handled by useEventSearch */}}
             events={events}
             selectedEvent={selectedEvent}
             isLoading={isEventsLoading}
