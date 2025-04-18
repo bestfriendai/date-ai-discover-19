@@ -11,9 +11,11 @@ interface MapControlsAreaProps {
   showSearch: boolean;
   isEventsLoading: boolean;
   filters: EventFilters;
+  mapHasMoved?: boolean;
   onLeftSidebarToggle: () => void;
   onSearchToggle: () => void;
   onSearch: (searchParams: any) => void;
+  onSearchThisArea?: () => void;
 }
 
 export const MapControlsArea = ({
@@ -21,9 +23,11 @@ export const MapControlsArea = ({
   showSearch,
   isEventsLoading,
   filters,
+  mapHasMoved,
   onLeftSidebarToggle,
   onSearchToggle,
-  onSearch
+  onSearch,
+  onSearchThisArea
 }: MapControlsAreaProps) => {
   return (
     <>
@@ -71,6 +75,17 @@ export const MapControlsArea = ({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {mapHasMoved && onSearchThisArea && (
+        <div className="absolute bottom-24 left-0 right-0 flex justify-center z-30">
+          <Button 
+            onClick={onSearchThisArea}
+            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+          >
+            Search This Area
+          </Button>
+        </div>
+      )}
     </>
   );
 };
