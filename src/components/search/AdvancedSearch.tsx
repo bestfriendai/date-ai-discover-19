@@ -50,6 +50,7 @@ const categories = [
   { id: 'arts', label: 'Arts & Theater' },
   { id: 'family', label: 'Family' },
   { id: 'food', label: 'Food & Drink' },
+  { id: 'party', label: 'Party' },
   { id: 'community', label: 'Community' }
 ];
 

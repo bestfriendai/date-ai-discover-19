@@ -12,12 +12,19 @@ interface SearchParams {
   endDate?: string;
   categories?: string[];
   limit?: number;
+  page?: number;
   excludeIds?: string[];
   fields?: string[];
 }
 
 // Fetch events from multiple sources
-export async function searchEvents(params: SearchParams): Promise<{ events: Event[]; sourceStats?: any }> {
+export async function searchEvents(params: SearchParams): Promise<{
+  events: Event[];
+  sourceStats?: any;
+  totalEvents?: number;
+  pageSize?: number;
+  page?: number;
+}> {
   try {
     // Prepare parameters for API calls
     const searchParams = {
@@ -30,6 +37,7 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
       endDate: params.endDate,
       categories: params.categories,
       limit: params.limit || 50, // Default limit
+      page: params.page || 1, // Default to first page
       excludeIds: params.excludeIds || [],
       fields: params.fields || []
     };
@@ -61,15 +69,21 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
           `[Events] Serpapi: ${data.sourceStats.serpapi.count} ${data.sourceStats.serpapi.error ? `(Error: ${data.sourceStats.serpapi.error})` : ''}`
         );
       }
-      
+
       // Check if we have events before returning
       if (!data?.events || data.events.length === 0) {
         console.log('[DEBUG] No events returned from API, using mock data');
         // If no events were returned, use mock data for testing
         return getMockEvents(searchParams);
       }
-      
-      return { events: data.events || [], sourceStats: data?.sourceStats };
+
+      return {
+        events: data.events || [],
+        sourceStats: data?.sourceStats,
+        totalEvents: data?.meta?.totalEvents || data.events.length,
+        pageSize: params.limit || 50,
+        page: params.page || 1
+      };
     } catch (error) {
       console.error('[ERROR] Error calling Supabase function:', error);
       console.log('[DEBUG] Falling back to mock data');
@@ -83,20 +97,26 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
 }
 
 // Helper function to get mock data around the provided coordinates
-function getMockEvents(params: any): { events: Event[]; sourceStats?: any } {
+function getMockEvents(params: any): {
+  events: Event[];
+  sourceStats?: any;
+  totalEvents?: number;
+  pageSize?: number;
+  page?: number;
+} {
   console.log('[DEBUG] Generating mock events around', params.lat, params.lng);
-  
+
   // Generate mock events around the specified coordinates
   const centerLat = params.lat || 40.7128;
   const centerLng = params.lng || -74.0060;
   const mockEvents: Event[] = [];
-  
+
   // Generate events in a grid around the center
   for (let i = 0; i < 10; i++) {
     // Create a variation from the center point (about 0.01 degrees is roughly 1 km)
     const latOffset = (Math.random() - 0.5) * 0.05;
     const lngOffset = (Math.random() - 0.5) * 0.05;
-    
+
     mockEvents.push({
       id: `mock-${i}`,
       title: `Mock Event ${i}`,
@@ -110,12 +130,15 @@ function getMockEvents(params: any): { events: Event[]; sourceStats?: any } {
       description: 'This is a mock event for testing purposes'
     });
   }
-  
-  return { 
+
+  return {
     events: mockEvents,
-    sourceStats: { 
-      mock: { count: mockEvents.length, error: null } 
-    }
+    sourceStats: {
+      mock: { count: mockEvents.length, error: null }
+    },
+    totalEvents: 50, // Pretend there are 50 total events
+    pageSize: params.limit || 50,
+    page: params.page || 1
   };
 }
 

@@ -44,11 +44,27 @@ function normalizeTicketmasterEvent(event: any): Event {
     const classifications = event.classifications || [];
     if (classifications.length > 0) {
       const segment = classifications[0].segment?.name?.toLowerCase();
+      const genreName = classifications[0].genre?.name?.toLowerCase();
+
       if (segment === 'music') category = 'music';
       else if (segment === 'sports') category = 'sports';
-      else if (segment === 'arts & theatre') category = 'arts';
+      else if (segment === 'arts & theatre' || segment === 'arts') category = 'arts';
       else if (segment === 'family') category = 'family';
-      else if (segment === 'food & drink') category = 'food';
+      else if (segment === 'food & drink' || segment === 'food') category = 'food';
+
+      // Check for party-related genres
+      if (genreName?.includes('party') || segment?.includes('party')) category = 'party';
+
+      // Further refinement based on segment & genre
+      if (segment === 'miscellaneous' && genreName?.includes('party')) category = 'party';
+    }
+
+    // Fallback check on keywords if category is still 'other'
+    const titleLower = event.name.toLowerCase();
+    if (category === 'other') {
+      if (titleLower.includes('party') || titleLower.includes('social') || titleLower.includes('gathering')) {
+        category = 'party';
+      }
     }
 
     return {
@@ -119,6 +135,7 @@ function normalizeSerpApiEvent(event: any): Event {
       titleLower.includes('drink') ||
       titleLower.includes('tasting') ||
       titleLower.includes('dinner') ||
+      titleLower.includes('brunch') ||
       venueType.includes('restaurant')
     ) {
       category = 'food';
@@ -128,6 +145,15 @@ function normalizeSerpApiEvent(event: any): Event {
       titleLower.includes('children')
     ) {
       category = 'family';
+    } else if (
+      titleLower.includes('party') ||
+      titleLower.includes('social') ||
+      titleLower.includes('gathering') ||
+      titleLower.includes('mixer') ||
+      venueType.includes('nightclub') ||
+      venueType.includes('bar')
+    ) {
+      category = 'party';
     }
 
     // Generate a unique ID
@@ -242,6 +268,7 @@ serve(async (req: Request) => {
       eventType = '',
       serpDate = '',
       limit = 50,
+      page = 1,
       excludeIds = []
     } = params;
 
@@ -323,7 +350,8 @@ serve(async (req: Request) => {
             'sports': 'KZFzniwnSyZfZ7v7nE',
             'arts': 'KZFzniwnSyZfZ7v7na',
             'family': 'KZFzniwnSyZfZ7v7n1',
-            'food': 'KZFzniwnSyZfZ7v7l1'
+            'food': 'KZFzniwnSyZfZ7v7l1',
+            'party': 'KZFzniwnSyZfZ7v7nJ' // Map party to Music segment, as Ticketmaster doesn't have a specific party segment
           }
 
           const segmentIds = categories
@@ -675,9 +703,14 @@ serve(async (req: Request) => {
       }
     }
 
-    // Apply limit if specified
-    if (limit && limit > 0 && filteredEvents.length > limit) {
-      filteredEvents = filteredEvents.slice(0, limit);
+    // Calculate total events before pagination
+    const totalEvents = filteredEvents.length;
+
+    // Apply pagination
+    if (limit && limit > 0) {
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      filteredEvents = filteredEvents.slice(startIndex, endIndex);
     }
 
     // Calculate execution time
@@ -708,8 +741,11 @@ serve(async (req: Request) => {
       },
       meta: {
         executionTime,
-        totalEvents: filteredEvents.length,
+        totalEvents: totalEvents,
         eventsWithCoordinates: eventsWithCoords.length,
+        currentPage: page,
+        pageSize: limit,
+        totalPages: Math.ceil(totalEvents / limit),
         timestamp: new Date().toISOString()
       }
     }), {

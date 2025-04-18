@@ -1,42 +1,47 @@
 import React from "react";
-import { Music, Trophy, Palette, Users, Utensils, CalendarDays } from "lucide-react";
+import { Music, Trophy, Palette, Users, Utensils, CalendarDays, PartyPopper } from "lucide-react";
 
 const LEGEND = [
   {
     label: "Music",
     icon: Music,
-    color: "bg-blue-500/80",
+    color: "bg-blue-600/80",
   },
   {
     label: "Sports",
     icon: Trophy,
-    color: "bg-green-500/80",
+    color: "bg-green-600/80",
   },
   {
     label: "Arts/Theatre",
     icon: Palette,
-    color: "bg-pink-500/80",
+    color: "bg-pink-600/80",
   },
   {
     label: "Family",
     icon: Users,
-    color: "bg-yellow-400/80",
+    color: "bg-yellow-600/80",
   },
   {
     label: "Food/Restaurant",
     icon: Utensils,
-    color: "bg-orange-500/80",
+    color: "bg-orange-600/80",
+  },
+  {
+    label: "Party",
+    icon: PartyPopper,
+    color: "bg-purple-600/80",
   },
   {
     label: "Other",
     icon: CalendarDays,
-    color: "bg-gray-700/80",
+    color: "bg-gray-600/80",
   },
 ];
 
 const EventMarkerLegend: React.FC = () => (
   <div
-    className="fixed bottom-6 left-6 z-50 bg-white/90 border border-border rounded-lg shadow-lg px-4 py-3 flex flex-col gap-2 backdrop-blur-md"
+    className="absolute bottom-6 left-6 z-40 bg-background/80 border border-border/50 rounded-lg shadow-lg px-4 py-3 flex flex-col gap-2 backdrop-blur-md text-foreground"
     aria-label="Event marker legend"
     tabIndex={0}
     style={{ minWidth: 180, maxWidth: 260 }}

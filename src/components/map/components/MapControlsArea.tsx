@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
 import AdvancedSearch from '@/components/search/AdvancedSearch';
+import { LoadMoreButton } from './LoadMoreButton';
 import type { EventFilters } from './MapControls';
 
 interface MapControlsAreaProps {
@@ -12,10 +13,14 @@ interface MapControlsAreaProps {
   isEventsLoading: boolean;
   filters: EventFilters;
   mapHasMoved?: boolean;
+  hasMoreEvents?: boolean;
+  totalEvents?: number;
+  loadedEvents?: number;
   onLeftSidebarToggle: () => void;
   onSearchToggle: () => void;
   onSearch: (searchParams: any) => void;
   onSearchThisArea?: () => void;
+  onLoadMore?: () => void;
 }
 
 export const MapControlsArea = ({
@@ -24,10 +29,14 @@ export const MapControlsArea = ({
   isEventsLoading,
   filters,
   mapHasMoved,
+  hasMoreEvents = false,
+  totalEvents = 0,
+  loadedEvents = 0,
   onLeftSidebarToggle,
   onSearchToggle,
   onSearch,
-  onSearchThisArea
+  onSearchThisArea,
+  onLoadMore
 }: MapControlsAreaProps) => {
   return (
     <>
@@ -78,13 +87,25 @@ export const MapControlsArea = ({
 
       {mapHasMoved && onSearchThisArea && (
         <div className="absolute bottom-24 left-0 right-0 flex justify-center z-30">
-          <Button 
+          <Button
             onClick={onSearchThisArea}
-            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg"
+            className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg text-sm sm:text-base px-3 py-2 h-auto"
           >
+            <Search className="h-4 w-4 mr-2" />
             Search This Area
           </Button>
         </div>
+      )}
+
+      {/* Load More button - only shown when there are more events to load and map hasn't moved */}
+      {!mapHasMoved && onLoadMore && (
+        <LoadMoreButton
+          isLoading={isEventsLoading}
+          hasMore={hasMoreEvents}
+          totalEvents={totalEvents}
+          loadedEvents={loadedEvents}
+          onLoadMore={onLoadMore}
+        />
       )}
     </>
   );

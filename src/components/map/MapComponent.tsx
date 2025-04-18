@@ -10,13 +10,14 @@ import MapMarkers from './MapMarkers';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
-import { MapPopup } from './components/MapPopup';
+// MapPopup is now integrated into useMapPopup
 import { useMapPopup } from './hooks/useMapPopup';
 import { useMapInitialization } from './hooks/useMapInitialization';
 import { useMapControls } from './hooks/useMapControls';
 import { useMapState } from './hooks/useMapState';
 import { useMapFilters } from './hooks/useMapFilters';
 import { useMapEvents } from './hooks/useMapEvents';
+import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
 import EventMarkerLegend from './markers/EventMarkerLegend';
 
 const MAP_STYLES = {
@@ -37,6 +38,7 @@ interface MapComponentProps {
   onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
   onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
+  onAddToPlan?: (event: Event) => void; // New prop for Add to Plan functionality
 }
 
 const MapComponent = ({
@@ -49,6 +51,7 @@ const MapComponent = ({
   onEventSelect,
   onLoadingChange,
   onFetchEvents,
+  onAddToPlan,
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const [initialViewState] = useState({
@@ -71,9 +74,6 @@ const MapComponent = ({
 
   // Use map controls hook
   const {
-    searchTerm,
-    setSearchTerm,
-    currentLocation,
     locationRequested,
     handleLocationSearch,
     handleGetUserLocation
@@ -97,7 +97,7 @@ const MapComponent = ({
      (zoom) => {
         onMapMoveEnd(map?.getCenter() as any, zoom, true);
      },
-     (moved) => {},
+     () => {}, // Unused moved callback
      mapLoaded
   );
 
@@ -117,8 +117,23 @@ const MapComponent = ({
       }
   }, [map, handleMapMoveEndFromHook]);
 
-  // Use Map Popup hook
-  const popupRef = useMapPopup(map, selectedEvent, () => onEventSelect?.(null));
+  // Use Map Popup hook - now with improved implementation
+  useMapPopup({
+      map,
+      event: selectedEvent,
+      onClose: () => onEventSelect?.(null),
+      onViewDetails: (event) => {
+        console.log('[MapComponent] Popup ViewDetails clicked');
+        // This is redundant since the event is already selected, but it's clear
+        onEventSelect?.(event);
+      },
+      onAddToPlan: (evt) => {
+        console.log('[MapComponent] Popup AddToPlan clicked for:', evt.id);
+        if (onAddToPlan) {
+          onAddToPlan(evt);
+        }
+      }
+  });
 
   // Function to handle clicks on markers (events)
   const handleMarkerClick = useCallback((event: Event) => {
@@ -145,6 +160,14 @@ const MapComponent = ({
         };
     }
   }, [map, onEventSelect]);
+
+  // Add keyboard navigation for accessibility
+  useKeyboardNavigation({
+    events,
+    selectedEventId: selectedEvent?.id?.toString() || null,
+    onSelectEvent: onEventSelect || (() => {}),
+    isEnabled: mapLoaded && events.length > 0
+  });
 
   // For WelcomeHeader conditional
   const mapCenter = map?.getCenter();

@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { PageTransition } from './components/animations/PageTransition';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
+import { TooltipProvider } from './components/ui/tooltip';
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import MapView from "./pages/MapView";
@@ -17,8 +18,9 @@ const App = () => {
   const location = useLocation();
 
   return (
-    <AuthProvider>
-      <AnimatePresence mode="wait">
+    <TooltipProvider delayDuration={0}>
+      <AuthProvider>
+        <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
         <Route path="/" element={
           <PageTransition>
@@ -70,6 +72,7 @@ const App = () => {
         <Toaster />
       </AnimatePresence>
     </AuthProvider>
+    </TooltipProvider>
   );
 };
 

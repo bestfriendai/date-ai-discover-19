@@ -1,8 +1,9 @@
 import React from 'react';
 import type { ClusterFeature } from '../clustering/useSupercluster';
+import type { Event } from '@/types';
 
 interface DebugOverlayProps {
-  events: ClusterFeature[];
+  events: Event[];
   clusters: ClusterFeature[];
   mapLoaded: boolean;
   mapError: string | null;

@@ -16,6 +16,8 @@ interface MapContentProps {
   events: Event[];
   isEventsLoading: boolean;
   filters: EventFilters;
+  hasMoreEvents?: boolean;
+  totalEvents?: number;
   onLeftSidebarClose: () => void;
   onLeftSidebarToggle: () => void;
   onRightSidebarClose: () => void;
@@ -25,7 +27,9 @@ interface MapContentProps {
   onSearchThisArea: () => void;
   onMapMoveEnd: (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => void;
   onMapLoad: () => void;
-  onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }) => void;
+  onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
+  onLoadMore?: () => void;
+  onAddToPlan?: (event: Event) => void; // New prop for Add to Plan functionality
 }
 
 export const MapContent = ({
@@ -38,6 +42,8 @@ export const MapContent = ({
   events,
   isEventsLoading,
   filters,
+  hasMoreEvents = false,
+  totalEvents = 0,
   onLeftSidebarClose,
   onLeftSidebarToggle,
   onRightSidebarClose,
@@ -48,6 +54,8 @@ export const MapContent = ({
   onMapMoveEnd,
   onMapLoad,
   onFetchEvents,
+  onLoadMore,
+  onAddToPlan,
 }: MapContentProps) => {
   return (
     <>
@@ -74,6 +82,7 @@ export const MapContent = ({
           onMapMoveEnd={onMapMoveEnd}
           onMapLoad={onMapLoad}
           onFetchEvents={onFetchEvents}
+          onAddToPlan={onAddToPlan}
         />
 
         <MapControlsArea
@@ -86,6 +95,10 @@ export const MapContent = ({
           onSearch={onAdvancedSearch}
           onSearchThisArea={onSearchThisArea}
           mapHasMoved={mapHasMoved}
+          hasMoreEvents={hasMoreEvents}
+          totalEvents={totalEvents}
+          loadedEvents={events.length}
+          onLoadMore={onLoadMore}
         />
       </div>
     </>

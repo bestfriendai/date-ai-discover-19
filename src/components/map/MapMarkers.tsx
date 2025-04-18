@@ -1,15 +1,26 @@
 // src/components/map/MapMarkers.tsx
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '../../types';
 import EventMarker from './markers/EventMarker';
 import { createRoot, type Root } from 'react-dom/client';
 import PerformanceMonitor from '../../utils/performanceMonitor';
 
-const MARKER_BATCH_SIZE = 25;
+// Marker batch processing constants
+const MARKER_BATCH_SIZE = 25; // Number of markers to process in each batch
 const MARKER_BATCH_DELAY = 10; // ms between batches
 
-const markerMap = new Map<string, { marker: mapboxgl.Marker, root: Root, isSelected: boolean }>();
+// Marker visibility constants
+const MARKER_VISIBILITY_ZOOM_THRESHOLD = 10; // Zoom level at which to show all markers
+const MAX_VISIBLE_MARKERS_ZOOMED_OUT = 100; // Maximum number of markers to show when zoomed out
+
+// Map to store all markers
+const markerMap = new Map<string, {
+  marker: mapboxgl.Marker,
+  root: Root,
+  isSelected: boolean,
+  priority: number // Higher priority markers are always visible
+}>();
 
 interface MapMarkersProps {
   map: mapboxgl.Map | null;
@@ -21,6 +32,40 @@ interface MapMarkersProps {
 const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId }: MapMarkersProps) => {
   const [isProcessing, setIsProcessing] = useState(false);
 
+  // Calculate which markers should be visible based on zoom level and priority
+  const visibleFeatures = useMemo(() => {
+    if (!map || !features || features.length === 0) return [];
+
+    const zoom = map.getZoom();
+
+    // If zoomed in enough, show all markers
+    if (zoom >= MARKER_VISIBILITY_ZOOM_THRESHOLD) {
+      return features;
+    }
+
+    // When zoomed out, limit the number of visible markers
+    // Sort by priority: selected first, then by category importance
+    return features
+      .map(feature => {
+        // Calculate priority: selected events get highest priority
+        const isSelected = String(selectedFeatureId) === String(feature.id);
+        let priority = isSelected ? 100 : 0;
+
+        // Add priority based on category
+        const category = (feature.category || '').toLowerCase();
+        if (category === 'music') priority += 5;
+        else if (category === 'sports') priority += 4;
+        else if (category === 'arts' || category === 'theatre') priority += 3;
+        else if (category === 'party') priority += 2;
+        else if (category === 'food' || category === 'restaurant') priority += 1;
+
+        return { feature, priority, isSelected };
+      })
+      .sort((a, b) => b.priority - a.priority) // Sort by priority (highest first)
+      .slice(0, MAX_VISIBLE_MARKERS_ZOOMED_OUT) // Limit number of markers
+      .map(item => item.feature); // Return just the features
+  }, [map, features, selectedFeatureId]);
+
   useEffect(() => {
     if (!map || !features) {
       markerMap.forEach(({ marker }) => marker.remove());
@@ -29,9 +74,10 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
     }
 
     setIsProcessing(true);
-    processFeaturesInBatches(map, features, onMarkerClick, selectedFeatureId);
+    processFeaturesInBatches(map, visibleFeatures, onMarkerClick, selectedFeatureId);
 
-    const currentFeatureIds = new Set(features.map(f => String(f.id)));
+    // Remove markers that are no longer in the visible features
+    const currentFeatureIds = new Set(visibleFeatures.map(f => String(f.id)));
     const markersToRemove = Array.from(markerMap.keys()).filter(id => !currentFeatureIds.has(id));
 
     markersToRemove.forEach(id => {
@@ -50,7 +96,7 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
       });
       markerMap.clear();
     };
-  }, [map, features, onMarkerClick, selectedFeatureId]);
+  }, [map, visibleFeatures, onMarkerClick, selectedFeatureId]);
 
   const processFeaturesInBatches = useCallback((
     currentMap: mapboxgl.Map,
@@ -74,13 +120,24 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
       const existingEntry = markerMap.get(id);
 
       if (existingEntry) {
+        // Calculate priority for this marker
+        let priority = isSelected ? 100 : 0;
+        const category = (event.category || '').toLowerCase();
+        if (category === 'music') priority += 5;
+        else if (category === 'sports') priority += 4;
+        else if (category === 'arts' || category === 'theatre') priority += 3;
+        else if (category === 'party') priority += 2;
+        else if (category === 'food' || category === 'restaurant') priority += 1;
+
         const coordsChanged = ((existingEntry.marker as any).getLngLat().toArray().join(',') !== coordinates.join(','));
         const selectionChanged = existingEntry.isSelected !== isSelected;
+        const priorityChanged = existingEntry.priority !== priority;
 
         if (coordsChanged) {
           existingEntry.marker.setLngLat(coordinates);
         }
-        if (selectionChanged || coordsChanged) {
+
+        if (selectionChanged || coordsChanged || priorityChanged) {
           existingEntry.root.render(
             <EventMarker
               event={event}
@@ -89,8 +146,10 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
             />
           );
           existingEntry.isSelected = isSelected;
+          existingEntry.priority = priority;
 
           if (isSelected) {
+            // Bring selected marker to front
             const markerElement = existingEntry.marker.getElement();
             const parent = markerElement.parentElement;
             if (parent && parent.lastChild !== markerElement) {
@@ -117,7 +176,16 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
           .setLngLat(coordinates)
           .addTo(currentMap);
 
-        markerMap.set(id, { marker, root, isSelected });
+        // Calculate priority for new marker
+        let priority = isSelected ? 100 : 0;
+        const category = (event.category || '').toLowerCase();
+        if (category === 'music') priority += 5;
+        else if (category === 'sports') priority += 4;
+        else if (category === 'arts' || category === 'theatre') priority += 3;
+        else if (category === 'party') priority += 2;
+        else if (category === 'food' || category === 'restaurant') priority += 1;
+
+        markerMap.set(id, { marker, root, isSelected, priority });
       }
     }
 

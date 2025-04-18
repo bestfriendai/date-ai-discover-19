@@ -1,21 +1,129 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef, useEffect } from 'react';
 import { Event } from '@/types';
 import { searchEvents } from '@/services/eventService';
 import { formatISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { EventFilters } from '../components/MapControls';
 
+// Cache structure to store events by location
+interface EventCache {
+  [key: string]: {
+    timestamp: number;
+    events: Event[];
+    params: any;
+  };
+}
+
+// Cache expiration time in milliseconds (5 minutes)
+const CACHE_EXPIRATION = 5 * 60 * 1000;
+
+// Generate a cache key from search parameters
+const generateCacheKey = (params: any): string => {
+  const { latitude, longitude, radius } = params;
+  // Round coordinates to reduce cache fragmentation
+  const lat = Math.round(latitude * 100) / 100;
+  const lng = Math.round(longitude * 100) / 100;
+  return `${lat},${lng},${radius}`;
+};
+
+// Global event cache shared across hook instances
+const globalEventCache: EventCache = {};
+
 export const useEventSearch = () => {
   const [isEventsLoading, setIsEventsLoading] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [rawEvents, setRawEvents] = useState<Event[]>([]);
   const [lastSearchParams, setLastSearchParams] = useState<any>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalEvents, setTotalEvents] = useState(0);
+
+  // Reference to the event cache
+  const eventCacheRef = useRef<EventCache>(globalEventCache);
+
+  // Clear the cache when it's expired
+  const clearExpiredCache = useCallback(() => {
+    const now = Date.now();
+    Object.keys(eventCacheRef.current).forEach(key => {
+      if (now - eventCacheRef.current[key].timestamp > CACHE_EXPIRATION) {
+        delete eventCacheRef.current[key];
+      }
+    });
+  }, []);
+
+  // Effect to periodically clean up the cache
+  useEffect(() => {
+    const interval = setInterval(clearExpiredCache, CACHE_EXPIRATION / 2);
+    return () => clearInterval(interval);
+  }, [clearExpiredCache]);
+
+  // Load more events (pagination)
+  const loadMoreEvents = useCallback(async () => {
+    if (!lastSearchParams || !hasMore || isEventsLoading) return;
+
+    const nextPage = page + 1;
+    setPage(nextPage);
+
+    try {
+      setIsEventsLoading(true);
+      const result = await searchEvents({
+        ...lastSearchParams,
+        page: nextPage
+      });
+
+      if (result && result.events && result.events.length > 0) {
+        // Process new events to ensure they have valid coordinates
+        const processedNewEvents = result.events.map(event => {
+          // If event already has valid coordinates, use them
+          if (event.coordinates &&
+              Array.isArray(event.coordinates) &&
+              event.coordinates.length === 2 &&
+              !isNaN(event.coordinates[0]) &&
+              !isNaN(event.coordinates[1])) {
+            return event;
+          }
+
+          // Otherwise, assign coordinates near the search location with a random offset
+          const randomLngOffset = (Math.random() * 0.05) - 0.025;
+          const randomLatOffset = (Math.random() * 0.05) - 0.025;
+
+          return {
+            ...event,
+            coordinates: [
+              lastSearchParams.longitude + randomLngOffset,
+              lastSearchParams.latitude + randomLatOffset
+            ] as [number, number]
+          };
+        });
+
+        // Append new events to existing ones
+        setRawEvents(prev => [...prev, ...processedNewEvents]);
+        setEvents(prev => [...prev, ...processedNewEvents]);
+
+        // Update hasMore based on whether we received a full page
+        setHasMore(result.events.length === result.pageSize);
+        setTotalEvents(result.totalEvents || 0);
+      } else {
+        setHasMore(false);
+      }
+    } catch (error) {
+      console.error('[EVENTS] Error loading more events:', error);
+      toast({
+        title: "Failed to load more events",
+        description: "An error occurred while loading additional events.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsEventsLoading(false);
+    }
+  }, [lastSearchParams, page, hasMore, isEventsLoading]);
 
   const fetchEvents = useCallback(async (
     filters: EventFilters,
     centerCoords?: { latitude: number; longitude: number },
-    radiusOverride?: number
+    radiusOverride?: number,
+    useCache: boolean = true
   ) => {
     if (isEventsLoading) {
       console.log('[EVENTS] Already loading events, skipping fetch request');
@@ -55,7 +163,33 @@ export const useEventSearch = () => {
       console.log('[EVENTS] Search params:', searchParams);
       setLastSearchParams(searchParams);
 
-      const result = await searchEvents(searchParams);
+      // Reset pagination state
+      setPage(1);
+
+      // Check cache first if useCache is true
+      const cacheKey = generateCacheKey(searchParams);
+      if (useCache && eventCacheRef.current[cacheKey]) {
+        const cachedData = eventCacheRef.current[cacheKey];
+        const now = Date.now();
+
+        // Use cache if it's not expired
+        if (now - cachedData.timestamp < CACHE_EXPIRATION) {
+          console.log('[EVENTS] Using cached events for', cacheKey);
+          setRawEvents(cachedData.events);
+          setEvents(cachedData.events);
+          setIsEventsLoading(false);
+          return;
+        }
+      }
+
+      // Add page parameter for pagination
+      const searchParamsWithPage = {
+        ...searchParams,
+        page: 1,
+        limit: 50 // Adjust limit as needed
+      };
+
+      const result = await searchEvents(searchParamsWithPage);
 
       if (!result || !result.events) {
         throw new Error('Invalid API response');
@@ -110,8 +244,20 @@ export const useEventSearch = () => {
       });
 
       console.log('[EVENTS] Processed events with coordinates:', processedEvents.length);
+
+      // Update cache
+      eventCacheRef.current[cacheKey] = {
+        timestamp: Date.now(),
+        events: processedEvents,
+        params: searchParams
+      };
+
       setRawEvents(processedEvents);
       setEvents(processedEvents);
+
+      // Update pagination state
+      setHasMore(result.events.length === result.pageSize);
+      setTotalEvents(result.totalEvents || 0);
 
     } catch (error) {
       console.error('[EVENTS] Error fetching events:', error);
@@ -133,6 +279,10 @@ export const useEventSearch = () => {
     isEventsLoading,
     fetchEvents,
     setEvents,
-    lastSearchParams
+    lastSearchParams,
+    loadMoreEvents,
+    hasMore,
+    page,
+    totalEvents
   };
 };
