@@ -1,22 +1,23 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
   :root {
-    --background: 240 10% 3.9%; /* Darker background */
+    --background: 0 0% 0%; /* Pure black background */
     --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
+    --card: 0 0% 0%;
     --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
+    --popover: 0 0% 0%;
     --popover-foreground: 0 0% 98%;
     --primary: 342 86% 63%;
     --primary-foreground: 0 0% 98%;
-    --secondary: 240 3.7% 15.9%;
+    --secondary: 240 3.7% 10%; /* Slightly lighter for contrast */
     --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
+    --muted: 240 3.7% 10%;
     --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
+    --accent: 240 3.7% 10%;
     --accent-foreground: 0 0% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
@@ -25,11 +26,11 @@
     --ring: 240 4.9% 83.9%;
     --radius: 0.75rem;
 
-    --sidebar-background: 240 10% 3.9%;
+    --sidebar-background: 0 0% 0%;
     --sidebar-foreground: 0 0% 98%;
     --sidebar-primary: 342 86% 63%;
     --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent: 240 3.7% 10%;
     --sidebar-accent-foreground: 0 0% 98%;
     --sidebar-border: 240 3.7% 15.9%;
     --sidebar-ring: 342 86% 63%;
@@ -40,7 +41,7 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased overflow-hidden;
+    @apply bg-black text-foreground antialiased overflow-hidden;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
 
@@ -50,6 +51,7 @@
 }
 
 @layer utilities {
+  /* Existing utilities from previous implementation */
   .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -74,46 +76,4 @@
   .text-gradient-primary {
     @apply bg-gradient-to-br from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent;
   }
-}
-
-/* Custom Map Styles */
-.mapboxgl-popup {
-  @apply max-w-xs;
-}
-
-.mapboxgl-popup-content {
-  @apply bg-card text-card-foreground rounded-md border border-border shadow-md p-0; /* Remove padding */
-}
-
-/* Custom popup class for React-rendered content */
-.date-ai-popup .mapboxgl-popup-content {
-  @apply p-0; /* Ensure no padding on the main container */
-}
-
-.mapboxgl-popup-close-button {
-  @apply text-muted-foreground hover:text-foreground;
-}
-
-.mapboxgl-ctrl-bottom-right {
-  @apply mb-16 mr-4;
-}
-
-.mapboxgl-ctrl button {
-  @apply bg-card border border-border text-card-foreground;
-}
-
-.map-marker {
-  @apply bg-primary w-4 h-4 rounded-full border-2 border-white cursor-pointer shadow-md;
-}
-
-.map-marker:hover {
-  @apply transform scale-125 transition-transform;
-}
-
-.map-marker.highlight {
-  @apply bg-secondary w-6 h-6 -mt-1 -ml-1;
-}
-
-.map-cluster {
-  @apply bg-primary text-white font-bold rounded-full flex items-center justify-center border-2 border-white;
 }

@@ -4,6 +4,7 @@
   margin: 0 auto;
   padding: 2rem;
   text-align: center;
+  background-color: black;
 }
 
 .logo {
@@ -36,6 +37,8 @@
 
 .card {
   padding: 2em;
+  background-color: hsl(var(--secondary));
+  color: hsl(var(--secondary-foreground));
 }
 
 .read-the-docs {
@@ -44,5 +47,5 @@
 
 .main-content {
   margin-top: 4rem;
-  @apply bg-background text-foreground;
+  @apply bg-black text-foreground;
 }
