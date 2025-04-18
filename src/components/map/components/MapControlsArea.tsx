@@ -1,0 +1,76 @@
+
+import React from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Button } from '@/components/ui/button';
+import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import AdvancedSearch from '@/components/search/AdvancedSearch';
+import type { EventFilters } from './MapControls';
+
+interface MapControlsAreaProps {
+  leftSidebarOpen: boolean;
+  showSearch: boolean;
+  isEventsLoading: boolean;
+  filters: EventFilters;
+  onLeftSidebarToggle: () => void;
+  onSearchToggle: () => void;
+  onSearch: (searchParams: any) => void;
+}
+
+export const MapControlsArea = ({
+  leftSidebarOpen,
+  showSearch,
+  isEventsLoading,
+  filters,
+  onLeftSidebarToggle,
+  onSearchToggle,
+  onSearch
+}: MapControlsAreaProps) => {
+  return (
+    <>
+      <div className="absolute top-4 left-4 z-30 flex gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onLeftSidebarToggle}
+          className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-800 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10 text-white transition-all hover:scale-105"
+          aria-label={leftSidebarOpen ? "Close events sidebar" : "Open events sidebar"}
+        >
+          {leftSidebarOpen ? <ChevronLeft className="h-6 w-6 sm:h-4 sm:w-4" /> : <ChevronRight className="h-6 w-6 sm:h-4 sm:w-4" />}
+        </Button>
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={onSearchToggle}
+          className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-800 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10 text-white transition-all hover:scale-105"
+          aria-label={showSearch ? "Close search" : "Open search"}
+        >
+          {showSearch ? <X className="h-6 w-6 sm:h-4 sm:w-4" /> : <Search className="h-6 w-6 sm:h-4 sm:w-4" />}
+        </Button>
+      </div>
+
+      <AnimatePresence>
+        {showSearch && (
+          <motion.div
+            className="absolute top-20 left-4 right-4 z-30 w-full max-w-3xl mx-auto"
+            initial={{ y: -20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -20, opacity: 0 }}
+            transition={{ duration: 0.2 }}
+          >
+            <AdvancedSearch
+              onSearch={onSearch}
+              initialFilters={{
+                ...filters,
+                dateRange: {
+                  from: filters.dateRange?.from,
+                  to: filters.dateRange?.to,
+                },
+              }}
+              loading={isEventsLoading}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
+  );
+};
