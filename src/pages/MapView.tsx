@@ -246,7 +246,7 @@ const MapView = () => {
               variant="ghost"
               size="icon"
               onClick={() => setLeftSidebarOpen(!leftSidebarOpen)}
-              className="bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10"
+              className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-800 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10 text-white transition-all hover:scale-105"
               aria-label={leftSidebarOpen ? "Close events sidebar" : "Open events sidebar"}
             >
               {leftSidebarOpen ? <ChevronLeft className="h-6 w-6 sm:h-4 sm:w-4" /> : <ChevronRight className="h-6 w-6 sm:h-4 sm:w-4" />}
@@ -255,7 +255,7 @@ const MapView = () => {
               variant="ghost"
               size="icon"
               onClick={() => setShowSearch(!showSearch)}
-              className="bg-background/80 backdrop-blur-sm border border-border/50 shadow-lg hover:bg-background/90 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10"
+              className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-800 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10 text-white transition-all hover:scale-105"
               aria-label={showSearch ? "Close search" : "Open search"}
             >
               {showSearch ? <X className="h-6 w-6 sm:h-4 sm:w-4" /> : <Search className="h-6 w-6 sm:h-4 sm:w-4" />}
@@ -300,7 +300,7 @@ const MapView = () => {
               >
                 <Button
                   onClick={handleSearchThisArea}
-                  className="shadow-lg bg-background/90 hover:bg-background backdrop-blur-sm border border-border/50"
+                  className="shadow-lg shadow-blue-500/20 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white border-0 rounded-full px-6 py-2 transition-all transform hover:scale-105"
                   disabled={isEventsLoading}
                 >
                   {isEventsLoading ? (

@@ -788,12 +788,17 @@ const MapComponent = ({
   // Filter events by map bounds if showInViewOnly is enabled
   let visibleEvents = events;
   if (filters.showInViewOnly && map.current) {
-    const bounds = (map.current as mapboxgl.Map).getBounds(); // Re-added 'as mapboxgl.Map'
-    visibleEvents = events.filter(ev => {
-      if (!ev.coordinates || ev.coordinates.length !== 2) return false;
-      const [lng, lat] = ev.coordinates;
-      return bounds.contains([lng, lat]);
-    });
+    try {
+      const mapbox = map.current as any;
+      const bounds = mapbox.getBounds();
+      visibleEvents = events.filter(ev => {
+        if (!ev.coordinates || ev.coordinates.length !== 2) return false;
+        const [lng, lat] = ev.coordinates;
+        return bounds.contains([lng, lat]);
+      });
+    } catch (e) {
+      console.error('Error filtering events by map bounds:', e);
+    }
   }
 
   return (
@@ -851,14 +856,14 @@ const MapComponent = ({
               handlePointClick(feature); // Handle individual point click
             }
           }}
-          selectedEvent={selectedEvent}
+          selectedEvent={selectedEvent as any}
         />
       )}
 
       {selectedEvent && map.current && (
         <MapPopup
           map={map.current}
-          event={selectedEvent}
+          event={selectedEvent as any}
           onClose={() => onEventSelect?.(null)}
           onViewDetails={onEventSelect}
         />

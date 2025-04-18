@@ -41,10 +41,16 @@ export type MapStyle = 'streets' | 'outdoors' | 'light' | 'dark' | 'satellite';
  */
 export interface ItineraryItem {
   id: string;
-  eventId: string; // Reference to Event.id
-  startTime?: string; // ISO string
-  endTime?: string; // ISO string
+  eventId?: string; // Reference to Event.id
+  title: string;
+  description?: string;
+  location?: string;
+  coordinates?: [number, number] | unknown;
+  startTime: string; // ISO string
+  endTime: string; // ISO string
   notes?: string;
+  type: 'EVENT' | 'CUSTOM';
+  order: number;
   event?: Event; // Optionally embed the event details
 }
 
@@ -54,9 +60,11 @@ export interface ItineraryItem {
 export interface Itinerary {
   id: string;
   name: string;
+  description?: string;
   userId?: string;
-  date?: string; // ISO date string
+  date: string; // ISO date string
   items: ItineraryItem[];
+  isPublic?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

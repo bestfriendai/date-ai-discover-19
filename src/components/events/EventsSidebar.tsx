@@ -79,17 +79,17 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
 
   return (
     <aside
-      className="h-full flex flex-col bg-[hsl(var(--sidebar-background))] border-r border-[hsl(var(--sidebar-border))] shadow-lg rounded-r-xl"
+      className="h-full flex flex-col bg-slate-900 border-r border-slate-700/50 shadow-lg rounded-r-xl"
       role="complementary"
       aria-label="Events Sidebar"
       tabIndex={0}
     >
       {/* Sticky header with animated transition */}
-      <div className="sticky top-0 z-10 bg-[hsl(var(--sidebar-background))]/95 backdrop-blur-md border-b border-[hsl(var(--sidebar-border))] p-4 transition-all duration-300">
+      <div className="sticky top-0 z-10 bg-slate-900/95 backdrop-blur-md border-b border-slate-800 p-4 transition-all duration-300">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
-            <h2 className="text-xl font-bold text-[hsl(var(--sidebar-primary))]">Events</h2>
-            <div className="ml-2 px-2 py-1 bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-accent-foreground))] rounded-full text-xs font-medium">
+            <h2 className="text-xl font-bold bg-gradient-to-r from-white to-blue-200 bg-clip-text text-transparent">Events</h2>
+            <div className="ml-2 px-3 py-1 bg-gradient-to-r from-blue-600 to-purple-600 text-white rounded-full text-xs font-medium">
               {isLoading ? '...' : events.length} Events
             </div>
           </div>
@@ -105,15 +105,19 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
         {/* Search/filter input */}
         <div className="mb-4">
           <label htmlFor="event-search" className="sr-only">Search events</label>
-          <input
-            id="event-search"
-            type="text"
-            placeholder="Search events..."
-            className="w-full px-3 py-2 rounded-md border border-[hsl(var(--sidebar-border))] bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))] transition"
-            aria-label="Search events"
-            // For demo: no search logic yet
-            disabled={isLoading}
-          />
+          <div className="relative">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>
+            </svg>
+            <input
+              id="event-search"
+              type="text"
+              placeholder="Search events..."
+              className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-700/70 bg-slate-800/50 text-white focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition placeholder:text-slate-400"
+              aria-label="Search events"
+              disabled={isLoading}
+            />
+          </div>
         </div>
 
         <div className="flex items-center justify-between">
