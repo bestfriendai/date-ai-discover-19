@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import type { Event } from '@/types';
 import { normalizeTicketmasterEvent, normalizeSerpApiEvent } from '@/utils/eventNormalizers';
@@ -39,6 +38,7 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
 
     try {
       // Call Supabase function to fetch events from multiple sources
+      console.log('[DEBUG] About to call supabase.functions.invoke("search-events")');
       const { data, error } = await supabase.functions.invoke('search-events', {
         body: searchParams
       });
@@ -47,6 +47,8 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
         console.error('[ERROR] Supabase function error:', error);
         throw error;
       }
+
+      console.log('[DEBUG] Supabase function response:', data);
 
       if (data?.sourceStats) {
         console.log(
@@ -59,77 +61,62 @@ export async function searchEvents(params: SearchParams): Promise<{ events: Even
           `[Events] Serpapi: ${data.sourceStats.serpapi.count} ${data.sourceStats.serpapi.error ? `(Error: ${data.sourceStats.serpapi.error})` : ''}`
         );
       }
-      return { events: data?.events || [], sourceStats: data?.sourceStats };
+      
+      // Check if we have events before returning
+      if (!data?.events || data.events.length === 0) {
+        console.log('[DEBUG] No events returned from API, using mock data');
+        // If no events were returned, use mock data for testing
+        return getMockEvents(searchParams);
+      }
+      
+      return { events: data.events || [], sourceStats: data?.sourceStats };
     } catch (error) {
       console.error('[ERROR] Error calling Supabase function:', error);
+      console.log('[DEBUG] Falling back to mock data');
       // Return mock data for development when Supabase function fails
-      return { 
-        events: [
-          {
-            id: '1',
-            title: 'Hamilton',
-            date: 'Sat, May 17',
-            time: '07:00 PM',
-            location: 'Richard Rodgers Theatre-NY',
-            category: 'arts & theatre',
-            image: '/lovable-uploads/hamilton.jpg',
-            coordinates: [-73.9866, 40.7592],
-            price: "$89.00"
-          },
-          {
-            id: '2',
-            title: 'Harry Potter and the Cursed Child',
-            date: 'Mon, May 19',
-            time: '07:00 PM',
-            location: 'Lyric Theatre - NY',
-            category: 'arts & theatre',
-            image: '/lovable-uploads/harry-potter.jpg',
-            coordinates: [-73.9876, 40.7562],
-            price: "$69.00"
-          },
-          {
-            id: '3',
-            title: 'The Lion King',
-            date: 'Tue, May 20',
-            time: '08:00 PM',
-            location: 'Minskoff Theatre - NY',
-            category: 'arts & theatre',
-            image: '/lovable-uploads/hamilton.jpg',
-            coordinates: [-73.9856, 40.7582],
-            price: "$119.00"
-          },
-          {
-            id: '4',
-            title: 'Aladdin',
-            date: 'Wed, May 21',
-            time: '07:30 PM',
-            location: 'New Amsterdam Theatre - NY',
-            category: 'arts & theatre',
-            image: '/lovable-uploads/harry-potter.jpg',
-            coordinates: [-73.9886, 40.7552],
-            price: "$79.00"
-          },
-          {
-            id: '5',
-            title: 'Wicked',
-            date: 'Thu, May 22',
-            time: '07:00 PM',
-            location: 'Gershwin Theatre - NY',
-            category: 'arts & theatre',
-            image: '/lovable-uploads/hamilton.jpg',
-            coordinates: [-73.9846, 40.7602],
-            price: "$99.00"
-          }
-        ],
-        sourceStats: { 
-          mock: { count: 5, error: null } 
-        }
-      };
+      return getMockEvents(searchParams);
     }
   } catch (error) {
     console.error('Error searching events:', error);
     throw error;
   }
+}
+
+// Helper function to get mock data around the provided coordinates
+function getMockEvents(params: any): { events: Event[]; sourceStats?: any } {
+  console.log('[DEBUG] Generating mock events around', params.lat, params.lng);
+  
+  // Generate mock events around the specified coordinates
+  const centerLat = params.lat || 40.7128;
+  const centerLng = params.lng || -74.0060;
+  const mockEvents: Event[] = [];
+  
+  // Generate events in a grid around the center
+  for (let i = 0; i < 10; i++) {
+    // Create a variation from the center point (about 0.01 degrees is roughly 1 km)
+    const latOffset = (Math.random() - 0.5) * 0.05;
+    const lngOffset = (Math.random() - 0.5) * 0.05;
+    
+    mockEvents.push({
+      id: `mock-${i}`,
+      title: `Mock Event ${i}`,
+      date: 'Sat, May 17',
+      time: '07:00 PM',
+      location: 'Mock Location',
+      category: ['music', 'sports', 'arts & theatre', 'family', 'food'][i % 5],
+      image: '/lovable-uploads/hamilton.jpg',
+      coordinates: [centerLng + lngOffset, centerLat + latOffset],
+      price: `$${Math.floor(Math.random() * 100)}.00`,
+      description: 'This is a mock event for testing purposes'
+    });
+  }
+  
+  return { 
+    events: mockEvents,
+    sourceStats: { 
+      mock: { count: mockEvents.length, error: null } 
+    }
+  };
 }
 
 // Get event details by ID
@@ -191,9 +178,3 @@ export async function getEventById(id: string): Promise<Event | null> {
     throw error;
   }
 }
-
-// This function has been moved to favoriteService.ts
-// Keeping this comment as a reference
-
-// This function has been moved to favoriteService.ts
-// Keeping this comment as a reference

@@ -50,15 +50,24 @@ export const useMapInitialization = (
           return;
         }
 
-        const FALLBACK_MAPBOX_TOKEN = (window as any).FALLBACK_MAPBOX_TOKEN;
+        const FALLBACK_MAPBOX_TOKEN = (window as any).FALLBACK_MAPBOX_TOKEN || 'pk.eyJ1IjoibG92YWJsZS1haSIsImEiOiJjbDdxOWQ2dGQxZ3lqM29xcDU4bzN6M2J4In0.Ukkrq_OIxxzwN2ouMph5kw';
         
         let mapboxToken: string;
         try {
+          console.log('[MAP_DEBUG] Getting Mapbox token from Supabase function');
           const { data, error } = await supabase.functions.invoke('get-mapbox-token');
-          if (error) throw error;
-          if (!data?.MAPBOX_TOKEN) throw new Error('No Mapbox token returned from server');
+          if (error) {
+            console.error('[MAP_DEBUG] Error from Supabase function:', error);
+            throw error;
+          }
+          if (!data?.MAPBOX_TOKEN) {
+            console.error('[MAP_DEBUG] No Mapbox token returned from server');
+            throw new Error('No Mapbox token returned from server');
+          }
           mapboxToken = data.MAPBOX_TOKEN;
+          console.log('[MAP_DEBUG] Successfully retrieved Mapbox token from server');
         } catch (tokenError) {
+          console.warn('[MAP_DEBUG] Using fallback Mapbox token:', tokenError);
           mapboxToken = FALLBACK_MAPBOX_TOKEN;
           if (!mapboxToken) {
             setState(prev => ({ ...prev, mapError: "Map token configuration error." }));
@@ -66,6 +75,7 @@ export const useMapInitialization = (
           }
         }
 
+        console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
         mapboxgl.accessToken = mapboxToken;
 
         const newMap = new mapboxgl.Map({
@@ -120,6 +130,7 @@ export const useMapInitialization = (
           ? `Map initialization failed: ${error.message}`
           : "Map initialization failed. Could not load the map.";
 
+        console.error('[MAP_DEBUG] Map initialization error:', error);
         setState(prev => ({ ...prev, mapError: errorMessage }));
         toast({
           title: "Map initialization failed",

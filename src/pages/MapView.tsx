@@ -32,7 +32,8 @@ const MapView = () => {
     rawEvents,
     isEventsLoading,
     fetchEvents,
-    setEvents
+    setEvents,
+    lastSearchParams
   } = useEventSearch();
 
   const handleEventSelect = (event: Event | null) => {
@@ -49,6 +50,17 @@ const MapView = () => {
     filters: Pick<EventFilters, 'keyword' | 'location' | 'distance' | 'dateRange' | 'categories'>;
     center: { latitude: number; longitude: number } | null; 
   } | null>(null);
+
+  // Debug effect to log state changes
+  useEffect(() => {
+    console.log('[MapView Debug] State update:', {
+      mapLoaded,
+      mapCenter,
+      eventsCount: events.length,
+      isEventsLoading,
+      mapHasMoved
+    });
+  }, [mapLoaded, mapCenter, events.length, isEventsLoading, mapHasMoved]);
 
   useEffect(() => {
     if (!mapLoaded || !mapCenter) return;
@@ -117,7 +129,7 @@ const MapView = () => {
 
   const handleMapMoveEnd = useCallback(
     (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => {
-      console.log('[MapView] Map moved to:', center, 'zoom:', zoom);
+      console.log('[MapView] Map moved to:', center, 'zoom:', zoom, 'user interaction:', isUserInteraction);
       setMapCenter(center);
       setMapZoom(zoom);
       if (isUserInteraction && mapLoaded) {
@@ -160,9 +172,9 @@ const MapView = () => {
     [handleFiltersChange]
   );
 
-  // Initial event fetch when map first loads
+  // Force initial event fetch when map first loads
   useEffect(() => {
-    if (mapLoaded && mapCenter && events.length === 0 && !isEventsLoading) {
+    if (mapLoaded && mapCenter && (!events.length || events.length === 0) && !isEventsLoading) {
       console.log('[MapView] Initial event fetch for newly loaded map');
       fetchEvents(filters, mapCenter);
     }

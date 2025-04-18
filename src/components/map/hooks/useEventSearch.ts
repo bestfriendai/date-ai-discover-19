@@ -10,13 +10,17 @@ export const useEventSearch = () => {
   const [isEventsLoading, setIsEventsLoading] = useState(false);
   const [events, setEvents] = useState<Event[]>([]);
   const [rawEvents, setRawEvents] = useState<Event[]>([]);
+  const [lastSearchParams, setLastSearchParams] = useState<any>(null);
 
   const fetchEvents = useCallback(async (
     filters: EventFilters,
     centerCoords?: { latitude: number; longitude: number },
     radiusOverride?: number
   ) => {
-    if (isEventsLoading) return;
+    if (isEventsLoading) {
+      console.log('[EVENTS] Already loading events, skipping fetch request');
+      return;
+    }
     
     setIsEventsLoading(true);
     console.log('[EVENTS] Starting event fetch with coordinates:', centerCoords);
@@ -49,6 +53,7 @@ export const useEventSearch = () => {
       };
       
       console.log('[EVENTS] Search params:', searchParams);
+      setLastSearchParams(searchParams);
       
       const result = await searchEvents(searchParams);
       
@@ -62,6 +67,12 @@ export const useEventSearch = () => {
         toast({
           title: "No events found",
           description: "Try adjusting your search criteria or location.",
+          variant: "default",
+        });
+      } else {
+        toast({
+          title: "Events loaded",
+          description: `Found ${result.events.length} events in this area.`,
           variant: "default",
         });
       }
@@ -88,6 +99,7 @@ export const useEventSearch = () => {
     rawEvents,
     isEventsLoading,
     fetchEvents,
-    setEvents
+    setEvents,
+    lastSearchParams
   };
 };
