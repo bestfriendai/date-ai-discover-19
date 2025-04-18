@@ -4,8 +4,8 @@ import mapboxgl from 'mapbox-gl';
 import { toast } from '@/hooks/use-toast';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import type { Event } from '@/types';
-import ReactDOMServer from 'react-dom/server';
 import React from 'react';
+import ReactDOMServer from 'react-dom/server';
 import UserLocationMarker from '../markers/UserLocationMarker';
 
 export const useMapControls = (
@@ -67,6 +67,7 @@ export const useMapControls = (
 
       if (userMarker) userMarker.remove();
 
+      // Fix: Using React.createElement instead of JSX directly
       const markerHtml = ReactDOMServer.renderToString(
         React.createElement(UserLocationMarker, { color: "blue" })
       );
@@ -132,6 +133,7 @@ export const useMapControls = (
 
     if (userMarker) userMarker.remove();
 
+    // Fix: Using React.createElement instead of JSX directly
     const fallbackMarkerHtml = ReactDOMServer.renderToString(
       React.createElement(UserLocationMarker, { color: "red" })
     );

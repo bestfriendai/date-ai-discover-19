@@ -35,9 +35,9 @@ const MapView = () => {
   });
   const { toast } = useToast();
 
-  const handleEventSelect = (event: Event) => {
+  const handleEventSelect = (event: Event | null) => {
     setSelectedEvent(event);
-    setRightSidebarOpen(true);
+    if (event) setRightSidebarOpen(true);
   };
 
   const handleFiltersChange = useCallback((newFilters: Partial<EventFilters>) => {
@@ -47,6 +47,8 @@ const MapView = () => {
 
   const fetchAndSetEvents = useCallback(
     async (activeFilters: EventFilters, centerCoords?: { latitude: number; longitude: number }, radiusOverride?: number) => {
+      if (isEventsLoading) return;
+      
       setIsEventsLoading(true);
       try {
         const locationCoords = centerCoords || (mapCenter ? { latitude: mapCenter.latitude, longitude: mapCenter.longitude } : null);
@@ -62,6 +64,10 @@ const MapView = () => {
           setIsEventsLoading(false);
           return;
         }
+        
+        console.log('[MapView] Fetching events for:', locationCoords, 
+          'radius:', radiusOverride || activeFilters.distance || DEFAULT_DISTANCE);
+          
         const searchParams: any = {
           latitude: locationCoords.latitude,
           longitude: locationCoords.longitude,
@@ -72,79 +78,129 @@ const MapView = () => {
           keyword: activeFilters.keyword,
           location: activeFilters.location,
         };
+        
         const result = await searchEvents(searchParams);
-        console.log('[MapView DEBUG] Raw API Result:', result);
+        console.log('[MapView] API Result:', result);
+        
+        if (!result || !result.events) {
+          throw new Error('Invalid API response');
+        }
+        
         const fetchedEvents = result.events;
         setRawEvents(fetchedEvents);
 
         const filtered = applyFilters(fetchedEvents, activeFilters);
         const sorted = sortEvents(filtered, activeFilters.sortBy || 'date', locationCoords.latitude, locationCoords.longitude);
+        
+        console.log('[MapView] Processed events:', sorted.length);
         setEvents(sorted);
       } catch (error) {
+        console.error('[MapView] Error fetching events:', error);
+        toast({
+          title: "Failed to load events",
+          description: "An error occurred while loading events. Please try again.",
+          variant: "destructive",
+        });
         setRawEvents([]);
         setEvents([]);
       } finally {
         setIsEventsLoading(false);
       }
     },
-    [mapCenter]
+    [isEventsLoading, mapCenter, toast]
   );
 
-  const prevFetchParams = useRef<{ filters: EventFilters; center: typeof mapCenter } | null>(null);
+  const prevFetchParams = useRef<{ 
+    filters: Pick<EventFilters, 'keyword' | 'location' | 'distance' | 'dateRange' | 'categories'>;
+    center: { latitude: number; longitude: number } | null; 
+  } | null>(null);
 
   useEffect(() => {
-    if (mapLoaded && mapCenter) {
-      const currentFetchParams = { filters, center: mapCenter };
-      const filtersChanged = (
-        !prevFetchParams.current ||
-        prevFetchParams.current.filters.keyword !== filters.keyword ||
-        prevFetchParams.current.filters.location !== filters.location ||
-        prevFetchParams.current.filters.distance !== filters.distance ||
-        JSON.stringify(prevFetchParams.current.filters.dateRange) !== JSON.stringify(filters.dateRange) ||
-        JSON.stringify(prevFetchParams.current.filters.categories) !== JSON.stringify(filters.categories)
-      );
-      const centerChanged = (
-        !prevFetchParams.current ||
-        prevFetchParams.current.center?.latitude !== mapCenter.latitude ||
-        prevFetchParams.current.center?.longitude !== mapCenter.longitude
-      );
-
-      if (filtersChanged || centerChanged) {
-        console.log('[MapView] API params changed, triggering fetch.');
-        fetchAndSetEvents(filters, mapCenter);
-        prevFetchParams.current = currentFetchParams;
-      } else {
-        console.log('[MapView] API params unchanged, skipping fetch.');
-      }
-    } else if (mapLoaded && !mapCenter) {
-      console.warn('[MapView] Map loaded but no center available for initial fetch.');
-      setIsEventsLoading(false);
-    }
-  }, [filters.keyword, filters.location, filters.distance, filters.dateRange, filters.categories, mapCenter, mapLoaded, fetchAndSetEvents]);
-
-  useEffect(() => {
-    if (rawEvents.length > 0) {
-      console.log('[MapView] Applying client-side filters/sort.');
-      const filtered = applyFilters(rawEvents, filters);
-      const sorted = sortEvents(filtered, filters.sortBy || 'date', mapCenter?.latitude, mapCenter?.longitude);
-      setEvents(sorted);
-    } else {
-      setEvents([]);
-    }
-  }, [rawEvents, filters.priceRange, filters.sortBy, filters.showInViewOnly, mapCenter?.latitude, mapCenter?.longitude]);
-
-  useEffect(() => {
-    console.log('[MapView] mapLoaded:', mapLoaded, 'mapCenter:', mapCenter, 'filters:', filters);
-  }, [mapLoaded, mapCenter, filters]);
-
-  useEffect(() => {
-    if (mapLoaded && mapCenter) {
-      console.log('[MapView] Triggering initial fetch after map load/center:', mapCenter, filters);
+    if (!mapLoaded || !mapCenter) return;
+    
+    const relevantFilters = {
+      keyword: filters.keyword,
+      location: filters.location,
+      distance: filters.distance,
+      dateRange: filters.dateRange,
+      categories: filters.categories
+    };
+    
+    const currentFetchParams = { 
+      filters: relevantFilters, 
+      center: mapCenter 
+    };
+    
+    const filtersChanged = !prevFetchParams.current ||
+      prevFetchParams.current.filters.keyword !== relevantFilters.keyword ||
+      prevFetchParams.current.filters.location !== relevantFilters.location ||
+      prevFetchParams.current.filters.distance !== relevantFilters.distance ||
+      JSON.stringify(prevFetchParams.current.filters.dateRange) !== JSON.stringify(relevantFilters.dateRange) ||
+      JSON.stringify(prevFetchParams.current.filters.categories) !== JSON.stringify(relevantFilters.categories);
+      
+    const centerChanged = !prevFetchParams.current?.center ||
+      Math.abs(prevFetchParams.current.center.latitude - mapCenter.latitude) > 0.001 ||
+      Math.abs(prevFetchParams.current.center.longitude - mapCenter.longitude) > 0.001;
+    
+    if (filtersChanged || (centerChanged && !mapHasMoved)) {
+      console.log('[MapView] Search parameters changed, fetching new events');
       fetchAndSetEvents(filters, mapCenter);
-    } else if (mapLoaded && !mapCenter) {
-      console.warn('[MapView] Map loaded but no center available for initial fetch.');
+      prevFetchParams.current = currentFetchParams;
+    } else {
+      console.log('[MapView] No relevant parameter changes, skipping fetch');
     }
-  }, [mapLoaded, mapCenter]);
+  }, [
+    filters.keyword, 
+    filters.location, 
+    filters.distance, 
+    filters.dateRange, 
+    filters.categories, 
+    mapCenter, 
+    mapLoaded, 
+    mapHasMoved,
+    fetchAndSetEvents
+  ]);
+
+  useEffect(() => {
+    if (rawEvents.length === 0) return;
+    
+    console.log('[MapView] Applying client-side filters/sort');
+    const filtered = applyFilters(rawEvents, filters);
+    const sorted = sortEvents(filtered, filters.sortBy || 'date', mapCenter?.latitude, mapCenter?.longitude);
+    setEvents(sorted);
+  }, [
+    rawEvents, 
+    filters.priceRange, 
+    filters.sortBy, 
+    filters.showInViewOnly, 
+    mapCenter?.latitude, 
+    mapCenter?.longitude
+  ]);
+
+  const handleMapMoveEnd = useCallback(
+    (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => {
+      console.log('[MapView] Map moved to:', center, 'zoom:', zoom, 'user interaction:', isUserInteraction);
+      setMapCenter(center);
+      setMapZoom(zoom);
+      if (isUserInteraction && mapLoaded) {
+        setMapHasMoved(true);
+      }
+    },
+    [mapLoaded]
+  );
+
+  const handleSearchThisArea = useCallback(() => {
+    if (mapCenter) {
+      console.log('[MapView] Search this area clicked for:', mapCenter);
+      setMapHasMoved(false);
+      fetchAndSetEvents(filters, mapCenter);
+    }
+  }, [mapCenter, filters, fetchAndSetEvents]);
+
+  const handleMapLoad = useCallback(() => {
+    console.log('[MapView] Map loaded');
+    setMapLoaded(true);
+  }, []);
 
   const handleAdvancedSearch = useCallback(
     (searchParams: any) => {
@@ -160,28 +216,6 @@ const MapView = () => {
     },
     [handleFiltersChange]
   );
-
-  const handleSearchThisArea = useCallback(() => {
-    if (mapCenter) {
-      setMapHasMoved(false);
-      fetchAndSetEvents(filters, mapCenter);
-    }
-  }, [mapCenter, filters, fetchAndSetEvents]);
-
-  const handleMapMoveEnd = useCallback(
-    (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => {
-      setMapCenter(center);
-      setMapZoom(zoom);
-      if (isUserInteraction && mapLoaded) {
-        setMapHasMoved(true);
-      }
-    },
-    [mapLoaded]
-  );
-
-  const handleMapLoad = useCallback(() => {
-    setMapLoaded(true);
-  }, []);
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-x-hidden">

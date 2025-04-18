@@ -1,5 +1,5 @@
 
-import { useRef, useState } from 'react';
+import { useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Event } from '@/types';
@@ -30,7 +30,7 @@ interface MapComponentProps {
   mapLoaded: boolean;
   onMapMoveEnd: (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => void;
   onMapLoad: () => void;
-  onEventSelect?: (event: Event) => void;
+  onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
 }
 
@@ -64,6 +64,17 @@ const MapComponent = ({
     onMapLoad
   );
 
+  // Set up move handler
+  const handleMapMove = useCallback((newCenter: { lng: number; lat: number }, newZoom: number, userInteraction: boolean) => {
+    setViewState(prev => ({
+      ...prev,
+      longitude: newCenter.lng,
+      latitude: newCenter.lat,
+      zoom: newZoom
+    }));
+    onMapMoveEnd({ latitude: newCenter.lat, longitude: newCenter.lng }, newZoom, userInteraction);
+  }, [onMapMoveEnd]);
+
   // Map controls using custom hook
   const {
     searchTerm,
@@ -72,17 +83,21 @@ const MapComponent = ({
     locationRequested,
     handleLocationSearch,
     handleGetUserLocation
-  } = useMapControls(map, onLoadingChange, onEventSelect);
+  } = useMapControls(
+    map, 
+    onLoadingChange, 
+    onEventSelect
+  );
 
-  // Get clusters using existing hook
-  const bounds = map ? (map as any).getBounds().toArray().flat() as [number, number, number, number] : null;
+  // Get clusters using the fixed useSuperluster hook
+  const bounds = map ? (map.getBounds().toArray().flat() as [number, number, number, number]) : null;
   const { clusters, supercluster } = useSupercluster(events, bounds, viewState.zoom);
 
   // Handle map style changes
   const handleMapStyleChange = (newStyle: string) => {
     if (mapStyle !== newStyle && map) {
       setMapStyle(newStyle);
-      onEventSelect?.(null);
+      if (onEventSelect) onEventSelect(null);
     }
   };
 
@@ -90,7 +105,7 @@ const MapComponent = ({
   let visibleEvents = events;
   if (filters.showInViewOnly && map) {
     try {
-      const bounds = (map as any).getBounds();
+      const bounds = map.getBounds();
       visibleEvents = events.filter(ev => {
         if (!ev.coordinates || ev.coordinates.length !== 2) return false;
         const [lng, lat] = ev.coordinates;
@@ -164,7 +179,7 @@ const MapComponent = ({
               } catch (err) {
                 console.error('[CLUSTER] Error expanding cluster:', err);
               }
-              onEventSelect?.(null);
+              if (onEventSelect) onEventSelect(null);
             } else {
               const eventId = feature.properties.id;
               const originalEvent = events.find(e => e.id === eventId);

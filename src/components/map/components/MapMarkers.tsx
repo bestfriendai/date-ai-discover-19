@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { ClusterFeature } from '../clustering/useSupercluster';
@@ -5,8 +6,8 @@ import EventMarker from '../markers/EventMarker';
 import { createRoot } from 'react-dom/client';
 
 // Batch size for processing markers to prevent UI freezing
-const MARKER_BATCH_SIZE = 50;
-const MARKER_BATCH_DELAY = 0; // ms between batches
+const MARKER_BATCH_SIZE = 25;
+const MARKER_BATCH_DELAY = 5; // ms between batches
 
 interface MapMarkersProps {
   map: mapboxgl.Map;
@@ -20,6 +21,14 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
   {});
   const [isProcessing, setIsProcessing] = useState(false);
   const currentEventsRef = useRef<ClusterFeature[]>([]);
+
+  // Console log for debugging
+  useEffect(() => {
+    console.log(`[MARKERS] Received ${events.length} features to display`);
+    const clusters = events.filter(e => e.properties.cluster);
+    const points = events.filter(e => !e.properties.cluster);
+    console.log(`[MARKERS] Breakdown: ${clusters.length} clusters, ${points.length} points`);
+  }, [events]);
 
   // Memoize the click handler to prevent unnecessary re-renders
   const handleMarkerClick = useCallback((feature: ClusterFeature) => {
@@ -37,17 +46,24 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
     }
 
     const endIdx = Math.min(startIdx + MARKER_BATCH_SIZE, validFeatures.length);
-    console.log(`[MARKERS] Processing batch ${startIdx}-${endIdx} of ${validFeatures.length} markers`);
-
+    
     // Process this batch
     for (let i = startIdx; i < endIdx; i++) {
       const feature = validFeatures[i];
+      
+      // Skip invalid features
+      if (!feature || !feature.geometry || !feature.geometry.coordinates) {
+        continue;
+      }
+      
       const id = String(feature.properties?.id ?? feature.properties?.cluster_id);
       if (!id) continue;
 
       // Skip if marker already exists and selected state hasn't changed
       const existingMarker = markersRef.current[id];
-      const isSelected = selectedEvent && (String(selectedEvent.properties?.id ?? selectedEvent.properties?.cluster_id) === id);
+      const isSelected = selectedEvent && (
+        String(selectedEvent.properties?.id ?? selectedEvent.properties?.cluster_id) === id
+      );
 
       if (existingMarker) {
         // Update existing marker if selection state changed
@@ -92,14 +108,22 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
 
   // Main effect to manage markers
   useEffect(() => {
-    if (!map || isProcessing) return;
+    if (!map || isProcessing || !events.length) return;
 
     // Start processing
     setIsProcessing(true);
-    console.log(`[MARKERS] Starting to process ${events.length} features`);
+    console.log(`[MARKERS] Starting to process ${events.length} markers`);
 
     // Filter features with valid coordinates
-    const validFeatures = events.filter(f => Array.isArray(f.geometry.coordinates) && f.geometry.coordinates.length === 2);
+    const validFeatures = events.filter(f => (
+      f && 
+      f.geometry && 
+      Array.isArray(f.geometry.coordinates) && 
+      f.geometry.coordinates.length === 2 &&
+      !isNaN(f.geometry.coordinates[0]) && 
+      !isNaN(f.geometry.coordinates[1])
+    ));
+    
     console.log(`[MARKERS] ${validFeatures.length} features have valid coordinates`);
 
     // Find markers to remove (not in current features)
@@ -110,8 +134,10 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
     if (markersToRemove.length > 0) {
       console.log(`[MARKERS] Removing ${markersToRemove.length} markers that are no longer needed`);
       markersToRemove.forEach(id => {
-        markersRef.current[id].marker.remove();
-        delete markersRef.current[id];
+        if (markersRef.current[id]) {
+          markersRef.current[id].marker.remove();
+          delete markersRef.current[id];
+        }
       });
     }
 
@@ -163,3 +189,5 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
 
   return null;
 });
+
+MapMarkers.displayName = 'MapMarkers';
