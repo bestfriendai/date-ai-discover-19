@@ -23,6 +23,7 @@ import PerformanceMonitor from '@/utils/performanceMonitor';
 import { point } from '@turf/helpers';
 import DebugOverlay from './overlays/DebugOverlay';
 import { useSupercluster } from './clustering/useSupercluster';
+import WelcomeHeader from './components/WelcomeHeader';
 
 // Debounce utility function was removed since we no longer need automatic fetching on map movement
 import { MapMarkers } from './components/MapMarkers';
@@ -105,7 +106,13 @@ const MapComponent = ({
   const isProgrammaticMove = useRef(false);
   const initialBoundsFitted = useRef(false); // Track if initial bounds have been fitted
   // Center on the US/globe by default
-  const [viewState, setViewState] = useState({ longitude: -98.5795, latitude: 39.8283, zoom: 3.5 });
+  const [viewState, setViewState] = useState({ 
+    longitude: -98.5795, 
+    latitude: 39.8283, 
+    zoom: 3.5,
+    pitch: 0, // Remove the tilt
+    bearing: 0 // Straight orientation
+  });
   const [userMarker, setUserMarker] = useState<mapboxgl.Marker | null>(null);
   const [locationRequested, setLocationRequested] = useState(false);
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
@@ -804,6 +811,9 @@ const MapComponent = ({
   return (
     <div className="w-full h-full relative">
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
+      
+      {/* Add the welcome header */}
+      {mapLoaded && <WelcomeHeader />}
 
       {/* --- DEBUG OVERLAY --- */}
       <DebugOverlay
@@ -881,4 +891,5 @@ const MapComponent = ({
     </div>
   );
 };
+
 export default MapComponent;
