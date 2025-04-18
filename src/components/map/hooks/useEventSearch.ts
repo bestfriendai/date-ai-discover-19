@@ -19,9 +19,11 @@ export const useEventSearch = () => {
     if (isEventsLoading) return;
     
     setIsEventsLoading(true);
+    console.log('[EVENTS] Starting event fetch with coordinates:', centerCoords);
+    
     try {
       if (!centerCoords) {
-        console.warn('[MAP] Cannot fetch events: No location coordinates available.');
+        console.warn('[EVENTS] Cannot fetch events: No location coordinates available.');
         toast({
           title: "Location Unavailable",
           description: "Could not determine location to fetch events. Please allow location access or search for a location.",
@@ -32,7 +34,7 @@ export const useEventSearch = () => {
         return;
       }
       
-      console.log('[MAP] Fetching events for:', centerCoords, 
+      console.log('[EVENTS] Fetching events for:', centerCoords, 
         'radius:', radiusOverride || filters.distance);
         
       const searchParams = {
@@ -46,17 +48,29 @@ export const useEventSearch = () => {
         location: filters.location,
       };
       
+      console.log('[EVENTS] Search params:', searchParams);
+      
       const result = await searchEvents(searchParams);
       
       if (!result || !result.events) {
         throw new Error('Invalid API response');
       }
       
+      console.log('[EVENTS] Received', result.events.length, 'events from API');
+      
+      if (result.events.length === 0) {
+        toast({
+          title: "No events found",
+          description: "Try adjusting your search criteria or location.",
+          variant: "default",
+        });
+      }
+      
       setRawEvents(result.events);
       setEvents(result.events);
       
     } catch (error) {
-      console.error('[MAP] Error fetching events:', error);
+      console.error('[EVENTS] Error fetching events:', error);
       toast({
         title: "Failed to load events",
         description: "An error occurred while loading events. Please try again.",

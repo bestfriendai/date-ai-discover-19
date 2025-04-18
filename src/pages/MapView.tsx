@@ -8,6 +8,7 @@ import { applyFilters, sortEvents } from '@/utils/eventFilters';
 import { MapSidebars } from '@/components/map/components/MapSidebars';
 import { MapControlsArea } from '@/components/map/components/MapControlsArea';
 import { useEventSearch } from '@/components/map/hooks/useEventSearch';
+import { toast } from '@/hooks/use-toast';
 
 const DEFAULT_DISTANCE = 30;
 
@@ -78,6 +79,8 @@ const MapView = () => {
     
     if (filtersChanged || (centerChanged && !mapHasMoved)) {
       console.log('[MapView] Search parameters changed, fetching new events');
+      console.log('[MapView] Center:', mapCenter, 'Filters:', relevantFilters);
+      
       fetchEvents(filters, mapCenter);
       prevFetchParams.current = currentFetchParams;
     }
@@ -96,9 +99,11 @@ const MapView = () => {
   useEffect(() => {
     if (rawEvents.length === 0) return;
     
-    console.log('[MapView] Applying client-side filters/sort');
+    console.log('[MapView] Applying client-side filters/sort to', rawEvents.length, 'events');
     const filtered = applyFilters(rawEvents, filters);
     const sorted = sortEvents(filtered, filters.sortBy || 'date', mapCenter?.latitude, mapCenter?.longitude);
+    
+    console.log('[MapView] After filtering/sorting:', filtered.length, 'events remain');
     setEvents(sorted);
   }, [
     rawEvents, 
@@ -112,6 +117,7 @@ const MapView = () => {
 
   const handleMapMoveEnd = useCallback(
     (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => {
+      console.log('[MapView] Map moved to:', center, 'zoom:', zoom);
       setMapCenter(center);
       setMapZoom(zoom);
       if (isUserInteraction && mapLoaded) {
@@ -123,7 +129,12 @@ const MapView = () => {
 
   const handleSearchThisArea = useCallback(() => {
     if (mapCenter) {
+      console.log('[MapView] Search this area clicked, using center:', mapCenter);
       setMapHasMoved(false);
+      toast({
+        title: "Searching this area",
+        description: "Looking for events in the current map view...",
+      });
       fetchEvents(filters, mapCenter);
     }
   }, [mapCenter, filters, fetchEvents]);
@@ -143,10 +154,19 @@ const MapView = () => {
         priceRange: searchParams.priceRange,
         distance: searchParams.radius,
       };
+      console.log('[MapView] Advanced search with params:', newFilters);
       handleFiltersChange(newFilters);
     },
     [handleFiltersChange]
   );
+
+  // Initial event fetch when map first loads
+  useEffect(() => {
+    if (mapLoaded && mapCenter && events.length === 0 && !isEventsLoading) {
+      console.log('[MapView] Initial event fetch for newly loaded map');
+      fetchEvents(filters, mapCenter);
+    }
+  }, [mapLoaded, mapCenter, events.length, isEventsLoading, fetchEvents, filters]);
 
   return (
     <div className="h-screen flex flex-col bg-background overflow-x-hidden">
@@ -184,6 +204,8 @@ const MapView = () => {
             onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
             onSearchToggle={() => setShowSearch(!showSearch)}
             onSearch={handleAdvancedSearch}
+            onSearchThisArea={handleSearchThisArea}
+            mapHasMoved={mapHasMoved}
           />
         </div>
       </div>
