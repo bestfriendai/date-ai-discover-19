@@ -3,19 +3,19 @@ import { useRef, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Event } from '@/types';
-import { Loader2 } from 'lucide-react';
 import type { EventFilters } from './components/MapControls';
-import { MapControls } from './components/MapControls';
 import { MapPopup } from './components/MapPopup';
 import { MapMarkers } from './components/MapMarkers';
 import { CoordinatesDisplay } from './components/CoordinatesDisplay';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
+import { MapLoadingOverlay } from './components/MapLoadingOverlay';
+import { MapStyleControls } from './components/MapStyleControls';
 import { useSupercluster } from './clustering/useSupercluster';
 import { useMapInitialization } from './hooks/useMapInitialization';
 import { useMapControls } from './hooks/useMapControls';
+import { useMapPopup } from './hooks/useMapPopup';
 
-// Define map styles
 const MAP_STYLES = {
   dark: 'mapbox://styles/mapbox/dark-v11',
   light: 'mapbox://styles/mapbox/light-v11',
@@ -56,7 +56,6 @@ const MapComponent = ({
   
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
 
-  // Initialize map using custom hook
   const { map, mapError, mapLoaded } = useMapInitialization(
     mapContainer,
     viewState,
@@ -64,7 +63,6 @@ const MapComponent = ({
     onMapLoad
   );
 
-  // Set up move handler
   const handleMapMove = useCallback((newCenter: { lng: number; lat: number }, newZoom: number, userInteraction: boolean) => {
     setViewState(prev => ({
       ...prev,
@@ -75,7 +73,6 @@ const MapComponent = ({
     onMapMoveEnd({ latitude: newCenter.lat, longitude: newCenter.lng }, newZoom, userInteraction);
   }, [onMapMoveEnd]);
 
-  // Map controls using custom hook
   const {
     searchTerm,
     setSearchTerm,
@@ -83,17 +80,11 @@ const MapComponent = ({
     locationRequested,
     handleLocationSearch,
     handleGetUserLocation
-  } = useMapControls(
-    map, 
-    onLoadingChange, 
-    onEventSelect
-  );
+  } = useMapControls(map, onLoadingChange, onEventSelect);
 
-  // Get clusters using the fixed useSuperluster hook
   const bounds = map ? (map.getBounds().toArray().flat() as [number, number, number, number]) : null;
   const { clusters, supercluster } = useSupercluster(events, bounds, viewState.zoom);
 
-  // Handle map style changes
   const handleMapStyleChange = (newStyle: string) => {
     if (mapStyle !== newStyle && map) {
       setMapStyle(newStyle);
@@ -101,7 +92,6 @@ const MapComponent = ({
     }
   };
 
-  // Filter events by map bounds if showInViewOnly is enabled
   let visibleEvents = events;
   if (filters.showInViewOnly && map) {
     try {
@@ -131,14 +121,7 @@ const MapComponent = ({
         filters={filters}
       />
 
-      {!mapLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-20 rounded-xl">
-          <div className="flex flex-col items-center gap-2">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Loading map...</p>
-          </div>
-        </div>
-      )}
+      {!mapLoaded && <MapLoadingOverlay />}
 
       {mapError && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
@@ -147,17 +130,6 @@ const MapComponent = ({
             <span className="block sm:inline">{mapError}</span>
           </div>
         </div>
-      )}
-
-      {mapLoaded && (
-        <MapControls
-          filters={filters}
-          onLocationSearch={handleLocationSearch}
-          currentMapStyle={mapStyle}
-          onMapStyleChange={handleMapStyleChange}
-          onFindMyLocation={handleGetUserLocation}
-          locationRequested={locationRequested}
-        />
       )}
 
       {mapLoaded && map && clusters.length > 0 && (
@@ -202,11 +174,19 @@ const MapComponent = ({
       )}
 
       {mapLoaded && (
-        <CoordinatesDisplay
-          latitude={viewState.latitude}
-          longitude={viewState.longitude}
-          zoom={viewState.zoom}
-        />
+        <>
+          <CoordinatesDisplay
+            latitude={viewState.latitude}
+            longitude={viewState.longitude}
+            zoom={viewState.zoom}
+          />
+          <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20">
+            <MapStyleControls
+              currentMapStyle={mapStyle}
+              onMapStyleChange={handleMapStyleChange}
+            />
+          </div>
+        </>
       )}
     </div>
   );
