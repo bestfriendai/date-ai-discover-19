@@ -5,6 +5,7 @@ import { toast } from '@/hooks/use-toast';
 import { useUserLocation } from '@/hooks/useUserLocation';
 import type { Event } from '@/types';
 import ReactDOMServer from 'react-dom/server';
+import React from 'react';
 import UserLocationMarker from '../markers/UserLocationMarker';
 
 export const useMapControls = (
@@ -66,7 +67,9 @@ export const useMapControls = (
 
       if (userMarker) userMarker.remove();
 
-      const markerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="blue" />);
+      const markerHtml = ReactDOMServer.renderToString(
+        React.createElement(UserLocationMarker, { color: "blue" })
+      );
       const el = document.createElement('div');
       el.innerHTML = markerHtml;
 
@@ -79,8 +82,8 @@ export const useMapControls = (
       map.jumpTo({ 
         center: [longitude, latitude], 
         zoom: 14,
-        pitch: viewState.pitch,
-        bearing: viewState.bearing
+        pitch: 0,
+        bearing: 0
       });
 
       // Try reverse geocode
@@ -131,7 +134,9 @@ export const useMapControls = (
 
     if (userMarker) userMarker.remove();
 
-    const fallbackMarkerHtml = ReactDOMServer.renderToString(<UserLocationMarker color="red" />);
+    const fallbackMarkerHtml = ReactDOMServer.renderToString(
+      React.createElement(UserLocationMarker, { color: "red" })
+    );
     const fallbackEl = document.createElement('div');
     fallbackEl.innerHTML = fallbackMarkerHtml;
 
@@ -146,8 +151,8 @@ export const useMapControls = (
       zoom: 12,
       duration: 2000,
       essential: true,
-      pitch: viewState.pitch,
-      bearing: viewState.bearing
+      pitch: 0,
+      bearing: 0
     });
   };
 
