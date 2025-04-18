@@ -37,8 +37,10 @@
 
 .card {
   padding: 2em;
-  background-color: hsl(var(--secondary));
-  color: hsl(var(--secondary-foreground));
+  background-color: hsl(var(--card));
+  color: hsl(var(--card-foreground));
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
 }
 
 .read-the-docs {
@@ -48,4 +50,28 @@
 .main-content {
   margin-top: 4rem;
   @apply bg-black text-foreground;
+}
+
+/* Button styles */
+button {
+  @apply transition-colors duration-200;
+}
+
+/* Input field styles */
+input, textarea, select {
+  @apply bg-card border-border focus:border-primary/50 focus:ring-1 focus:ring-primary/30;
+}
+
+/* Page transition styles */
+.page-enter {
+  @apply opacity-0;
+}
+.page-enter-active {
+  @apply opacity-100 transition-opacity duration-300;
+}
+.page-exit {
+  @apply opacity-100;
+}
+.page-exit-active {
+  @apply opacity-0 transition-opacity duration-300;
 }

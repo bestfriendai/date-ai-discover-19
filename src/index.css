@@ -7,7 +7,7 @@
   :root {
     --background: 0 0% 0%; /* Pure black background */
     --foreground: 0 0% 98%;
-    --card: 0 0% 0%;
+    --card: 0 0% 3%; /* Slightly off-black for cards */
     --card-foreground: 0 0% 98%;
     --popover: 0 0% 0%;
     --popover-foreground: 0 0% 98%;
@@ -51,7 +51,7 @@
 }
 
 @layer utilities {
-  /* Existing utilities from previous implementation */
+  /* Scrollbar utilities */
   .scrollbar-none {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -61,6 +61,7 @@
     display: none;
   }
 
+  /* Glass morphism effects */
   .glass-morphism {
     @apply backdrop-blur-xl bg-white/5 border border-white/10 shadow-[0_4px_12px_-2px_rgba(0,0,0,0.3)];
   }
@@ -69,6 +70,7 @@
     @apply backdrop-blur-2xl bg-black/40 border border-white/10;
   }
   
+  /* Text gradient effects */
   .text-gradient {
     @apply bg-gradient-to-br from-white via-white/90 to-white/70 bg-clip-text text-transparent;
   }
@@ -76,4 +78,71 @@
   .text-gradient-primary {
     @apply bg-gradient-to-br from-primary via-primary/80 to-primary/60 bg-clip-text text-transparent;
   }
+
+  /* Card styles */
+  .card-glow {
+    @apply relative overflow-hidden;
+  }
+  
+  .card-glow::before {
+    @apply content-[''] absolute inset-0 z-[-1] bg-gradient-to-r from-primary/20 via-transparent to-primary/20 opacity-0 transition-opacity duration-700;
+  }
+  
+  .card-glow:hover::before {
+    @apply opacity-100;
+  }
+  
+  /* Button hover effects */
+  .btn-hover-effect {
+    @apply relative overflow-hidden transition-all duration-300;
+  }
+  
+  .btn-hover-effect::after {
+    @apply content-[''] absolute inset-0 -z-10 bg-white/10 opacity-0 transition-opacity duration-300;
+  }
+  
+  .btn-hover-effect:hover::after {
+    @apply opacity-100;
+  }
+}
+
+/* Map styles */
+.mapboxgl-popup {
+  @apply max-w-xs;
+}
+
+.mapboxgl-popup-content {
+  @apply bg-card text-card-foreground rounded-md border border-border/50 shadow-md p-0;
+}
+
+.date-ai-popup .mapboxgl-popup-content {
+  @apply p-0;
+}
+
+.mapboxgl-popup-close-button {
+  @apply text-muted-foreground hover:text-foreground;
+}
+
+.mapboxgl-ctrl-bottom-right {
+  @apply mb-16 mr-4;
+}
+
+.mapboxgl-ctrl button {
+  @apply bg-card border border-border text-card-foreground;
+}
+
+.map-marker {
+  @apply bg-primary w-4 h-4 rounded-full border-2 border-white cursor-pointer shadow-md;
+}
+
+.map-marker:hover {
+  @apply transform scale-125 transition-transform;
+}
+
+.map-marker.highlight {
+  @apply bg-secondary w-6 h-6 -mt-1 -ml-1;
+}
+
+.map-cluster {
+  @apply bg-primary text-white font-bold rounded-full flex items-center justify-center border-2 border-white;
 }
