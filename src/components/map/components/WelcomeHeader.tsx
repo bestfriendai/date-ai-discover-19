@@ -1,13 +1,23 @@
 
 import React from 'react';
+import { motion } from 'framer-motion';
+import { MapPin, Search, Compass } from 'lucide-react';
 
 const WelcomeHeader = () => {
   return (
-    <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 w-full max-w-2xl text-center">
-      <h1 className="text-xl font-semibold text-white bg-background/80 backdrop-blur-sm px-6 py-3 rounded-full inline-block shadow-lg border border-border/50">
-        Events are waiting for you, click the find my location button or enter your location
-      </h1>
-    </div>
+    <motion.div 
+      className="absolute top-4 left-1/2 transform -translate-x-1/2 z-20 w-full max-w-3xl text-center"
+      initial={{ y: -20, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ duration: 0.5, delay: 0.2 }}
+    >
+      <div className="flex items-center justify-center gap-3 bg-background/90 backdrop-blur-sm px-6 py-4 rounded-full shadow-lg border border-primary/20 mx-4">
+        <Compass className="h-6 w-6 text-primary hidden sm:block" />
+        <h1 className="text-lg sm:text-xl font-semibold">
+          <span className="text-primary">Events</span> are waiting for you! Click <span className="text-primary">Find my location</span> or enter your location
+        </h1>
+      </div>
+    </motion.div>
   );
 };
 

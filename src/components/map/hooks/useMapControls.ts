@@ -81,9 +81,7 @@ export const useMapControls = (
 
       map.jumpTo({ 
         center: [longitude, latitude], 
-        zoom: 14,
-        pitch: 0,
-        bearing: 0
+        zoom: 14
       });
 
       // Try reverse geocode
@@ -150,9 +148,7 @@ export const useMapControls = (
       center: [fallback.lng, fallback.lat],
       zoom: 12,
       duration: 2000,
-      essential: true,
-      pitch: 0,
-      bearing: 0
+      essential: true
     });
   };
 

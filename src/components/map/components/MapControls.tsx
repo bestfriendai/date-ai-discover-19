@@ -1,20 +1,13 @@
-import { useState } from 'react';
-import { Filter, Grid, List, MapPin, Search, X, Calendar as CalendarIcon, Moon, Sun, Satellite, Loader2, ArrowDownUp } from 'lucide-react';
+
+import { useState, useRef, useEffect } from 'react';
+import { Filter, Locate, Search, X, Moon, Sun, Satellite, Loader2, Map, Compass, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import { toast } from '@/hooks/use-toast';
 import { motion } from 'framer-motion';
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
-import { Label } from "@/components/ui/label";
-import { DateRange } from 'react-day-picker';
-import { format } from 'date-fns';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { cn } from '@/lib/utils';
-import { Checkbox } from "@/components/ui/checkbox";
-import { Slider } from "@/components/ui/slider";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { EventFilters as BaseEventFilters, MapStyle } from '@/types';
-
+import { EventFilters as BaseEventFilters } from '@/types';
 
 // Extend the base EventFilters with UI-specific properties
 export interface EventFilters extends BaseEventFilters {
@@ -40,6 +33,7 @@ export const MapControls = ({
   locationRequested,
 }: MapControlsProps) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSearch = () => {
     if (!searchTerm.trim()) {
@@ -60,96 +54,124 @@ export const MapControls = ({
     }
   };
 
-  const handleClearSearch = () => {
+  const handleGetLocation = () => {
     setSearchTerm('');
-    // onSearchClear removed; nothing to do here
+    onFindMyLocation();
   };
 
   return (
-    <motion.div
-      className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex flex-wrap items-center justify-center gap-2 max-w-2xl w-full px-4"
-      initial={{ y: 20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.3 }}
-    >
-      <div className="flex-1 flex items-center gap-2">
-        <div className="relative flex-1">
-          <Input
-            type="text"
-            placeholder="Enter location..."
-            className="w-full pl-4 pr-20 h-12 bg-background/90 backdrop-blur-xl border border-border/50 rounded-full shadow-lg text-base"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          
-          {searchTerm && (
+    <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-4 pb-6">
+      {/* Main search controls */}
+      <motion.div 
+        className="w-full max-w-2xl px-4 flex flex-col items-center gap-3"
+        initial={{ y: 20, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.3 }}
+      >
+        {/* Search box */}
+        <div className="relative w-full">
+          <div className="flex items-center gap-2 w-full">
+            <div className="relative flex-1">
+              <Input
+                ref={inputRef}
+                type="text"
+                placeholder="Enter a location..."
+                className="w-full pl-12 pr-10 h-14 bg-background/90 backdrop-blur-xl border border-primary/30 rounded-full shadow-lg text-base"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              
+              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              
+              {searchTerm && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute right-12 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent"
+                  onClick={() => setSearchTerm('')}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
+              
+              <Button
+                variant="ghost"
+                size="icon"
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-primary/10 hover:bg-primary/20 rounded-full"
+                onClick={handleSearch}
+              >
+                <Search className="h-5 w-5 text-primary" />
+              </Button>
+            </div>
+
             <Button
-              variant="ghost"
-              size="icon"
-              className="absolute right-12 top-1/2 -translate-y-1/2 h-8 w-8"
-              onClick={() => setSearchTerm('')}
+              variant="secondary"
+              size="lg"
+              className="h-14 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full shadow-lg flex items-center gap-2"
+              onClick={handleGetLocation}
+              disabled={locationRequested}
             >
-              <X className="h-4 w-4" />
+              {locationRequested ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <Locate className="h-5 w-5" />
+              )}
+              Find My Location
             </Button>
-          )}
-          
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8"
-            onClick={handleSearch}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
+          </div>
         </div>
 
-        <Button
-          variant="secondary"
-          size="lg"
-          className="h-12 px-6 bg-background/90 backdrop-blur-xl border border-border/50 rounded-full shadow-lg hover:bg-background/80"
-          onClick={onFindMyLocation}
-          disabled={locationRequested}
-        >
-          {locationRequested ? (
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          ) : (
-            <MapPin className="h-4 w-4 mr-2" />
-          )}
-          Find my location
-        </Button>
-      </div>
-
-      {/* Map style controls */}
-      <div className="flex items-center gap-1 bg-background/90 backdrop-blur-xl rounded-full border border-border/50 p-1 shadow-lg">
-        <Button
-          variant={currentMapStyle.includes('dark-v11') ? "secondary" : "ghost"}
-          size="icon"
-          onClick={() => onMapStyleChange('mapbox://styles/mapbox/dark-v11')}
-          className="h-8 w-8 rounded-full"
-          aria-label="Dark mode"
-        >
-          <Moon className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={currentMapStyle.includes('light-v11') ? "secondary" : "ghost"}
-          size="icon"
-          onClick={() => onMapStyleChange('mapbox://styles/mapbox/light-v11')}
-          className="h-8 w-8 rounded-full"
-          aria-label="Light mode"
-        >
-          <Sun className="h-4 w-4" />
-        </Button>
-        <Button
-          variant={currentMapStyle.includes('satellite-streets-v12') ? "secondary" : "ghost"}
-          size="icon"
-          onClick={() => onMapStyleChange('mapbox://styles/mapbox/satellite-streets-v12')}
-          className="h-8 w-8 rounded-full"
-          aria-label="Satellite view"
-        >
-          <Satellite className="h-4 w-4" />
-        </Button>
-      </div>
-    </motion.div>
+        {/* Map style controls */}
+        <div className="flex justify-center">
+          <ToggleGroup type="single" className="bg-background/80 backdrop-blur-xl rounded-full border border-border/50 p-1 shadow-lg">
+            <ToggleGroupItem 
+              value="dark" 
+              onClick={() => onMapStyleChange('mapbox://styles/mapbox/dark-v11')}
+              className={cn(
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                currentMapStyle.includes('dark-v11') && "bg-primary text-primary-foreground"
+              )}
+              aria-label="Dark mode"
+            >
+              <Moon className="h-5 w-5" />
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="light" 
+              onClick={() => onMapStyleChange('mapbox://styles/mapbox/light-v11')}
+              className={cn(
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                currentMapStyle.includes('light-v11') && "bg-primary text-primary-foreground"
+              )}
+              aria-label="Light mode"
+            >
+              <Sun className="h-5 w-5" />
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="satellite" 
+              onClick={() => onMapStyleChange('mapbox://styles/mapbox/satellite-streets-v12')}
+              className={cn(
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                currentMapStyle.includes('satellite-streets-v12') && "bg-primary text-primary-foreground"
+              )}
+              aria-label="Satellite view"
+            >
+              <Satellite className="h-5 w-5" />
+            </ToggleGroupItem>
+            <ToggleGroupItem 
+              value="streets" 
+              onClick={() => onMapStyleChange('mapbox://styles/mapbox/streets-v12')}
+              className={cn(
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                currentMapStyle.includes('streets-v12') && "bg-primary text-primary-foreground"
+              )}
+              aria-label="Streets view"
+            >
+              <Map className="h-5 w-5" />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </div>
+      </motion.div>
+    </div>
   );
 };
