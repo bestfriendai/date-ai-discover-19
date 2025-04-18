@@ -1,9 +1,7 @@
 
 import { useCallback } from 'react';
-import Header from '@/components/layout/Header';
-import MapComponent from '@/components/map/MapComponent';
-import { MapSidebars } from '@/components/map/components/MapSidebars';
-import { MapControlsArea } from '@/components/map/components/MapControlsArea';
+import { MapLayout } from '@/components/map/layout/MapLayout';
+import { MapContent } from '@/components/map/layout/MapContent';
 import { useEventSearch } from '@/components/map/hooks/useEventSearch';
 import { useMapState } from '@/components/map/hooks/useMapState';
 import { useMapFilters } from '@/components/map/hooks/useMapFilters';
@@ -60,47 +58,28 @@ const MapView = () => {
   );
 
   return (
-    <div className="h-screen flex flex-col bg-background overflow-x-hidden">
-      <Header />
-      <div className="flex-1 flex relative overflow-hidden pt-16">
-        <MapSidebars
-          leftSidebarOpen={leftSidebarOpen}
-          rightSidebarOpen={rightSidebarOpen}
-          selectedEvent={selectedEvent}
-          events={events}
-          isLoading={isEventsLoading}
-          onLeftSidebarClose={() => setLeftSidebarOpen(false)}
-          onRightSidebarClose={() => setRightSidebarOpen(false)}
-          onEventSelect={handleEventSelect}
-        />
-
-        <div className="flex-1 relative">
-          <MapComponent
-            onEventSelect={handleEventSelect}
-            onLoadingChange={() => {}}
-            events={events}
-            selectedEvent={selectedEvent}
-            isLoading={isEventsLoading}
-            filters={filters}
-            mapLoaded={mapLoaded}
-            onMapMoveEnd={handleMapMoveEnd}
-            onMapLoad={handleMapLoad}
-          />
-
-          <MapControlsArea
-            leftSidebarOpen={leftSidebarOpen}
-            showSearch={showSearch}
-            isEventsLoading={isEventsLoading}
-            filters={filters}
-            onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
-            onSearchToggle={() => setShowSearch(!showSearch)}
-            onSearch={handleAdvancedSearch}
-            onSearchThisArea={handleSearchThisArea}
-            mapHasMoved={mapHasMoved}
-          />
-        </div>
-      </div>
-    </div>
+    <MapLayout>
+      <MapContent
+        leftSidebarOpen={leftSidebarOpen}
+        rightSidebarOpen={rightSidebarOpen}
+        selectedEvent={selectedEvent}
+        showSearch={showSearch}
+        mapHasMoved={mapHasMoved}
+        mapLoaded={mapLoaded}
+        events={events}
+        isEventsLoading={isEventsLoading}
+        filters={filters}
+        onLeftSidebarClose={() => setLeftSidebarOpen(false)}
+        onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
+        onRightSidebarClose={() => setRightSidebarOpen(false)}
+        onShowSearchToggle={() => setShowSearch(!showSearch)}
+        onEventSelect={handleEventSelect}
+        onAdvancedSearch={handleAdvancedSearch}
+        onSearchThisArea={handleSearchThisArea}
+        onMapMoveEnd={handleMapMoveEnd}
+        onMapLoad={handleMapLoad}
+      />
+    </MapLayout>
   );
 };
 
