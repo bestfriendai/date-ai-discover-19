@@ -1,32 +1,56 @@
 
 import { useEffect, useRef, useState, useCallback, memo } from 'react';
 import mapboxgl from 'mapbox-gl';
-import type { ClusterFeature } from '../clustering/useSupercluster';
-import EventMarker from '../markers/EventMarker';
 import { createRoot } from 'react-dom/client';
+import type { Event } from '@/types';
 
 // Batch size for processing markers to prevent UI freezing
 const MARKER_BATCH_SIZE = 25;
 const MARKER_BATCH_DELAY = 5; // ms between batches
 
-interface MapMarkersProps {
-  map: mapboxgl.Map;
-  events: ClusterFeature[];
-  onMarkerClick: (feature: ClusterFeature) => void;
-  selectedEvent: ClusterFeature | null;
+interface CustomFeature {
+  id?: string;
+  properties: {
+    id?: string;
+    cluster_id?: string;
+    cluster?: boolean;
+    [key: string]: any;
+  };
+  geometry: {
+    coordinates: [number, number];
+  };
+  // Add missing Event properties as optional
+  title?: string;
+  description?: string;
+  date?: string;
+  time?: string;
+  location?: string;
+  category?: string;
+  image?: string;
+  url?: string;
+  price?: string;
+  source?: string;
+  coordinates?: [number, number];
 }
 
-export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: MapMarkersProps) => {
+interface MapMarkersProps {
+  map: mapboxgl.Map;
+  features: CustomFeature[];
+  onMarkerClick: (feature: CustomFeature) => void;
+  selectedFeatureId: string | null;
+}
+
+export const MapMarkers = memo(({ map, features, onMarkerClick, selectedFeatureId }: MapMarkersProps) => {
   const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: ReturnType<typeof createRoot>, isSelected: boolean}}>(
   {});
   const [isProcessing, setIsProcessing] = useState(false);
-  const currentEventsRef = useRef<ClusterFeature[]>([]);
+  const currentFeaturesRef = useRef<CustomFeature[]>([]);
 
   // Console log for debugging
   useEffect(() => {
-    console.log(`[MARKERS] Received ${events.length} features to display`);
-    const clusters = events.filter(e => e.properties.cluster);
-    const points = events.filter(e => !e.properties.cluster);
+    console.log(`[MARKERS] Received ${features.length} features to display`);
+    const clusters = features.filter(e => e.properties.cluster);
+    const points = features.filter(e => !e.properties.cluster);
     console.log(`[MARKERS] Breakdown: ${clusters.length} clusters, ${points.length} points`);
 
     // Log sample points for debugging
@@ -40,17 +64,17 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
 
     // Check if any markers are already in the DOM
     console.log('[MARKERS] Current markers in ref:', Object.keys(markersRef.current).length);
-  }, [events]);
+  }, [features]);
 
   // Memoize the click handler to prevent unnecessary re-renders
-  const handleMarkerClick = useCallback((feature: ClusterFeature) => {
+  const handleMarkerClick = useCallback((feature: CustomFeature) => {
     const id = String(feature.properties?.id ?? feature.properties?.cluster_id);
     console.log('[MARKERS] Marker clicked:', id);
     onMarkerClick(feature);
   }, [onMarkerClick]);
 
   // Process markers in batches to prevent UI freezing
-  const processBatch = useCallback((validFeatures: ClusterFeature[], startIdx: number) => {
+  const processBatch = useCallback((validFeatures: CustomFeature[], startIdx: number) => {
     if (startIdx >= validFeatures.length) {
       console.log(`[MARKERS] Finished processing all ${validFeatures.length} markers`);
       setIsProcessing(false);
@@ -73,9 +97,7 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
 
       // Skip if marker already exists and selected state hasn't changed
       const existingMarker = markersRef.current[id];
-      const isSelected = selectedEvent && (
-        String(selectedEvent.properties?.id ?? selectedEvent.properties?.cluster_id) === id
-      );
+      const isSelected = selectedFeatureId === id;
 
       if (existingMarker) {
         // Update existing marker if selection state changed
@@ -116,18 +138,18 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
     setTimeout(() => {
       processBatch(validFeatures, endIdx);
     }, MARKER_BATCH_DELAY);
-  }, [map, selectedEvent, handleMarkerClick]);
+  }, [map, selectedFeatureId, handleMarkerClick]);
 
   // Main effect to manage markers
   useEffect(() => {
-    if (!map || isProcessing || !events.length) return;
+    if (!map || isProcessing || !features.length) return;
 
     // Start processing
     setIsProcessing(true);
-    console.log(`[MARKERS] Starting to process ${events.length} markers`);
+    console.log(`[MARKERS] Starting to process ${features.length} markers`);
 
     // Filter features with valid coordinates
-    const validFeatures = events.filter(f => (
+    const validFeatures = features.filter(f => (
       f &&
       f.geometry &&
       Array.isArray(f.geometry.coordinates) &&
@@ -154,7 +176,7 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
     }
 
     // Store current features for comparison
-    currentEventsRef.current = validFeatures;
+    currentFeaturesRef.current = validFeatures;
 
     // Start processing in batches
     processBatch(validFeatures, 0);
@@ -165,20 +187,23 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
       Object.values(markersRef.current).forEach(({ marker }) => marker.remove());
       markersRef.current = {};
     };
-  }, [events, map, processBatch, isProcessing]);
+  }, [features, map, processBatch, isProcessing]);
 
   // Effect to update selected marker
   useEffect(() => {
-    if (!map || isProcessing || !selectedEvent) return;
+    if (!map || isProcessing || !selectedFeatureId) return;
 
     // Update selected marker
     Object.entries(markersRef.current).forEach(([id, { root, marker, isSelected }]) => {
-      const shouldBeSelected =
-        String(selectedEvent.properties?.id ?? selectedEvent.properties?.cluster_id) === id;
+      const shouldBeSelected = id === selectedFeatureId;
 
       // Only update if selection state changed
       if (isSelected !== shouldBeSelected) {
-        const feature = events.find(f => String(f.properties?.id ?? f.properties?.cluster_id) === id);
+        const feature = features.find(f => {
+          const featureId = String(f.properties?.id ?? f.properties?.cluster_id);
+          return featureId === id;
+        });
+        
         if (feature) {
           root.render(
             <EventMarker
@@ -197,9 +222,74 @@ export const MapMarkers = memo(({ map, events, onMarkerClick, selectedEvent }: M
         }
       }
     });
-  }, [selectedEvent, map, events, handleMarkerClick, isProcessing]);
+  }, [selectedFeatureId, map, features, handleMarkerClick, isProcessing]);
 
   return null;
 });
 
+// Simple EventMarker component 
+const EventMarker: React.FC<{
+  event: CustomFeature;
+  isSelected: boolean;
+  onClick: () => void;
+}> = ({ event, isSelected, onClick }) => {
+  const category = event.category || event.properties?.category || 'event';
+  
+  // Get marker color based on category
+  const getMarkerColor = () => {
+    const lowerCategory = category.toLowerCase();
+    if (lowerCategory.includes('music')) return '#3b82f6'; // blue
+    if (lowerCategory.includes('sports')) return '#22c55e'; // green
+    if (lowerCategory.includes('arts') || lowerCategory.includes('theatre')) return '#ec4899'; // pink
+    if (lowerCategory.includes('family')) return '#eab308'; // yellow
+    if (lowerCategory.includes('food') || lowerCategory.includes('restaurant')) return '#f97316'; // orange
+    if (lowerCategory.includes('party')) return '#a855f7'; // purple
+    return '#6b7280'; // gray default
+  };
+  
+  return (
+    <div 
+      className={`marker-container ${isSelected ? 'selected' : ''}`}
+      onClick={onClick}
+      style={{
+        cursor: 'pointer',
+        width: isSelected ? '30px' : '24px',
+        height: isSelected ? '30px' : '24px',
+        transition: 'all 0.3s ease'
+      }}
+    >
+      <div
+        style={{
+          backgroundColor: getMarkerColor(),
+          width: '100%',
+          height: '100%',
+          borderRadius: '50%',
+          border: isSelected ? '3px solid white' : '2px solid rgba(255,255,255,0.8)',
+          boxShadow: isSelected 
+            ? '0 0 0 2px rgba(0,0,0,0.2), 0 4px 8px rgba(0,0,0,0.3)' 
+            : '0 2px 4px rgba(0,0,0,0.2)',
+          transform: isSelected ? 'scale(1.1)' : 'scale(1)',
+          transition: 'all 0.2s ease',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center'
+        }}
+      >
+        {/* Optional: Add icon based on category */}
+        {event.properties?.cluster && (
+          <span style={{
+            color: 'white',
+            fontSize: '12px',
+            fontWeight: 'bold'
+          }}>
+            {event.properties.point_count || '+'}
+          </span>
+        )}
+      </div>
+    </div>
+  );
+};
+
 MapMarkers.displayName = 'MapMarkers';
+
+export default MapMarkers;

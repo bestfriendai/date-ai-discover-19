@@ -7,9 +7,11 @@ import { EventFilters } from './components/MapControls';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
 import { MapDebugOverlay } from './components/MapDebugOverlay';
 import MapMarkers from './MapMarkers';
+import { useClusterMarkers } from './hooks/useClusterMarkers';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
+import TerrainToggle from './components/TerrainToggle';
 // MapPopup is now integrated into useMapPopup
 import { useMapPopup } from './hooks/useMapPopup';
 import { useMapInitialization } from './hooks/useMapInitialization';
@@ -168,6 +170,68 @@ const MapComponent = ({
     onSelectEvent: onEventSelect || (() => {}),
     isEnabled: mapLoaded && events.length > 0
   });
+  
+  // Use cluster markers hook
+  const { clusteringEnabled, toggleClustering, isClusterSourceInitialized } = useClusterMarkers(
+    map,
+    events
+  );
+
+  // State for terrain mode
+  const [terrainEnabled, setTerrainEnabled] = useState(false);
+
+  // Enhanced view settings
+  useEffect(() => {
+    if (!map || !mapLoaded) return;
+
+    map.once('style.load', () => {
+      // Add sky layer for more realistic look (works in most Mapbox styles)
+      try {
+        if (!map.getLayer('sky')) {
+          map.addLayer({
+            'id': 'sky',
+            'type': 'sky',
+            'paint': {
+              'sky-type': 'atmosphere',
+              'sky-atmosphere-sun': [0.0, 0.0],
+              'sky-atmosphere-sun-intensity': 15
+            }
+          });
+        }
+      } catch (err) {
+        console.warn('[MapComponent] Could not add sky layer:', err);
+      }
+    });
+  }, [map, mapLoaded]);
+
+  // Toggle terrain effect (using simpler pitch-based approach for compatibility)
+  const toggleTerrain = useCallback(() => {
+    if (!map) return;
+    
+    try {
+      if (!terrainEnabled) {
+        // Simulate terrain with pitch
+        map.easeTo({
+          pitch: 60,
+          bearing: 0,
+          duration: 1000
+        });
+        
+        setTerrainEnabled(true);
+      } else {
+        // Reset to flat view
+        map.easeTo({
+          pitch: 0,
+          bearing: 0,
+          duration: 1000
+        });
+        
+        setTerrainEnabled(false);
+      }
+    } catch (error) {
+      console.error('[MapComponent] Error toggling terrain:', error);
+    }
+  }, [map, terrainEnabled]);
 
   // For WelcomeHeader conditional
   const mapCenter = map?.getCenter();
@@ -223,14 +287,39 @@ const MapComponent = ({
          />
       )}
 
-      {/* Map Markers (One per event) */}
-      {mapLoaded && map && events.length > 0 && (
+      {/* Map Markers - Use DOM-based markers when clustering is disabled */}
+      {mapLoaded && map && events.length > 0 && !clusteringEnabled && (
         <MapMarkers
           map={map}
           features={events}
           onMarkerClick={handleMarkerClick}
           selectedFeatureId={selectedEvent?.id || null}
         />
+      )}
+
+      {/* Toggle button for clustering */}
+      {mapLoaded && map && events.length > 0 && (
+        <div className="absolute bottom-24 right-4 z-10">
+          <button
+            onClick={toggleClustering}
+            className="bg-background/80 backdrop-blur-md p-2 rounded-full shadow-lg border border-border/50 hover:bg-background/90 transition-colors"
+            title={clusteringEnabled ? "Disable clustering" : "Enable clustering"}
+          >
+            <div className="w-8 h-8 flex items-center justify-center">
+              {clusteringEnabled ? (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="9" cy="9" r="5" />
+                  <circle cx="15" cy="15" r="5" />
+                </svg>
+              ) : (
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5" />
+                  <circle cx="12" cy="12" r="10" />
+                </svg>
+              )}
+            </div>
+          </button>
+        </div>
       )}
 
       {/* Warning for no markers */}
@@ -242,6 +331,34 @@ const MapComponent = ({
            </div>
          </div>
        )}
+
+      {/* Map controls in top right */}
+      {mapLoaded && map && (
+        <div className="absolute top-4 right-4 z-10 flex flex-col gap-2">
+          {/* Compass control */}
+          <div className="bg-background/80 backdrop-blur-md p-2 rounded-full shadow-lg border border-border/50 hover:bg-background/90 transition-colors cursor-pointer"
+               onClick={() => map.easeTo({ bearing: 0, pitch: 0, duration: 500 })}
+               title="Reset rotation">
+            <div className="h-8 w-8 relative">
+              <div className="absolute inset-0 flex items-center justify-center">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" className="w-5 h-5">
+                  <circle cx="12" cy="12" r="10" strokeWidth="2" />
+                  <path d="M12 2a10 10 0 0 1 10 10" strokeWidth="2" />
+                  <path d="m12 22-3-3m3 3 3-3" strokeWidth="2" />
+                  <path d="M12 6v6l3 3" strokeWidth="2" />
+                </svg>
+              </div>
+            </div>
+          </div>
+          
+          {/* Terrain toggle */}
+          <TerrainToggle
+            map={map}
+            enabled={terrainEnabled}
+            onToggle={toggleTerrain}
+          />
+        </div>
+      )}
 
       {/* Map Popup (Conditional, uses selectedEvent from MapView state) */}
       {/* The popup will be managed by the useMapPopup hook */}

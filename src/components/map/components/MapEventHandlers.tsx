@@ -1,3 +1,4 @@
+
 import React from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
@@ -22,7 +23,7 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
     if (!map) return;
     
     // Add event handlers to the map
-    const handleClick = (e: mapboxgl.MapMouseEvent) => {
+    const handleClick = (e: any) => {
       // Get features at click point
       const features = map.queryRenderedFeatures(e.point, {
         layers: ['clusters', 'unclustered-point']
@@ -65,33 +66,27 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
       }
     };
     
+    // Define cursor style handlers
+    const handleMouseEnter = () => {
+      map.getCanvas().style.cursor = 'pointer';
+    };
+    
+    const handleMouseLeave = () => {
+      map.getCanvas().style.cursor = '';
+    };
+    
     // Add click handler
     map.on('click', handleClick);
     
-    // Add cursor style changes
-    map.on('mouseenter', 'clusters', () => {
-      map.getCanvas().style.cursor = 'pointer';
-    });
-    
-    map.on('mouseleave', 'clusters', () => {
-      map.getCanvas().style.cursor = '';
-    });
-    
-    map.on('mouseenter', 'unclustered-point', () => {
-      map.getCanvas().style.cursor = 'pointer';
-    });
-    
-    map.on('mouseleave', 'unclustered-point', () => {
-      map.getCanvas().style.cursor = '';
-    });
+    // Add cursor style handlers
+    map.on('mouseenter', handleMouseEnter);
+    map.on('mouseleave', handleMouseLeave);
     
     // Cleanup
     return () => {
       map.off('click', handleClick);
-      map.off('mouseenter', 'clusters');
-      map.off('mouseleave', 'clusters');
-      map.off('mouseenter', 'unclustered-point');
-      map.off('mouseleave', 'unclustered-point');
+      map.off('mouseenter', handleMouseEnter);
+      map.off('mouseleave', handleMouseLeave);
     };
   }, [map, supercluster, events, onEventSelect]);
   
