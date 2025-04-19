@@ -16,29 +16,22 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
   events,
   onEventSelect
 }) => {
-  // This component doesn't render anything visible
-  // It just attaches event handlers to the map
-  
   React.useEffect(() => {
     if (!map) return;
     
-    // Add event handlers to the map
     const handleClick = (e: any) => {
-      // Get features at click point
       const features = map.queryRenderedFeatures(e.point, {
         layers: ['clusters', 'unclustered-point']
       });
       
       if (features.length === 0) {
-        // Clicked on empty space, deselect event
         if (onEventSelect) onEventSelect(null);
         return;
       }
       
       const feature = features[0];
       
-      if (feature.properties && feature.properties.cluster) {
-        // Handle cluster click
+      if (feature.properties?.cluster) {
         if (!supercluster) return;
         
         const clusterId = feature.properties.cluster_id;
@@ -47,8 +40,9 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
           map.flyTo({
             center: feature.geometry?.coordinates as [number, number],
             zoom: zoom,
-            duration: 800,
-            essential: true
+            duration: 1000,
+            essential: true,
+            easing: (t) => t * (2 - t) // Smooth easing function
           });
         } catch (err) {
           console.error('[MAP_EVENTS] Error expanding cluster:', err);
@@ -56,39 +50,54 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
         
         if (onEventSelect) onEventSelect(null);
       } else {
-        // Handle event marker click
         const eventId = feature.properties?.id;
         const event = events.find(e => e.id === eventId);
         
         if (event && onEventSelect) {
+          // Add a nice zoom effect when selecting an event
+          map.flyTo({
+            center: event.coordinates as [number, number],
+            zoom: Math.max(map.getZoom(), 14),
+            duration: 800,
+            padding: { top: 50, bottom: 50, left: 50, right: 50 }
+          });
+          
           onEventSelect(event);
         }
       }
     };
     
-    // Define cursor style handlers
-    const handleMouseEnter = () => {
-      map.getCanvas().style.cursor = 'pointer';
+    const handleMouseEnter = (e: any) => {
+      const features = map.queryRenderedFeatures(e.point, {
+        layers: ['clusters', 'unclustered-point']
+      });
+      
+      if (features.length > 0) {
+        map.getCanvas().style.cursor = 'pointer';
+        
+        // Add a subtle scale effect to hovered markers
+        if (features[0].properties?.cluster) {
+          map.getCanvas().style.transform = 'scale(1.1)';
+          map.getCanvas().style.transition = 'transform 0.2s';
+        }
+      }
     };
     
     const handleMouseLeave = () => {
       map.getCanvas().style.cursor = '';
+      map.getCanvas().style.transform = '';
     };
     
-    // Add click handler
     map.on('click', handleClick);
+    map.on('mouseenter', ['clusters', 'unclustered-point'], handleMouseEnter);
+    map.on('mouseleave', ['clusters', 'unclustered-point'], handleMouseLeave);
     
-    // Add cursor style handlers
-    map.on('mouseenter', handleMouseEnter);
-    map.on('mouseleave', handleMouseLeave);
-    
-    // Cleanup
     return () => {
       map.off('click', handleClick);
-      map.off('mouseenter', handleMouseEnter);
-      map.off('mouseleave', handleMouseLeave);
+      map.off('mouseenter', ['clusters', 'unclustered-point'], handleMouseEnter);
+      map.off('mouseleave', ['clusters', 'unclustered-point'], handleMouseLeave);
     };
   }, [map, supercluster, events, onEventSelect]);
   
   return null;
-};
+});

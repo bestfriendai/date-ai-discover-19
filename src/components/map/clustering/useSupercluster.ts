@@ -22,11 +22,6 @@ export function useSupercluster(events: Event[], bounds: [number, number, number
   const points = useMemo(() => {
     console.log('[CLUSTER] Processing', events.length, 'events for clustering');
 
-    // Log a sample of events to debug
-    if (events.length > 0) {
-      console.log('[CLUSTER] Sample event:', JSON.stringify(events[0]));
-    }
-
     const validEvents = events.filter(ev => {
       const hasValidCoords = Array.isArray(ev.coordinates) &&
         ev.coordinates.length === 2 &&
@@ -34,50 +29,57 @@ export function useSupercluster(events: Event[], bounds: [number, number, number
         !isNaN(ev.coordinates[1]);
 
       if (!hasValidCoords) {
-        console.warn('[CLUSTER] Event missing valid coordinates:', ev.id, 'coordinates:', ev.coordinates);
+        console.warn('[CLUSTER] Event missing valid coordinates:', ev.id);
       }
       return hasValidCoords;
     });
 
-    console.log(`[CLUSTER] Found ${validEvents.length} events with valid coordinates out of ${events.length} total events`);
-
-    return validEvents.map(ev => {
-      // Log the first few events being converted to features
-      if (validEvents.indexOf(ev) < 3) {
-        console.log(`[CLUSTER] Converting event ${ev.id} with coordinates ${ev.coordinates} to feature`);
+    return validEvents.map(ev => ({
+      type: 'Feature' as const,
+      properties: { 
+        ...ev,
+        cluster: false,
+        id: ev.id,
+        category: ev.category || 'other'
+      },
+      geometry: {
+        type: 'Point' as const,
+        coordinates: ev.coordinates as [number, number]
       }
-
-      return {
-        type: 'Feature' as const,
-        properties: { ...ev, cluster: false },
-        geometry: {
-          type: 'Point' as const,
-          coordinates: ev.coordinates as [number, number]
-        }
-      };
-    });
+    }));
   }, [events]);
 
-  // Initialize or update supercluster when points change
+  // Initialize or update supercluster with optimized settings
   useEffect(() => {
     if (!points.length) {
       setClusters([]);
       return;
     }
 
-    console.log('[CLUSTER] Initializing supercluster with', points.length, 'points');
-
     const supercluster = new Supercluster({
-      radius: 40,
+      radius: 60,
       maxZoom: 16,
       minZoom: 0,
+      minPoints: 3, // Minimum points to form a cluster
+      map: props => ({
+        category: props.category,
+        id: props.id
+      }),
+      reduce: (accumulated, props) => {
+        // Count events by category in clusters
+        if (!accumulated.categories) {
+          accumulated.categories = {};
+        }
+        const category = props.category || 'other';
+        accumulated.categories[category] = (accumulated.categories[category] || 0) + 1;
+      }
     });
 
     supercluster.load(points);
     superclusterRef.current = supercluster;
   }, [points]);
 
-  // Get clusters based on current bounds and zoom
+  // Get clusters with improved performance
   useEffect(() => {
     if (!superclusterRef.current || !bounds || !points.length) {
       return;
@@ -87,9 +89,9 @@ export function useSupercluster(events: Event[], bounds: [number, number, number
     console.log('[CLUSTER] Getting clusters for zoom level', currentZoom);
 
     try {
-      const clusterFeatures = superclusterRef.current.getClusters(bounds, currentZoom) as ClusterFeature[];
+      const clusterFeatures = superclusterRef.current.getClusters(bounds, currentZoom);
       console.log('[CLUSTER] Generated', clusterFeatures.length, 'clusters/points');
-      setClusters(clusterFeatures);
+      setClusters(clusterFeatures as ClusterFeature[]);
     } catch (error) {
       console.error('[CLUSTER] Error generating clusters:', error);
       setClusters([]);
