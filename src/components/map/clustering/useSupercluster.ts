@@ -56,22 +56,29 @@ export function useSupercluster(events: Event[], bounds: [number, number, number
       return;
     }
 
+    // Define a clearer interface for the reduce function's accumulated object
+    interface AccumulatedData {
+      category: string;
+      id: any;
+      categoryCount?: {[key: string]: number};
+    }
+
     const supercluster = new Supercluster({
       radius: 60,
       maxZoom: 16,
       minZoom: 0,
       minPoints: 3, // Minimum points to form a cluster
-      map: props => ({
+      map: (props: any) => ({
         category: props.category,
         id: props.id
       }),
-      reduce: (accumulated, props) => {
+      reduce: (accumulated: AccumulatedData, props: any) => {
         // Count events by category in clusters
-        if (!accumulated.categories) {
-          accumulated.categories = {};
+        if (!accumulated.categoryCount) {
+          accumulated.categoryCount = {};
         }
         const category = props.category || 'other';
-        accumulated.categories[category] = (accumulated.categories[category] || 0) + 1;
+        accumulated.categoryCount[category] = (accumulated.categoryCount[category] || 0) + 1;
       }
     });
 

@@ -58,8 +58,8 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
           map.flyTo({
             center: event.coordinates as [number, number],
             zoom: Math.max(map.getZoom(), 14),
-            duration: 800,
-            padding: { top: 50, bottom: 50, left: 50, right: 50 }
+            duration: 800
+            // Remove the padding property as it's not supported in this context
           });
           
           onEventSelect(event);
@@ -67,20 +67,9 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
       }
     };
     
-    const handleMouseEnter = (e: any) => {
-      const features = map.queryRenderedFeatures(e.point, {
-        layers: ['clusters', 'unclustered-point']
-      });
-      
-      if (features.length > 0) {
-        map.getCanvas().style.cursor = 'pointer';
-        
-        // Add a subtle scale effect to hovered markers
-        if (features[0].properties?.cluster) {
-          map.getCanvas().style.transform = 'scale(1.1)';
-          map.getCanvas().style.transition = 'transform 0.2s';
-        }
-      }
+    const handleMouseEnter = () => {
+      // Simplify the mouse enter handler to avoid potential issues
+      map.getCanvas().style.cursor = 'pointer';
     };
     
     const handleMouseLeave = () => {
@@ -88,14 +77,22 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
       map.getCanvas().style.transform = '';
     };
     
+    // Fix event handlers to use the correct pattern
     map.on('click', handleClick);
-    map.on('mouseenter', ['clusters', 'unclustered-point'], handleMouseEnter);
-    map.on('mouseleave', ['clusters', 'unclustered-point'], handleMouseLeave);
+    
+    // Add event listeners to specific layers properly
+    map.on('mouseenter', 'clusters', handleMouseEnter);
+    map.on('mouseenter', 'unclustered-point', handleMouseEnter);
+    map.on('mouseleave', 'clusters', handleMouseLeave);
+    map.on('mouseleave', 'unclustered-point', handleMouseLeave);
     
     return () => {
+      // Clean up event listeners properly
       map.off('click', handleClick);
-      map.off('mouseenter', ['clusters', 'unclustered-point'], handleMouseEnter);
-      map.off('mouseleave', ['clusters', 'unclustered-point'], handleMouseLeave);
+      map.off('mouseenter', 'clusters', handleMouseEnter);
+      map.off('mouseenter', 'unclustered-point', handleMouseEnter);
+      map.off('mouseleave', 'clusters', handleMouseLeave);
+      map.off('mouseleave', 'unclustered-point', handleMouseLeave);
     };
   }, [map, supercluster, events, onEventSelect]);
   
