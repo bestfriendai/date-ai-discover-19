@@ -324,12 +324,33 @@ const SortableItem: React.FC<SortableItemProps> = ({ item, onRemove, onUpdate, i
     opacity: isDragging ? 0.8 : 1,
   };
 
-  // Update event type for Textarea
+  // Local state for textarea value
+  const [localValue, setLocalValue] = React.useState(item.event?.title || item.notes || '');
+  React.useEffect(() => {
+    setLocalValue(item.event?.title || item.notes || '');
+  }, [item.event?.title, item.notes]);
+
+  // Debounce update to parent
+  const debounceTimeout = React.useRef<NodeJS.Timeout | null>(null);
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const updatedItems = items.map(i =>
-      i.id === item.id ? { ...i, notes: e.target.value } : i
-    );
-    onUpdate(updatedItems);
+    setLocalValue(e.target.value);
+    if (debounceTimeout.current) clearTimeout(debounceTimeout.current);
+    debounceTimeout.current = setTimeout(() => {
+      if (item.eventId === '' || item.id.startsWith('custom-')) {
+        const updatedItems = items.map(i =>
+          i.id === item.id ? { ...i, notes: e.target.value } : i
+        );
+        onUpdate(updatedItems);
+      }
+    }, 400);
+  };
+  const handleBlur = (e: React.FocusEvent<HTMLTextAreaElement>) => {
+    if (item.eventId === '' || item.id.startsWith('custom-')) {
+      const updatedItems = items.map(i =>
+        i.id === item.id ? { ...i, notes: e.target.value } : i
+      );
+      onUpdate(updatedItems);
+    }
   };
 
   return (
@@ -339,11 +360,12 @@ const SortableItem: React.FC<SortableItemProps> = ({ item, onRemove, onUpdate, i
       </button>
       {/* Use Textarea for potentially longer notes/titles */}
       <Textarea
-        className="flex-grow p-1 border rounded text-sm resize-none h-10 min-h-10" // Adjust height and prevent resize
-        value={item.event?.title || item.notes || ''}
+        className="flex-grow p-1 border rounded text-sm resize-none h-10 min-h-10"
+        value={localValue}
         onChange={handleInputChange}
-        readOnly={item.eventId !== '' && !item.id.startsWith('custom-')} // Only allow editing notes for custom items
-        rows={1} // Start with 1 row
+        onBlur={handleBlur}
+        readOnly={item.eventId !== '' && !item.id.startsWith('custom-')}
+        rows={1}
       />
       <Button variant="outline" size="icon" className="h-8 w-8 flex-shrink-0" onClick={() => onRemove(item.id)} aria-label={`Remove ${item.event?.title || item.notes || 'item'}`}>
         <Trash2 className="h-4 w-4" />

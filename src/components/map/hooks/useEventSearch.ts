@@ -213,7 +213,6 @@ export const useEventSearch = () => {
 
       // Process events to ensure they have valid coordinates
       console.log('[EVENTS] Raw events before processing:', JSON.stringify(result.events.slice(0, 2)));
-
       const processedEvents = result.events.map(event => {
         // If event already has valid coordinates, use them
         if (event.coordinates &&
@@ -235,7 +234,7 @@ export const useEventSearch = () => {
           centerCoords.latitude + randomLatOffset
         ] as [number, number];
 
-        console.log(`[EVENTS] Added coordinates to event ${event.id}:`, newCoordinates);
+        console.warn(`[EVENTS] Event ${event.id} missing or invalid coordinates. Assigning new coordinates:`, newCoordinates, 'Original event:', event);
 
         return {
           ...event,

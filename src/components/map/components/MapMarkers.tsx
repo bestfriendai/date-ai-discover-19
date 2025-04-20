@@ -128,12 +128,14 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
         }
         nextFeatureIds.add(id);
 
-         // Basic coordinate validation upfront
-        if (!feature.coordinates || !Array.isArray(feature.coordinates) || feature.coordinates.length !== 2 || isNaN(feature.coordinates[0]) || isNaN(feature.coordinates[1])) {
-             console.warn('[MARKERS] Skipping feature with invalid or missing coordinates:', id, feature.coordinates);
-             continue; // Skip features without valid coordinates
+        // Basic coordinate validation upfront
+        if (!feature.coordinates || !Array.isArray(feature.coordinates) || feature.coordinates.length !== 2 ||
+            typeof feature.coordinates[0] !== 'number' || typeof feature.coordinates[1] !== 'number') {
+            if (process.env.NODE_ENV === 'development') {
+                console.warn(`[MARKERS] Event with ID ${id} missing valid coordinates:`, feature);
+            }
+            continue; // Skip features without valid coordinates
         }
-
 
         // Check if the marker already exists
         const existingEntry = markerMap.get(id);
@@ -371,7 +373,7 @@ const EventMarker: React.FC<{
     const textColor = isSelected ? 'text-primary-foreground' : 'text-white'; // Ensure text is white or foreground
     const scale = isSelected ? 'scale-125 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]' : 'scale-100'; // Adjusted glow for selected
     const animation = isSelected ? 'animate-pulse' : '';
-    return { IconComponent, bgColor: bgColorClass, textColor, scale, animation, category };
+    return { IconComponent: CATEGORY_ICONS[category] || CATEGORY_ICONS.default, bgColor: bgColorClass, textColor, scale, animation, category };
   }, [category, isSelected]);
 
   const { IconComponent, bgColor, textColor, scale, animation } = markerStyles;
