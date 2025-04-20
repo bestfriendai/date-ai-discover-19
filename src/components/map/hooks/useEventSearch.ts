@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { Event } from '@/types';
 import { searchEvents } from '@/services/eventService';
@@ -38,6 +37,7 @@ export const useEventSearch = () => {
   const [hasMore, setHasMore] = useState(false);
   const [page, setPage] = useState(1);
   const [totalEvents, setTotalEvents] = useState(0);
+  const [filters, setFilters] = useState<EventFilters>({});
 
   // Reference to the event cache
   const eventCacheRef = useRef<EventCache>(globalEventCache);
@@ -273,6 +273,44 @@ export const useEventSearch = () => {
     }
   }, [isEventsLoading]);
 
+  // --- FILTER EVENTS LOCALLY BASED ON UI FILTERS (category, date, etc.) ---
+  const applyLocalFilters = useCallback((events: Event[], filters: EventFilters) => {
+    // Apply category filter
+    let filtered = events;
+    if (filters.categories && filters.categories.length > 0) {
+      filtered = filtered.filter(ev =>
+        filters.categories!.some(cat => ev.category?.toLowerCase() === cat.toLowerCase())
+      );
+    }
+    // Apply datePreset filter
+    if (filters.datePreset) {
+      const now = new Date();
+      let from: Date, to: Date;
+      if (filters.datePreset === 'today') {
+        from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        to = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+      } else if (filters.datePreset === 'week') {
+        const dayOfWeek = now.getDay();
+        from = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+        to = new Date(now.getFullYear(), now.getMonth(), now.getDate() + (6 - dayOfWeek), 23, 59, 59);
+      } else if (filters.datePreset === 'month') {
+        from = new Date(now.getFullYear(), now.getMonth(), 1);
+        to = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      }
+      filtered = filtered.filter(ev => {
+        if (!ev.date) return false;
+        const evDate = new Date(ev.date);
+        return evDate >= from && evDate <= to;
+      });
+    }
+    return filtered;
+  }, []);
+
+  // Watch for filter changes and apply local filtering
+  useEffect(() => {
+    setEvents(applyLocalFilters(rawEvents, filters));
+  }, [rawEvents, filters, applyLocalFilters]);
+
   return {
     events,
     rawEvents,
@@ -283,6 +321,8 @@ export const useEventSearch = () => {
     loadMoreEvents,
     hasMore,
     page,
-    totalEvents
+    totalEvents,
+    filters,
+    setFilters
   };
 };

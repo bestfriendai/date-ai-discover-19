@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useState } from 'react';
 import { MapLayout } from '@/components/map/layout/MapLayout';
 import { MapContent } from '@/components/map/layout/MapContent';
@@ -31,6 +30,7 @@ const MapView = () => {
   } = useMapState();
 
   const { filters, handleFiltersChange } = useMapFilters();
+  const { onCategoriesChange, onDatePresetChange, ...restFilters } = filters;
 
   const {
     events,
@@ -116,7 +116,7 @@ const MapView = () => {
         mapLoaded={mapLoaded}
         events={events}
         isEventsLoading={isEventsLoading}
-        filters={filters}
+        filters={{ ...restFilters, onCategoriesChange, onDatePresetChange }}
         hasMoreEvents={hasMore}
         totalEvents={totalEvents}
         onLeftSidebarClose={() => setLeftSidebarOpen(false)}

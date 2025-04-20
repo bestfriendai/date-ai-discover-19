@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from 'react';
 import { Filter, Locate, Search, X, Moon, Sun, Satellite, Loader2, Map, Compass, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -13,6 +12,11 @@ import { EventFilters as BaseEventFilters } from '@/types';
 export interface EventFilters extends BaseEventFilters {
   showInViewOnly?: boolean;
   onShowInViewOnlyChange?: (val: boolean) => void;
+  // --- ADDED FOR FILTER BAR ---
+  categories?: string[];
+  onCategoriesChange?: (categories: string[]) => void;
+  datePreset?: 'today' | 'week' | 'month';
+  onDatePresetChange?: (preset: 'today' | 'week' | 'month') => void;
 }
 
 interface MapControlsProps {

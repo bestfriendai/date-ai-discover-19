@@ -1,10 +1,10 @@
-
 import { useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
 
 export function useClusterMarkers(map: mapboxgl.Map | null, events: Event[], zoomThreshold: number = 11) {
-  const [clusteringEnabled, setClusteringEnabled] = useState(true);
+  // Force clustering to be disabled by default
+  const [clusteringEnabled, setClusteringEnabled] = useState(false);
   const [isClusterSourceInitialized, setIsClusterSourceInitialized] = useState(false);
 
   // Create GeoJSON from events
