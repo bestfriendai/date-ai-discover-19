@@ -5,31 +5,56 @@ import './index.css'
 import NetworkMonitor from './utils/networkMonitor'
 import PerformanceMonitor from './utils/performanceMonitor'
 import errorReporter from './utils/errorReporter'
+import { toast } from '@/hooks/use-toast';
 
-// Set up global error handlers for better debugging
-window.addEventListener('error', (event) => {
-  errorReporter('[UNCAUGHT ERROR]', {
-    message: event.message,
-    filename: event.filename,
-    lineno: event.lineno,
-    colno: event.colno,
-    error: event.error ? {
-      message: event.error.message,
-      stack: event.error.stack,
-      name: event.error.name
-    } : null
-  });
-});
+// Make toast globally available for error reporting
+declare global {
+  interface Window {
+    toast?: typeof toast;
+  }
+}
+if (typeof window !== 'undefined') {
+  window.toast = toast;
+}
 
-window.addEventListener('unhandledrejection', (event) => {
-  errorReporter('[UNHANDLED PROMISE REJECTION]', {
-    reason: event.reason instanceof Error ? {
-      message: event.reason.message,
-      stack: event.reason.stack,
-      name: event.reason.name
-    } : event.reason
+// --- ENHANCED ERROR LOGGING FOR BROWSER ---
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (event) => {
+    // Log full error details to the browser console
+    console.error('[Global Error]', {
+      message: event.message,
+      filename: event.filename,
+      lineno: event.lineno,
+      colno: event.colno,
+      error: event.error,
+      stack: event.error?.stack,
+    });
+    // Optionally, show a detailed toast for the user
+    if (window?.toast) {
+      window.toast({
+        title: 'A JavaScript error occurred',
+        description: `${event.message} in ${event.filename}:${event.lineno}:${event.colno}`,
+        variant: 'destructive',
+        duration: 8000,
+      });
+    }
   });
-});
+  window.addEventListener('unhandledrejection', (event) => {
+    // Log full promise rejection details
+    console.error('[Unhandled Promise Rejection]', {
+      reason: event.reason,
+      stack: event.reason?.stack,
+    });
+    if (window?.toast) {
+      window.toast({
+        title: 'Unhandled Promise Rejection',
+        description: event.reason?.message || String(event.reason),
+        variant: 'destructive',
+        duration: 8000,
+      });
+    }
+  });
+}
 
 // Original console methods to avoid circular references
 const originalConsoleLog = console.log;

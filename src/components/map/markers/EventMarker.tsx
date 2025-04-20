@@ -1,6 +1,7 @@
 // src/components/map/markers/EventMarker.tsx
 import React, { memo, useMemo } from 'react';
-import { MapPin, Music, Trophy, Palette, Users, Utensils, CalendarDays, PartyPopper } from 'lucide-react';
+import { motion } from 'framer-motion';
+import { Sparkles, Music, Heart, Calendar, MapPin, Star } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { Event } from '../../../types';
 import {
@@ -9,38 +10,25 @@ import {
   TooltipContent,
 } from '../../ui/tooltip';
 
-// Pre-define category icons for better performance
-const CATEGORY_ICONS = {
+// Helper to get icon and color by category
+const categoryIcon = {
   music: Music,
-  sports: Trophy,
-  arts: Palette,
-  theatre: Palette,
-  family: Users,
-  food: Utensils,
-  restaurant: Utensils,
-  party: PartyPopper,
-  other: CalendarDays,
-  default: CalendarDays,
+  arts: Sparkles,
+  sports: Star,
+  family: Heart,
+  food: Calendar,
+  party: MapPin,
+  default: MapPin,
 };
-
-// We're now using Tailwind classes directly instead of hex colors
-
-// Selected state styles
-const SELECTED_STYLES = {
-  bg: 'bg-primary ring-2 ring-primary-foreground shadow-lg shadow-primary/30',
-  text: 'text-primary-foreground',
-  scale: 'scale-125 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]',
-  animation: 'animate-pulse',
+const categoryColor = {
+  music: 'bg-blue-500',
+  arts: 'bg-pink-500',
+  sports: 'bg-green-500',
+  family: 'bg-yellow-400',
+  food: 'bg-orange-500',
+  party: 'bg-purple-500',
+  default: 'bg-gray-500',
 };
-
-// Default state styles
-const DEFAULT_STYLES = {
-  text: 'text-white',
-  scale: 'scale-100',
-  animation: '',
-};
-
-// Note: Hover styles are applied directly in the className using Tailwind's hover: prefix
 
 interface EventMarkerProps {
   event: Event;
@@ -51,36 +39,6 @@ interface EventMarkerProps {
 const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerProps) => {
   const title = event.title || 'Unknown Event';
   const category = (event.category || 'default').toLowerCase();
-
-  const markerStyles = useMemo(() => {
-    const IconComponent = CATEGORY_ICONS[category] || CATEGORY_ICONS.default;
-
-    // Use Tailwind classes for colors instead of dynamic bg-[${baseColor}]
-    let bgColorClass = '';
-    if (isSelected) {
-      bgColorClass = SELECTED_STYLES.bg;
-    } else {
-      // Map category to Tailwind color classes
-      switch(category) {
-        case 'music': bgColorClass = 'bg-blue-600'; break;
-        case 'sports': bgColorClass = 'bg-green-600'; break;
-        case 'arts':
-        case 'theatre': bgColorClass = 'bg-pink-600'; break;
-        case 'family': bgColorClass = 'bg-yellow-600'; break;
-        case 'food':
-        case 'restaurant': bgColorClass = 'bg-orange-600'; break;
-        case 'party': bgColorClass = 'bg-purple-600'; break;
-        default: bgColorClass = 'bg-gray-600';
-      }
-    }
-
-    const textColor = isSelected ? SELECTED_STYLES.text : DEFAULT_STYLES.text;
-    const scale = isSelected ? SELECTED_STYLES.scale : DEFAULT_STYLES.scale;
-    const animation = isSelected ? SELECTED_STYLES.animation : DEFAULT_STYLES.animation;
-    return { IconComponent, bgColor: bgColorClass, textColor, scale, animation, category };
-  }, [category, isSelected]);
-
-  const { IconComponent, bgColor, textColor, scale, animation } = markerStyles;
 
   const tooltipContent = useMemo(() => (
     <div>
@@ -101,32 +59,40 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
   };
 
   return (
-      <Tooltip delayDuration={0}>
-        <TooltipTrigger asChild>
-          <button
-            type="button"
-            onClick={handleClick}
-            className={cn(
-              'cursor-pointer transition-all duration-200 ease-in-out hover:scale-110 focus:outline-none p-1 rounded-full flex items-center justify-center border border-border/50 shadow-md backdrop-blur-sm',
-              bgColor,
-              scale,
-              animation,
-              {
-                'w-6 h-6 sm:w-7 sm:h-7': true, // Slightly larger on desktop
-                'z-20': isSelected,
-                'z-10': !isSelected,
-                'hover:shadow-lg': true,
-              }
-            )}
-            aria-label={`Event: ${title}`}
-          >
-            <IconComponent className={cn('h-4 w-4', textColor)} strokeWidth={2} />
-          </button>
-        </TooltipTrigger>
-        <TooltipContent side="top" align="center">
-          {tooltipContent}
-        </TooltipContent>
-      </Tooltip>
+    <Tooltip delayDuration={0}>
+      <TooltipTrigger asChild>
+        <motion.button
+          type="button"
+          onClick={handleClick}
+          className={cn(
+            'cursor-pointer transition-all duration-200 ease-in-out focus:outline-none p-1 rounded-full flex items-center justify-center border border-border/50 shadow-md backdrop-blur-sm',
+            categoryColor[category] || categoryColor.default,
+            isSelected ? 'scale-125 ring-4 ring-primary z-30' : 'hover:scale-110 z-10',
+            'w-7 h-7 sm:w-8 sm:h-8'
+          )}
+          aria-label={`Event: ${event.title}`}
+          animate={isSelected ? { scale: 1.25 } : { scale: 1 }}
+          whileHover={{ scale: 1.15 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {(() => {
+            const Icon = categoryIcon[category] || categoryIcon.default;
+            return <Icon className="h-5 w-5 text-white drop-shadow" strokeWidth={2.5} />;
+          })()}
+          {isSelected && (
+            <motion.span
+              className="absolute animate-ping bg-primary/20 rounded-full w-10 h-10 -z-10"
+              initial={{ opacity: 0.6, scale: 1 }}
+              animate={{ opacity: 0, scale: 1.7 }}
+              transition={{ duration: 1.2, repeat: Infinity }}
+            />
+          )}
+        </motion.button>
+      </TooltipTrigger>
+      <TooltipContent side="top" align="center">
+        {tooltipContent}
+      </TooltipContent>
+    </Tooltip>
   );
 });
 

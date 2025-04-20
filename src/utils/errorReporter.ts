@@ -2,6 +2,12 @@
 // In development, logs to console. In production, extend to send to a service (e.g., Sentry)
 
 const isDev = process.env.NODE_ENV === 'development' || !process.env.NODE_ENV;
+// Store the original console.error to avoid recursion
+const originalConsoleError = (typeof window !== 'undefined' && window.console && window.console.error)
+  ? window.console.error.bind(window.console)
+  : (...args: any[]) => {};
+
+let isReportingError = false;
 
 function safeStringify(obj: any, maxDepth = 3, maxLen = 1000): string {
   const seen = new WeakSet();
@@ -22,27 +28,32 @@ function safeStringify(obj: any, maxDepth = 3, maxLen = 1000): string {
     }
     return obj;
   }
-  let result = JSON.stringify(_stringify(obj, 0));
+  let result = '';
+  try {
+    result = JSON.stringify(_stringify(obj, 0));
+  } catch (e) {
+    result = '[Unserializable object]';
+  }
   if (result.length > maxLen) result = result.slice(0, maxLen) + '...';
   return result;
 }
 
 export default function errorReporter(...args: any[]) {
-  if (isDev) {
-    // Log to console in dev
-    // eslint-disable-next-line no-console
-    console.error('[ERROR REPORT]', ...args);
-  } else {
-    // In production, send to monitoring service
-    // Example: Sentry.captureException(args)
-    // For now, just log to console
-    try {
+  if (isReportingError) return; // Prevent recursion
+  isReportingError = true;
+  try {
+    if (isDev) {
+      // Log to original console.error in dev
+      originalConsoleError('[ERROR REPORT]', ...args);
+    } else {
+      // In production, send to monitoring service
+      // Example: Sentry.captureException(args)
+      // For now, just log to original console
       const msg = safeStringify(args);
-      // eslint-disable-next-line no-console
-      console.error('[ERROR REPORT]', msg);
-    } catch (e) {
-      // eslint-disable-next-line no-console
-      console.error('[ERROR REPORT] (failed to stringify)', args);
+      originalConsoleError('[ERROR REPORT]', msg);
     }
+  } catch (e) {
+    originalConsoleError('[ERROR REPORT] (failed to stringify or log)', args);
   }
+  isReportingError = false;
 }
