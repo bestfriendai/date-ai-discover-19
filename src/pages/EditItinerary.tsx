@@ -75,28 +75,37 @@ const EditItinerary: React.FC = () => {
     if (!itinerary) return;
     setSaving(true);
     try {
-      // Normalize items for Supabase type
+      // Normalize items for Supabase type and ensure order is correct
       const normalizedItems = items.map((item, idx) => ({
         ...item,
         eventId: item.eventId ?? '',
-        order: idx,
+        order: idx, // Explicitly set order based on array index
         type: (item.eventId === '' || item.id.startsWith('custom-')) ? "CUSTOM" as "CUSTOM" : "EVENT" as "EVENT",
         title: item.notes || (item.event && item.event.title) || '',
         startTime: item.startTime ?? '',
         endTime: item.endTime ?? '',
+        location_name: item.location || null,
+        location_coordinates: item.coordinates || null,
+        notes: item.notes || null,
       }));
+
       const updated = await updateItinerary(itinerary.id, {
         name: editingName,
         description: editingDescription,
         date: editingDate,
         items: normalizedItems,
+        preserveItems: false // Replace all items in the DB
       });
+
       if (updated) {
-        // Normalize items for local type
+        // Normalize items from updated response for local state
         const localItems = (updated.items || []).map(item => ({
           ...item,
           eventId: item.eventId ?? '',
+          location: item.location_name, // Map DB field to local field
+          coordinates: item.location_coordinates, // Map DB field to local field
         }));
+
         setItinerary({ ...updated, items: localItems });
         toast({ title: 'Itinerary saved!' });
         navigate('/plan');
@@ -262,30 +271,10 @@ const EditItinerary: React.FC = () => {
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Save Itinerary
             </Button>
-            <Button
-              variant="secondary"
-              // disabled={saving} // This is handled by the combined check below
-              onClick={async () => {
-                if (!itinerary) return;
-                setSavingOrder(true); // Set loading state
-                const ok = await import('@/services/itineraryService').then(mod =>
-                  mod.reorderItineraryItems(itinerary.id, items.map(item => item.id))
-                );
-                setSavingOrder(false); // Unset loading state
-                if (ok) {
-                  toast({ title: 'Order saved!' });
-                } else {
-                  toast({ title: 'Error saving order', variant: 'destructive' });
-                }
-              }}
-            disabled={saving || savingOrder} // Disable while saving main or order
-            >
-              {savingOrder && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              Save Order
-            </Button>
+            {/* Save Order button removed - order is saved with the main Save button */}
             {/* Add margin-right for spacing on larger screens */}
-            {/* Disable delete while any save is happening */}
-            <Button variant="destructive" onClick={handleDelete} disabled={saving || savingOrder} className="sm:mr-auto">
+            {/* Disable delete while saving is happening */}
+            <Button variant="destructive" onClick={handleDelete} disabled={saving} className="sm:mr-auto">
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               Delete Itinerary
             </Button>

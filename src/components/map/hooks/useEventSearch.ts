@@ -5,6 +5,12 @@ import { formatISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { EventFilters } from '../components/MapControls';
 
+// Define the source stats type
+interface SourceStats {
+  count: number;
+  error: string | null;
+}
+
 // Cache structure to store events by location
 interface EventCache {
   [key: string]: {
@@ -38,6 +44,12 @@ export const useEventSearch = () => {
   const [page, setPage] = useState(1);
   const [totalEvents, setTotalEvents] = useState(0);
   const [filters, setFilters] = useState<EventFilters>({});
+  const [sourceStats, setSourceStats] = useState<{
+    ticketmaster?: SourceStats;
+    eventbrite?: SourceStats;
+    serpapi?: SourceStats;
+    predicthq?: SourceStats;
+  } | null>(null);
 
   // Reference to the event cache
   const eventCacheRef = useRef<EventCache>(globalEventCache);
@@ -197,6 +209,42 @@ export const useEventSearch = () => {
 
       console.log('[EVENTS] Received', result.events.length, 'events from API');
 
+      // Log and store source stats if available
+      if (result.sourceStats) {
+        console.log('[EVENTS] Source stats:', result.sourceStats);
+
+        // Log individual source stats
+        if (result.sourceStats.ticketmaster) {
+          console.log(
+            `[EVENTS] Ticketmaster: ${result.sourceStats.ticketmaster.count} ${result.sourceStats.ticketmaster.error ? `(Error: ${result.sourceStats.ticketmaster.error})` : ''}`
+          );
+        }
+
+        if (result.sourceStats.eventbrite) {
+          console.log(
+            `[EVENTS] Eventbrite: ${result.sourceStats.eventbrite.count} ${result.sourceStats.eventbrite.error ? `(Error: ${result.sourceStats.eventbrite.error})` : ''}`
+          );
+        }
+
+        if (result.sourceStats.serpapi) {
+          console.log(
+            `[EVENTS] Serpapi: ${result.sourceStats.serpapi.count} ${result.sourceStats.serpapi.error ? `(Error: ${result.sourceStats.serpapi.error})` : ''}`
+          );
+        }
+
+        if (result.sourceStats.predicthq) {
+          console.log(
+            `[EVENTS] PredictHQ: ${result.sourceStats.predicthq.count} ${result.sourceStats.predicthq.error ? `(Error: ${result.sourceStats.predicthq.error})` : ''}`
+          );
+        }
+
+        // Store the source stats
+        setSourceStats(result.sourceStats);
+      } else {
+        console.log('[EVENTS] No source stats available in API response');
+        setSourceStats(null);
+      }
+
       if (result.events.length === 0) {
         toast({
           title: "No events found",
@@ -322,6 +370,7 @@ export const useEventSearch = () => {
     page,
     totalEvents,
     filters,
-    setFilters
+    setFilters,
+    sourceStats
   };
 };

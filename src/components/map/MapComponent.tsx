@@ -7,7 +7,6 @@ import type { EventFilters } from './components/MapControls';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
 import { MapDebugOverlay } from './components/MapDebugOverlay';
 import MapMarkers from './components/MapMarkers'; // Fixed import path
-import { useClusterMarkers } from './hooks/useClusterMarkers';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
@@ -90,7 +89,7 @@ const MapComponent = ({
   );
 
   // Map event handling (moveend, deselect on click empty space)
-  const { handleMapMoveEnd: handleMapMoveEndFromHook, handleSearchThisArea } = useMapEvents(
+  const { handleMapMoveEnd: handleMapMoveEndFromHook } = useMapEvents(
      (center) => {
        if (isMapInitialized && map) {
           const currentZoom = map.getZoom();
@@ -120,11 +119,8 @@ const MapComponent = ({
      isMapInitialized // Depends on map being initialized
   );
 
-  // Use Mapbox GL JS Clustering Logic from hook
-  const { clusteringEnabled, toggleClustering, isClusterSourceInitialized } = useClusterMarkers(
-    map, // Pass the Mapbox map instance
-    events // Pass the event data for clustering
-  );
+  // Clustering is disabled - we use custom React markers instead
+  const clusteringEnabled = false;
 
   // Attach Mapbox-specific event listeners like moveend and click (for deselect)
   useEffect(() => {
@@ -174,124 +170,9 @@ const MapComponent = ({
   }, [map, isMapInitialized, handleMapMoveEndFromHook, selectedEvent, onEventSelect, clusteringEnabled]); // Re-run if map, loaded state, handlers, selected event, or clustering state change
 
 
-   // Manual cluster click handler for layers added by useClusterMarkers
-  const handleClusterClick = useCallback((clusterId: number, coordinates: [number, number]) => {
-      if (!map) return;
-      const source = map.getSource('events') as mapboxgl.GeoJSONSource; // Source ID used in useClusterMarkers
-      if (!source || !('getClusterExpansionZoom' in source)) return;
+   // Cluster handlers removed - we use custom React markers instead
 
-      try {
-        (source as any).getClusterExpansionZoom(clusterId, (err: any, zoom: number) => {
-          if (err) return;
-
-          map.easeTo({
-            center: coordinates,
-            zoom: zoom, // Zoom to the expansion zoom
-            duration: 500
-          });
-        });
-        // Deselect any currently selected event when clicking a cluster
-        if (selectedEvent && onEventSelect) {
-            onEventSelect(null);
-            console.log('[MapComponent] Clicked cluster, deselecting event.');
-        }
-      } catch (error) {
-        console.error('[MapComponent] Error expanding cluster:', error);
-      }
-  }, [map, selectedEvent, onEventSelect]);
-
-  // Manual point click handler for layers added by useClusterMarkers
-  const handleUnclusteredPointClick = useCallback((eventFeature: GeoJSON.Feature) => {
-    if (!map || !onEventSelect || !eventFeature.properties?.id) return;
-
-    const eventId = String(eventFeature.properties.id);
-     // Find the corresponding event object from the `events` array
-    const event = events.find(e => String(e.id) === eventId);
-
-    if (!event) {
-        console.warn('[MapComponent] Clicked unclustered point feature, but event object not found:', eventId);
-        return; // Event object not found in current list
-    }
-
-    console.log('[MapComponent] Clicked unclustered point for event ID:', event.id);
-
-    if (!selectedEvent || selectedEvent.id !== event.id) {
-      onEventSelect(event);
-      const coordinates = event.coordinates as [number, number];
-       if (coordinates) { // Ensure coordinates are valid before flying
-          map.flyTo({
-            center: coordinates,
-            zoom: Math.max(map.getZoom(), 14), // Zoom in if current zoom is low
-            duration: 600,
-            essential: true
-          });
-       }
-    } else {
-       // Clicking the same selected event point, deselect it
-       onEventSelect(null);
-       console.log('[MapComponent] Deselecting event:', event.id);
-    }
-  }, [map, onEventSelect, selectedEvent, events]); // Depend on events list to find the event object
-
-  // Attach Layer-Specific Mapbox Event Listeners (only when clustering is ON and initialized)
-  useEffect(() => {
-      if (!map || !isMapInitialized || !clusteringEnabled || !isClusterSourceInitialized) return;
-
-      const handleCursorEnter = () => {
-           if (map.getCanvas) map.getCanvas().style.cursor = 'pointer';
-      };
-
-      const handleCursorLeave = () => {
-           if (map.getCanvas) map.getCanvas().style.cursor = '';
-      };
-
-      // Wrapper for cluster click to match Mapbox signature
-      const clusterClickHandler = (e: mapboxgl.MapMouseEvent) => {
-        if (!e.features || e.features.length === 0) return;
-        const feature = e.features[0];
-        const clusterId = feature.properties?.cluster_id;
-        if (feature.geometry?.type === 'Point' && clusterId !== undefined) {
-          handleClusterClick(clusterId, feature.geometry.coordinates as [number, number]);
-        }
-      };
-
-      // Wrapper for unclustered point click to match Mapbox signature
-      const pointClickHandler = (e: mapboxgl.MapMouseEvent) => {
-        if (!e.features || e.features.length === 0) return;
-        handleUnclusteredPointClick(e.features[0]); // Pass the GeoJSON feature
-      };
-
-
-      // Ensure layers exist before adding listeners (although isClusterSourceInitialized should cover this)
-      if (map.getLayer('clusters')) {
-          map.on('click', 'clusters', clusterClickHandler);
-          map.on('mouseenter', 'clusters', handleCursorEnter);
-          map.on('mouseleave', 'clusters', handleCursorLeave);
-           console.log('[MapComponent] Attached cluster event listeners.');
-      }
-      if (map.getLayer('unclustered-point')) {
-           map.on('click', 'unclustered-point', pointClickHandler);
-           map.on('mouseenter', 'unclustered-point', handleCursorEnter);
-           map.on('mouseleave', 'unclustered-point', handleCursorLeave);
-           console.log('[MapComponent] Attached unclustered point event listeners.');
-      }
-
-
-      return () => {
-          // Clean up listeners for clustered layers when clustering is disabled or map unmounts
-          if (map.getLayer('clusters')) {
-              map.off('click', 'clusters', clusterClickHandler);
-              map.off('mouseenter', 'clusters', handleCursorEnter);
-              map.off('mouseleave', 'clusters', handleCursorLeave);
-          }
-          if (map.getLayer('unclustered-point')) {
-              map.off('click', 'unclustered-point', pointClickHandler);
-              map.off('mouseenter', 'unclustered-point', handleCursorEnter);
-              map.off('mouseleave', 'unclustered-point', handleCursorLeave);
-          }
-           console.log('[MapComponent] Cleaned up layer-specific event listeners.');
-      };
-  }, [map, isMapInitialized, clusteringEnabled, isClusterSourceInitialized, handleClusterClick, handleUnclusteredPointClick]); // Re-run if these dependencies change
+  // Cluster event listeners removed - we use custom React markers instead
 
 
   const [terrainEnabled, setTerrainEnabled] = useState(false);
@@ -375,36 +256,11 @@ const MapComponent = ({
     }
   }, [map, isMapInitialized, terrainEnabled]);
 
-  // Use mapCenter and mapZoom from useMapState hook (if needed for display, but not for map interaction)
-  const { mapCenter: currentMapCenter, mapZoom: currentMapZoom } = useMapState();
+  // Use mapCenter from useMapState hook (if needed for display, but not for map interaction)
+  const { mapCenter: currentMapCenter } = useMapState();
 
 
-   // Custom marker click handler (for use with MapMarkers when clustering is off)
-  const handleCustomMarkerClick = useCallback((event: Event) => {
-    if (!map || !isMapInitialized || !onEventSelect) return;
-
-    console.log('[MapComponent] Custom Marker clicked for:', event.id);
-
-    // If we click the currently selected marker, deselect it
-    if (selectedEvent && selectedEvent.id === event.id) {
-       onEventSelect(null);
-       console.log('[MapComponent] Deselecting event:', event.id);
-    } else {
-       // Select the new event
-       onEventSelect(event);
-       console.log('[MapComponent] Selecting event:', event.id);
-
-       const coordinates = event.coordinates as [number, number];
-       if (coordinates) { // Ensure coordinates are valid before flying
-          map.flyTo({
-            center: coordinates,
-            zoom: Math.max(map.getZoom(), 14), // Zoom in if current zoom is low
-            duration: 600,
-            essential: true
-          });
-       }
-    }
-  }, [map, isMapInitialized, onEventSelect, selectedEvent]);
+  // Custom marker click handler removed - now handled directly in MapMarkers component
 
 
   useMapPopup({
@@ -498,8 +354,8 @@ const MapComponent = ({
       )}
 
       {/* Terrain Toggle only - clustering button removed */}
-      {isMapInitialized && map && events.length > 0 && terrainSourceExists && ( 
-        <div className="absolute bottom-24 right-4 z-10 flex flex-col gap-2"> 
+      {isMapInitialized && map && events.length > 0 && terrainSourceExists && (
+        <div className="absolute bottom-24 right-4 z-10 flex flex-col gap-2">
           {/* Terrain Toggle Button */}
           <TerrainToggle
             map={map}

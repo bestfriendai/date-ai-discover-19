@@ -8,6 +8,7 @@ import { useMapEvents } from '@/components/map/hooks/useMapEvents';
 import AddToPlanModal from '@/components/events/AddToPlanModal';
 import { toast } from '@/hooks/use-toast';
 import type { Event } from '@/types';
+import { SourceStatsDisplay } from '@/components/map/components/SourceStatsDisplay';
 
 const MapView = () => {
   const {
@@ -38,7 +39,8 @@ const MapView = () => {
     fetchEvents,
     loadMoreEvents,
     hasMore,
-    totalEvents
+    totalEvents,
+    sourceStats
   } = useEventSearch();
 
   const { handleMapMoveEnd, handleMapLoad } = useMapEvents(
@@ -132,6 +134,7 @@ const MapView = () => {
         onLoadMore={loadMoreEvents}
         onAddToPlan={handleAddToPlan}
       />
+      {sourceStats && <SourceStatsDisplay stats={sourceStats} />}
       {eventToAdd && (
         <AddToPlanModal
           event={eventToAdd}
