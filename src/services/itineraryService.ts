@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import errorReporter from '../utils/errorReporter';
 import type { Itinerary, ItineraryItem } from '@/types';
 
 /**
@@ -16,7 +17,10 @@ export async function getItineraries(): Promise<Itinerary[]> {
       .eq('user_id', user.id)
       .order('date', { ascending: true });
 
-    if (error) throw error;
+    if (error) {
+      errorReporter('[itineraryService] Error fetching itineraries:', error);
+      throw error;
+    }
     if (!data) return [];
 
     // Get items for each itinerary
@@ -30,7 +34,7 @@ export async function getItineraries(): Promise<Itinerary[]> {
         .order('order', { ascending: true });
 
       if (itemsError) {
-        console.error('Error fetching itinerary items:', itemsError);
+        errorReporter('[itineraryService] Error fetching itinerary items:', itemsError);
         continue;
       }
 
@@ -63,6 +67,7 @@ export async function getItineraries(): Promise<Itinerary[]> {
     return itinerariesWithItems;
   } catch (error) {
     console.error('Error getting itineraries:', error);
+    errorReporter('Error getting itineraries:', error);
     return [];
   }
 }
@@ -80,7 +85,7 @@ export async function getItinerary(id: string): Promise<Itinerary | null> {
       .single();
 
     if (error) {
-      console.error('[itineraryService] Error fetching itinerary:', error);
+      errorReporter('[itineraryService] Error fetching itinerary:', error);
       throw error;
     }
     if (!data) {
@@ -96,7 +101,7 @@ export async function getItinerary(id: string): Promise<Itinerary | null> {
       .order('order', { ascending: true });
 
     if (itemsError) {
-      console.error('[itineraryService] Error fetching itinerary items:', itemsError);
+      errorReporter('[itineraryService] Error fetching itinerary items:', itemsError);
       throw itemsError;
     }
     console.log('[itineraryService] Found itinerary items:', items?.length || 0);
@@ -127,6 +132,7 @@ export async function getItinerary(id: string): Promise<Itinerary | null> {
     };
   } catch (error) {
     console.error('Error getting itinerary:', error);
+    errorReporter('Error getting itinerary:', error);
     return null;
   }
 }
@@ -157,7 +163,10 @@ export async function createItinerary(data: {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      errorReporter('[itineraryService] Error creating itinerary:', error);
+      throw error;
+    }
     if (!itinerary) return null;
 
     // Insert items if provided
@@ -181,7 +190,8 @@ export async function createItinerary(data: {
         .insert(itemsToInsert);
 
       if (itemsError) {
-        console.error('Error creating itinerary items:', itemsError);
+        errorReporter('[itineraryService] Error creating itinerary items:', itemsError);
+        throw itemsError;
       }
     }
 
@@ -197,6 +207,7 @@ export async function createItinerary(data: {
     };
   } catch (error) {
     console.error('Error creating itinerary:', error);
+    errorReporter('Error creating itinerary:', error);
     return null;
   }
 }
@@ -245,7 +256,10 @@ export async function updateItinerary(
         .update(updateData)
         .eq('id', id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        errorReporter('[itineraryService] Error updating itinerary:', updateError);
+        throw updateError;
+      }
     }
 
     // Update items if provided
@@ -257,7 +271,10 @@ export async function updateItinerary(
           .delete()
           .eq('itinerary_id', id);
 
-        if (deleteError) throw deleteError;
+        if (deleteError) {
+          errorReporter('[itineraryService] Error deleting itinerary items:', deleteError);
+          throw deleteError;
+        }
       }
 
       // Then insert the new items
@@ -287,7 +304,10 @@ export async function updateItinerary(
           .from('itinerary_items')
           .upsert(itemsToInsert, { onConflict: 'id' });
 
-        if (insertError) throw insertError;
+        if (insertError) {
+          errorReporter('[itineraryService] Error inserting itinerary items:', insertError);
+          throw insertError;
+        }
       }
     }
 
@@ -295,6 +315,7 @@ export async function updateItinerary(
     return await getItinerary(id);
   } catch (error) {
     console.error('Error updating itinerary:', error);
+    errorReporter('Error updating itinerary:', error);
     return null;
   }
 }
@@ -313,7 +334,10 @@ export async function deleteItinerary(id: string): Promise<boolean> {
       .delete()
       .eq('itinerary_id', id);
 
-    if (deleteItemsError) throw deleteItemsError;
+    if (deleteItemsError) {
+      errorReporter('[itineraryService] Error deleting itinerary items:', deleteItemsError);
+      throw deleteItemsError;
+    }
 
     // Then delete the itinerary
     const { error: deleteItineraryError } = await supabase
@@ -322,11 +346,15 @@ export async function deleteItinerary(id: string): Promise<boolean> {
       .eq('id', id)
       .eq('user_id', user.id);
 
-    if (deleteItineraryError) throw deleteItineraryError;
+    if (deleteItineraryError) {
+      errorReporter('[itineraryService] Error deleting itinerary:', deleteItineraryError);
+      throw deleteItineraryError;
+    }
 
     return true;
   } catch (error) {
     console.error('Error deleting itinerary:', error);
+    errorReporter('Error deleting itinerary:', error);
     return false;
   }
 }
@@ -374,11 +402,15 @@ export async function updateItineraryItem(
       .eq('id', itemId)
       .eq('itinerary_id', itineraryId);
 
-    if (updateError) throw updateError;
+    if (updateError) {
+      errorReporter('[itineraryService] Error updating itinerary item:', updateError);
+      throw updateError;
+    }
 
     return true;
   } catch (error) {
     console.error('Error updating itinerary item:', error);
+    errorReporter('Error updating itinerary item:', error);
     return false;
   }
 }
@@ -414,12 +446,16 @@ export async function reorderItineraryItems(
         .eq('id', itemIds[i])
         .eq('itinerary_id', itineraryId);
 
-      if (error) throw error;
+      if (error) {
+        errorReporter('[itineraryService] Error reordering itinerary items:', error);
+        throw error;
+      }
     }
 
     return true;
   } catch (error) {
     console.error('Error reordering itinerary items:', error);
+    errorReporter('Error reordering itinerary items:', error);
     return false;
   }
 }

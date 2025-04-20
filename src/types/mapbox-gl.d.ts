@@ -1,3 +1,6 @@
+// NOTE: Keep this file in sync with the Mapbox GL JS version used in package.json.
+// If you upgrade/downgrade Mapbox, update these types accordingly to avoid subtle bugs.
+
 // Type definitions for mapbox-gl
 declare namespace GeoJSON {
   interface GeoJsonObject {

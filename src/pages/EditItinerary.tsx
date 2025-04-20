@@ -8,7 +8,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 // Loader2 imported below with others
-import { useToast } from '@/hooks/use-toast';
+import errorReporter from '../utils/errorReporter';
+import { useToast } from '../components/ui/use-toast';
 import {
   DndContext,
   closestCenter,
@@ -101,8 +102,12 @@ const EditItinerary: React.FC = () => {
         navigate('/plan');
       }
     } catch (error) {
-      console.error('Error saving itinerary:', error);
-      toast({ title: 'Error saving itinerary', description: error.message, variant: 'destructive' });
+      errorReporter('Failed to save itinerary', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to save itinerary. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
@@ -121,8 +126,12 @@ const EditItinerary: React.FC = () => {
         throw new Error('Delete failed');
       }
     } catch (error) {
-      console.error('Error deleting itinerary:', error);
-      toast({ title: 'Error deleting itinerary', description: error.message, variant: 'destructive' });
+      errorReporter('Failed to delete itinerary', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to delete itinerary. Please try again.',
+        variant: 'destructive',
+      });
     } finally {
       setSaving(false);
     }
