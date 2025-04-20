@@ -12,8 +12,10 @@ const inFlightRequests: Record<string, {
   body?: any;
 }> = {};
 
-// Original fetch function
+// Original functions to avoid circular references
 const originalFetch = window.fetch;
+const originalConsoleError = console.error;
+const originalConsoleLog = console.log;
 
 /**
  * Initialize the network monitor by patching the fetch API
@@ -22,9 +24,9 @@ export function initNetworkMonitor() {
   if ((window as any).__networkMonitorInitialized) {
     return;
   }
-  
-  console.log('[NETWORK] Initializing network monitor');
-  
+
+  originalConsoleLog('[NETWORK] Initializing network monitor');
+
   // Override the fetch function
   window.fetch = async function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
     let url: string;
@@ -39,7 +41,7 @@ export function initNetworkMonitor() {
     }
     const method = init?.method || 'GET';
     const requestId = `${method}-${url}-${Date.now()}`;
-    
+
     // Start tracking the request
     inFlightRequests[requestId] = {
       url,
@@ -48,40 +50,43 @@ export function initNetworkMonitor() {
       headers: init?.headers as Record<string, string>,
       body: init?.body
     };
-    
+
     // Start measuring performance
     PerformanceMonitor.startMeasure(`fetch-${requestId}`, {
       url,
       method,
       headers: init?.headers
     });
-    
-    console.log(`[NETWORK] 🌐 ${method} request to ${url}`);
-    
+
+    originalConsoleLog(`[NETWORK] 🌐 ${method} request to ${url}`);
+
     try {
       // Call the original fetch function
       const response = await originalFetch(input, init);
-      
+
       // Clone the response to avoid consuming it
       const clonedResponse = response.clone();
-      
+
       // Get response details
       const status = response.status;
       const statusText = response.statusText;
       const contentType = response.headers.get('content-type') || '';
       const size = parseInt(response.headers.get('content-length') || '0', 10);
-      
+
       // Calculate request duration
       const endTime = performance.now();
       const duration = endTime - inFlightRequests[requestId].startTime;
-      
-      // Log response details
-      const logLevel = status >= 400 ? 'error' : 'log';
-      console[logLevel](
-        `[NETWORK] ${status < 400 ? '✅' : '❌'} ${method} ${url} - ${status} ${statusText} (${duration.toFixed(0)}ms)`,
-        { status, contentType, size, duration }
-      );
-      
+
+      // Log response details - using direct methods to avoid potential circular references
+      if (status >= 400) {
+        originalConsoleError(`[NETWORK] ❌ ${method} ${url} - ${status} ${statusText} (${duration.toFixed(0)}ms)`,
+          { status, contentType, size, duration });
+      } else {
+        // Use a direct reference to the original console.log
+        originalConsoleLog(`[NETWORK] ✅ ${method} ${url} - ${status} ${statusText} (${duration.toFixed(0)}ms)`,
+          { status, contentType, size, duration });
+      }
+
       // End performance measurement
       PerformanceMonitor.endMeasure(`fetch-${requestId}`, {
         status,
@@ -90,37 +95,37 @@ export function initNetworkMonitor() {
         duration,
         success: status < 400
       });
-      
+
       // Clean up
       delete inFlightRequests[requestId];
-      
+
       return response;
     } catch (error) {
       // Calculate request duration
       const endTime = performance.now();
       const duration = endTime - inFlightRequests[requestId].startTime;
-      
-      // Log error
-      console.error(`[NETWORK] ❌ ${method} ${url} - Failed (${duration.toFixed(0)}ms)`, error);
-      
+
+      // Log error - using direct reference to avoid circular references
+      originalConsoleError(`[NETWORK] ❌ ${method} ${url} - Failed (${duration.toFixed(0)}ms)`, error);
+
       // End performance measurement
       PerformanceMonitor.endMeasure(`fetch-${requestId}`, {
         error: error instanceof Error ? error.message : String(error),
         duration,
         success: false
       });
-      
+
       // Clean up
       delete inFlightRequests[requestId];
-      
+
       throw error;
     }
   };
-  
+
   // Mark as initialized
   (window as any).__networkMonitorInitialized = true;
-  
-  console.log('[NETWORK] Network monitor initialized successfully');
+
+  originalConsoleLog('[NETWORK] Network monitor initialized successfully');
 }
 
 /**
@@ -145,13 +150,13 @@ export function resetNetworkMonitor(): void {
   if ((window as any).__networkMonitorInitialized) {
     window.fetch = originalFetch;
     (window as any).__networkMonitorInitialized = false;
-    
+
     // Clear in-flight requests
     Object.keys(inFlightRequests).forEach(key => {
       delete inFlightRequests[key];
     });
-    
-    console.log('[NETWORK] Network monitor reset');
+
+    originalConsoleLog('[NETWORK] Network monitor reset');
   }
 }
 

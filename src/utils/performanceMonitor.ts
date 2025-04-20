@@ -2,6 +2,13 @@
  * Performance monitoring utility for tracking key metrics
  */
 
+// Original console methods to avoid circular references
+const originalConsoleLog = console.log;
+const originalConsoleWarn = console.warn;
+const originalConsoleError = console.error;
+const originalConsoleGroup = console.group;
+const originalConsoleGroupEnd = console.groupEnd;
+
 // Store performance marks and measures
 interface PerformanceEntry {
   name: string;
@@ -33,8 +40,8 @@ export function startMeasure(name: string, metadata?: Record<string, any>): void
     startTime: performance.now(),
     metadata
   };
-  
-  console.log(`[PERF] Started measuring: ${name}`);
+
+  originalConsoleLog(`[PERF] Started measuring: ${name}`);
 }
 
 /**
@@ -42,37 +49,37 @@ export function startMeasure(name: string, metadata?: Record<string, any>): void
  */
 export function endMeasure(name: string, additionalMetadata?: Record<string, any>): number | undefined {
   const entry = performanceData[name];
-  
+
   if (!entry) {
-    console.warn(`[PERF] No measurement started for: ${name}`);
+    originalConsoleWarn(`[PERF] No measurement started for: ${name}`);
     return undefined;
   }
-  
+
   const endTime = performance.now();
   const duration = endTime - entry.startTime;
-  
+
   // Update the entry
   entry.endTime = endTime;
   entry.duration = duration;
-  
+
   if (additionalMetadata) {
     entry.metadata = { ...entry.metadata, ...additionalMetadata };
   }
-  
+
   // Log the result
   const threshold = PERFORMANCE_THRESHOLDS[name as keyof typeof PERFORMANCE_THRESHOLDS];
-  
+
   if (threshold && duration > threshold) {
-    console.warn(`[PERF] ⚠️ Slow operation: ${name} took ${duration.toFixed(2)}ms (threshold: ${threshold}ms)`);
+    originalConsoleWarn(`[PERF] ⚠️ Slow operation: ${name} took ${duration.toFixed(2)}ms (threshold: ${threshold}ms)`);
   } else {
-    console.log(`[PERF] Completed: ${name} in ${duration.toFixed(2)}ms`);
+    originalConsoleLog(`[PERF] Completed: ${name} in ${duration.toFixed(2)}ms`);
   }
-  
+
   // Log additional metadata if available
   if (entry.metadata) {
-    console.log(`[PERF] ${name} details:`, entry.metadata);
+    originalConsoleLog(`[PERF] ${name} details:`, entry.metadata);
   }
-  
+
   return duration;
 }
 
@@ -103,7 +110,7 @@ export function measureFunction<T extends (...args: any[]) => any>(
   startMeasure(name);
   try {
     const result = fn(...args);
-    
+
     // Handle promises
     if (result instanceof Promise) {
       return result
@@ -116,7 +123,7 @@ export function measureFunction<T extends (...args: any[]) => any>(
           throw error;
         }) as ReturnType<T>;
     }
-    
+
     endMeasure(name, { success: true });
     return result;
   } catch (error: any) {
@@ -141,36 +148,36 @@ export function createMeasuredFunction<T extends (...args: any[]) => any>(
  * Report performance metrics to the console
  */
 export function reportPerformanceMetrics(): void {
-  console.group('[PERF] Performance Report');
-  
+  originalConsoleGroup('[PERF] Performance Report');
+
   const entries = Object.values(performanceData);
-  
+
   if (entries.length === 0) {
-    console.log('No performance data available');
-    console.groupEnd();
+    originalConsoleLog('No performance data available');
+    originalConsoleGroupEnd();
     return;
   }
-  
+
   // Sort by duration (slowest first)
   const sortedEntries = entries
     .filter(entry => entry.duration !== undefined)
     .sort((a, b) => (b.duration || 0) - (a.duration || 0));
-  
-  console.log(`Total operations measured: ${entries.length}`);
-  
+
+  originalConsoleLog(`Total operations measured: ${entries.length}`);
+
   // Report slowest operations
-  console.log('Slowest operations:');
+  originalConsoleLog('Slowest operations:');
   sortedEntries.slice(0, 5).forEach(entry => {
     const threshold = PERFORMANCE_THRESHOLDS[entry.name as keyof typeof PERFORMANCE_THRESHOLDS];
     const isOverThreshold = threshold && (entry.duration || 0) > threshold;
-    
-    console.log(
-      `${isOverThreshold ? '⚠️ ' : ''}${entry.name}: ${entry.duration?.toFixed(2)}ms` + 
+
+    originalConsoleLog(
+      `${isOverThreshold ? '⚠️ ' : ''}${entry.name}: ${entry.duration?.toFixed(2)}ms` +
       (threshold ? ` (threshold: ${threshold}ms)` : '')
     );
   });
-  
-  console.groupEnd();
+
+  originalConsoleGroupEnd();
 }
 
 // Export a singleton instance

@@ -32,32 +32,32 @@
       // Fallback Mapbox token in case the server fails
       window.FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
 
-      // Set up global error handlers for better debugging
-      window.onerror = function(message, source, lineno, colno, error) {
-        console.error('[GLOBAL ERROR]', {
-          message: message,
-          source: source,
-          lineno: lineno,
-          colno: colno,
-          error: error ? {
-            message: error.message,
-            stack: error.stack,
-            name: error.name
-          } : null
-        });
-        return false; // Let default error handling continue
-      };
+      // Set up global error handlers for better debugging - DISABLED to prevent circular references
+      // window.onerror = function(message, source, lineno, colno, error) {
+      //   console.error('[GLOBAL ERROR]', {
+      //     message: message,
+      //     source: source,
+      //     lineno: lineno,
+      //     colno: colno,
+      //     error: error ? {
+      //       message: error.message,
+      //       stack: error.stack,
+      //       name: error.name
+      //     } : null
+      //   });
+      //   return false; // Let default error handling continue
+      // };
 
-      // Handle unhandled promise rejections
-      window.addEventListener('unhandledrejection', function(event) {
-        console.error('[UNHANDLED PROMISE REJECTION]', {
-          reason: event.reason instanceof Error ? {
-            message: event.reason.message,
-            stack: event.reason.stack,
-            name: event.reason.name
-          } : event.reason
-        });
-      });
+      // Handle unhandled promise rejections - DISABLED to prevent circular references
+      // window.addEventListener('unhandledrejection', function(event) {
+      //   console.error('[UNHANDLED PROMISE REJECTION]', {
+      //     reason: event.reason instanceof Error ? {
+      //       message: event.reason.message,
+      //       stack: event.reason.stack,
+      //       name: event.reason.name
+      //     } : event.reason
+      //   });
+      // });
 
       // Check if Mapbox GL JS is loaded
       window.addEventListener('DOMContentLoaded', function() {
