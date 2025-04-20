@@ -12,7 +12,6 @@ import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
 import TerrainToggle from './components/TerrainToggle';
-// MapPopup is now integrated into useMapPopup
 import { useMapPopup } from './hooks/useMapPopup';
 import { useMapInitialization } from './hooks/useMapInitialization';
 import { useMapControls } from './hooks/useMapControls';
@@ -41,7 +40,7 @@ interface MapComponentProps {
   onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
   onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
-  onAddToPlan?: (event: Event) => void; // New prop for Add to Plan functionality
+  onAddToPlan?: (event: Event) => void;
 }
 
 const MapComponent = ({
@@ -98,7 +97,7 @@ const MapComponent = ({
      (zoom) => {
         onMapMoveEnd(map?.getCenter() ? { latitude: map.getCenter().lat, longitude: map.getCenter().lng } : { latitude: initialViewState.latitude, longitude: initialViewState.longitude }, zoom, true);
      },
-     () => {}, // Unused moved callback
+     () => {},
      mapLoaded
   );
 
@@ -147,31 +146,34 @@ const MapComponent = ({
     
     if (!selectedEvent || selectedEvent.id !== event.id) {
       onEventSelect(event);
+      const coordinates = event.coordinates as [number, number];
       map.flyTo({
-        center: event.coordinates as [number, number],
+        center: coordinates,
         zoom: Math.max(map.getZoom(), 14),
-        duration: 600
+        duration: 600,
+        essential: true
       });
     }
   }, [map, onEventSelect, selectedEvent]);
 
   useEffect(() => {
     if (map && onEventSelect && selectedEvent) {
-        const handleMapClick = (e: mapboxgl.MapMouseEvent) => {
-            const features = map.queryRenderedFeatures(e.point, { 
-                layers: ['clusters', 'unclustered-point'] 
-            });
-            
-            if (features.length === 0) {
-                onEventSelect(null);
-            }
-        };
+      const handleMapClick = (e: mapboxgl.MapMouseEvent) => {
+        const point = e.point;
+        const features = map.queryRenderedFeatures(point, { 
+          layers: ['clusters', 'unclustered-point'] 
+        });
         
-        map.on('click', handleMapClick);
+        if (features.length === 0) {
+          onEventSelect(null);
+        }
+      };
+      
+      map.on('click', handleMapClick);
 
-        return () => {
-            map.off('click', handleMapClick);
-        };
+      return () => {
+        map.off('click', handleMapClick);
+      };
     }
   }, [map, onEventSelect, selectedEvent]);
 
@@ -243,7 +245,7 @@ const MapComponent = ({
     <div className="w-full h-full relative">
       <EventMarkerLegend />
 
-      <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50" />
+      <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50 transition-all duration-300 hover:shadow-xl" />
 
       {mapLoaded && !mapCenter && <WelcomeHeader />}
 
