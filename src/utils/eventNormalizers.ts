@@ -1,4 +1,3 @@
-
 import type { Event } from '@/types';
 
 // Partial type for Ticketmaster API event (expand as needed)
@@ -98,6 +97,12 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Event {
     venue?.location?.latitude
   );
 
+  // Determine category, with special handling for party events
+  let category = event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event';
+  if (detectPartyEvent(event.name, event.description || event.info)) {
+    category = 'party';
+  }
+
   return {
     id: `ticketmaster-${event.id}`,
     source: 'ticketmaster',
@@ -107,7 +112,7 @@ export function normalizeTicketmasterEvent(event: TicketmasterEvent): Event {
     time: event.dates.start.localTime || '',
     location: venue?.name || '',
     venue: venue?.name,
-    category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
+    category,
     image: event.images?.[0]?.url || '/placeholder.svg',
     coordinates,
     url: event.url,
@@ -125,6 +130,13 @@ export function normalizeSerpApiEvent(event: SerpApiEvent): Event {
   const id = event.title ?
     `serpapi-${btoa(event.title).slice(0, 10)}` :
     `serpapi-${Date.now()}`;
+  
+  // Determine if this is a party event
+  let category = 'event';
+  if (detectPartyEvent(event.title, event.description)) {
+    category = 'party';
+  }
+  
   return {
     id,
     source: 'serpapi',
@@ -134,7 +146,7 @@ export function normalizeSerpApiEvent(event: SerpApiEvent): Event {
     time: event.date?.when?.split(' ').pop() || '',
     location: Array.isArray(event.address) ? event.address.join(', ') : (event.address || ''),
     venue: event.venue?.name || '',
-    category: 'event', // SerpAPI doesn't provide clear categories
+    category,
     image: event.thumbnail || '/placeholder.svg',
     coordinates,
     url: event.link || '',
@@ -163,9 +175,24 @@ function mapEventbriteCategory(categoryId: string): string {
     '117': 'home',
     '118': 'auto',
     '119': 'school',
+    '120': 'party', // Added dedicated party category
     '199': 'other'
   };
   return mapping[categoryId] || 'event';
+}
+
+// Helper function to detect party-related keywords in title or description
+function detectPartyEvent(title: string = '', description: string = ''): boolean {
+  const partyKeywords = [
+    'party', 'celebration', 'social', 'mixer', 'gathering', 'gala', 
+    'reception', 'festival', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
+    'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
+    'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
+    'DJ', 'dance night', 'club night', 'night out', 'mixer'
+  ];
+  
+  const combinedText = `${title.toLowerCase()} ${description.toLowerCase()}`;
+  return partyKeywords.some(keyword => combinedText.includes(keyword));
 }
 
 export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
@@ -194,7 +221,10 @@ export function normalizeEventbriteEvent(event: EventbriteEvent): Event | null {
     const image = event.logo?.url || '/placeholder.svg';
 
     // Category
-    const category = event.category_id ? mapEventbriteCategory(event.category_id) : 'event';
+    let category = event.category_id ? mapEventbriteCategory(event.category_id) : 'event';
+    if (detectPartyEvent(event.name.text, event.description?.text)) {
+      category = 'party';
+    }
 
     // Date/time
     const [date, time] = event.start.local.split('T');

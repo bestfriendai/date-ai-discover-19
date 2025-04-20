@@ -36,7 +36,7 @@ export async function searchEvents(params: SearchParams): Promise<{
       startDate: params.startDate,
       endDate: params.endDate,
       categories: params.categories,
-      limit: params.limit || 50, // Default limit
+      limit: params.limit || 100, // Increased from 50 to 100 events per page
       page: params.page || 1, // Default to first page
       excludeIds: params.excludeIds || [],
       fields: params.fields || []
@@ -81,7 +81,7 @@ export async function searchEvents(params: SearchParams): Promise<{
         events: data.events || [],
         sourceStats: data?.sourceStats,
         totalEvents: data?.meta?.totalEvents || data.events.length,
-        pageSize: params.limit || 50,
+        pageSize: params.limit || 100,
         page: params.page || 1
       };
     } catch (error) {
@@ -137,7 +137,7 @@ function getMockEvents(params: any): {
       mock: { count: mockEvents.length, error: null }
     },
     totalEvents: 50, // Pretend there are 50 total events
-    pageSize: params.limit || 50,
+    pageSize: params.limit || 100,
     page: params.page || 1
   };
 }

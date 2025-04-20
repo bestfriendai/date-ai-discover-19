@@ -43,7 +43,7 @@ export const MapControlsArea = ({
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex gap-2 bg-background/80 backdrop-blur border border-border/40 rounded-full px-4 py-2 shadow-lg">
         {/* Category Filter */}
         <div className="flex gap-1">
-          {["music","arts","sports","family","food"].map(cat => (
+          {["music","arts","sports","family","food","party"].map(cat => (
             <Button
               key={cat}
               variant={filters.categories?.includes(cat) ? "default" : "outline"}
@@ -59,14 +59,6 @@ export const MapControlsArea = ({
               {cat.charAt(0).toUpperCase()+cat.slice(1)}
             </Button>
           ))}
-          <Button
-            key="party"
-            variant="default"
-            size="sm"
-            className="bg-blue-600 text-white"
-          >
-            Party
-          </Button>
         </div>
         {/* Date Range Filter */}
         <div className="flex gap-1 ml-4">

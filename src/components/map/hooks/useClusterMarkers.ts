@@ -16,7 +16,7 @@ export interface ClusterFeature extends GeoJSON.Feature<GeoJSON.Point> {
 
 
 export function useClusterMarkers(map: mapboxgl.Map | null, events: Event[], zoomThreshold: number = 11) {
-  const [clusteringEnabled, setClusteringEnabled] = useState(true);
+  const [clusteringEnabled, setClusteringEnabled] = useState(false);
   const [isClusterSourceInitialized, setIsClusterSourceInitialized] = useState(false);
 
   // Create GeoJSON from events - use only events with valid coordinates
