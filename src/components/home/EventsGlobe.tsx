@@ -192,24 +192,38 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
 
   return (
     <motion.div // Wrap in motion.div for potential future animations
-      className={`relative ${className}`}
+      className={`relative w-full h-full flex items-center justify-center ${className}`}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
     >
+      {/* Background glow effect */}
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/15 via-purple-500/10 to-transparent filter blur-xl"></div>
-      <canvas
-        ref={canvasRef}
-        style={{ width: size, height: size, aspectRatio: "1", cursor: 'grab' }}
-        width={size * 2}
-        height={size * 2}
-        className="z-10 relative rounded-full"
-      />
-      {/* Optional: add a subtle inner shadow or glow? */}
-      {/* <div className="absolute inset-0 rounded-full shadow-inner shadow-black/20 pointer-events-none z-15"></div> */}
-      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80 pointer-events-none z-20 rounded-full"></div>
-      <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-blue-300/60 pointer-events-none">
-        <span>Drag to rotate • Scroll to zoom</span>
+      
+      {/* Canvas container to ensure proper centering */}
+      <div className="relative w-full h-full flex items-center justify-center overflow-hidden rounded-full">
+        <canvas
+          ref={canvasRef}
+          style={{
+            width: size,
+            height: size,
+            maxWidth: '100%',
+            maxHeight: '100%',
+            objectFit: 'contain',
+            cursor: 'grab'
+          }}
+          width={size * 2}
+          height={size * 2}
+          className="rounded-full"
+        />
+        
+        {/* Overlay gradient */}
+        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80 pointer-events-none rounded-full"></div>
+        
+        {/* Instructions */}
+        <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-blue-300/60 pointer-events-none">
+          <span>Drag to rotate • Scroll to zoom</span>
+        </div>
       </div>
     </motion.div>
   );
