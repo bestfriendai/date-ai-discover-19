@@ -232,7 +232,7 @@ declare module 'mapbox-gl' {
   export interface Layer {
     id: string;
     type: string;
-    source: string;
+    source?: string; // Make source optional for layers like 'sky' that don't require a source
     'source-layer'?: string;
     minzoom?: number;
     maxzoom?: number;
@@ -307,13 +307,13 @@ declare module 'mapbox-gl' {
     setStyle(style: string | object, options?: { diff?: boolean; localIdeographFontFamily?: string }): this;
     getCenter(): LngLat;
     setCenter(center: LngLatLike, options?: { duration?: number, easing?: (time: number) => number }): this;
-    getZoom(): number;
+    getZoom(): number; // Ensure this always returns a number
     setZoom(zoom: number, options?: { duration?: number, easing?: (time: number) => number }): this;
     getBounds(): LngLatBounds;
     fitBounds(bounds: LngLatBoundsLike, options?: any, eventData?: any): this;
     jumpTo(options: { center?: LngLatLike; zoom?: number; bearing?: number; pitch?: number; animate?: boolean }, eventData?: any): this;
-    easeTo(options: { center?: LngLatLike; zoom?: number; bearing?: number; pitch?: number; duration?: number; easing?: (time: number) => number; essential?: boolean }, eventData?: any): this;
-    flyTo(options: { center?: LngLatLike; zoom?: number; bearing?: number; pitch?: number; speed?: number; curve?: number; easing?: (time: number) => number; essential?: boolean }, eventData?: any): this;
+    easeTo(options: { center?: LngLatLike; zoom?: number; bearing?: number; pitch?: number; duration?: number; easing?: (time: number) => number; essential?: boolean; animate?: boolean }, eventData?: any): this;
+    flyTo(options: { center?: LngLatLike; zoom?: number; bearing?: number; pitch?: number; speed?: number; curve?: number; easing?: (time: number) => number; essential?: boolean; duration?: number }, eventData?: any): this;
 
     getSource(id: string): Source | undefined;
     getSource(id: string): GeoJSONSource | undefined; // Overload for specific source type

@@ -91,11 +91,17 @@ const MapComponent = ({
   const { handleMapMoveEnd: handleMapMoveEndFromHook } = useMapEvents(
      (center) => {
        if (center && 'lat' in center && 'lng' in center) {
-         onMapMoveEnd({ latitude: center.lat, longitude: center.lng }, map?.getZoom() ?? initialViewState.zoom, true);
+         onMapMoveEnd({ latitude: center.lat, longitude: center.lng }, (map?.getZoom() as number) ?? initialViewState.zoom, true);
        }
      },
      (zoom) => {
-        onMapMoveEnd(map?.getCenter() ? { latitude: map.getCenter().lat, longitude: map.getCenter().lng } : { latitude: initialViewState.latitude, longitude: initialViewState.longitude }, zoom, true);
+        onMapMoveEnd(
+          map?.getCenter()
+            ? { latitude: (map.getCenter().lat as number), longitude: (map.getCenter().lng as number) }
+            : { latitude: initialViewState.latitude, longitude: initialViewState.longitude },
+          zoom,
+          true
+        );
      },
      () => {},
      mapLoaded
@@ -107,7 +113,7 @@ const MapComponent = ({
               const center = map.getCenter();
               const zoom = map.getZoom();
               if (center) {
-                handleMapMoveEndFromHook(center, zoom, true);
+                handleMapMoveEndFromHook({ latitude: center.lat, longitude: center.lng }, zoom, true);
               }
           };
 
