@@ -41,7 +41,7 @@
   }
 
   body {
-    @apply bg-black text-foreground antialiased overflow-hidden;
+    @apply bg-black text-foreground antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02", "cv03";
   }
 

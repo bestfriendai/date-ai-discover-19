@@ -67,12 +67,12 @@ const Index = () => {
               variants={sectionVariants}
             >
               <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
-                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Discover Your Next</span>
-                <span className="block text-white">Unforgettable Event</span>
+                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Find Your Vibe:</span>
+                <span className="block text-white">Discover Events Near You</span>
               </h1>
 
               <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto lg:mx-0">
-                Explore a world of events happening around you. From local meetups to global festivals, find experiences that match your interests and create lasting memories.
+                Dive into a world of exciting events happening around you. From hidden local gems to major global gatherings, find experiences that resonate with your interests and create unforgettable moments.
               </p>
 
               <motion.div
@@ -147,26 +147,26 @@ const Index = () => {
             viewport={{ once: true, amount: 0.3 }}
             variants={sectionVariants}
           >
-            <h2 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-indigo-500">Powerful Features</h2>
-            <p className="text-lg text-gray-300 max-w-2xl mx-auto">Everything you need to find, explore, and enjoy the best events around you.</p>
+            <h2 className="text-3xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-indigo-500">Unlock Amazing Experiences</h2>
+            <p className="text-lg text-gray-300 max-w-2xl mx-auto">Our powerful features make finding and enjoying events effortless.</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {[
               {
                 icon: <MapIcon className="w-8 h-8 text-blue-400" />,
-                title: "Interactive Map",
-                description: "Visualize events on a dynamic map, making it easy to see what's happening nearby or in a specific location.",
+                title: "Interactive Event Map",
+                description: "See events come alive on a dynamic map. Easily explore what's happening nearby or pinpoint events in any location.",
               },
               {
                 icon: <FilterIcon className="w-8 h-8 text-purple-400" />,
-                title: "Advanced Filtering",
-                description: "Refine your search with powerful filters for category, date, price, distance, and more.",
+                title: "Smart Filtering",
+                description: "Quickly find events you'll love with intuitive filters for category, date, price, distance, and more.",
               },
               {
                 icon: <RouteIcon className="w-8 h-8 text-cyan-400" />,
-                title: "Route Planning",
-                description: "Get directions and plan your route to any event directly from the map interface.",
+                title: "Seamless Navigation",
+                description: "Get instant directions and plan your journey to any event directly within the app.",
               },
             ].map((feature, index) => (
               <motion.div
@@ -206,10 +206,10 @@ const Index = () => {
               <SparklesIcon className="w-8 h-8 text-white" />
             </div>
             <h2 className="text-3xl md:text-4xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-white to-blue-200">
-              Ready to Find Your Next Adventure?
+              Ready to Experience More?
             </h2>
             <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-3xl mx-auto">
-              Join FomoAI today and start exploring the vibrant world of events happening near you. Don't miss out on the experiences you'll love.
+              Join FomoAI today and unlock a world of vibrant events happening all around you. Stop missing out and start making memories.
             </p>
             <div className="flex flex-col sm:flex-row justify-center gap-5">
               <Link to="/map">

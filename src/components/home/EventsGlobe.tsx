@@ -93,7 +93,7 @@ export function EventsGlobe({ eventLocations = DEFAULT_EVENT_LOCATIONS, size = 4
       mapSamples: 24000, // Slightly reduced for performance
       mapBrightness: theme === 'dark' ? 5 : 3.5, // Adjust brightness for theme
       baseColor: theme === 'dark' ? [0.15, 0.15, 0.35] : [0.8, 0.8, 0.95], // Dark/Light base
-      markerColor: [0.9, 0.4, 0.7], // Consistent marker color base (can be overridden)
+      markerColor: [1.0, 0.5, 0.9], // Consistent marker color base (can be overridden) - Adjusted to brighter pink/purple
       glowColor: theme === 'dark' ? [0.2, 0.2, 0.4] : [0.7, 0.7, 0.9], // Dark/Light glow
       markers: eventLocations.map((location) => {
         // Add a bit of randomness to marker colors and sizes

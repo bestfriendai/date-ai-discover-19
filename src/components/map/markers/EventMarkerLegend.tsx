@@ -5,37 +5,37 @@ const LEGEND = [
   {
     label: "Music",
     icon: Music,
-    color: "bg-blue-600/80",
+    color: "#3b82f6", // Blue
   },
   {
     label: "Sports",
     icon: Trophy,
-    color: "bg-green-600/80",
+    color: "#22c55e", // Green
   },
   {
     label: "Arts/Theatre",
     icon: Palette,
-    color: "bg-pink-600/80",
+    color: "#ec4899", // Pink
   },
   {
     label: "Family",
     icon: Users,
-    color: "bg-yellow-600/80",
+    color: "#eab308", // Yellow/Amber
   },
   {
     label: "Food/Restaurant",
     icon: Utensils,
-    color: "bg-orange-600/80",
+    color: "#f97316", // Orange
   },
   {
     label: "Party",
     icon: PartyPopper,
-    color: "bg-purple-600/80",
+    color: "#a855f7", // Purple
   },
   {
     label: "Other",
     icon: CalendarDays,
-    color: "bg-gray-600/80",
+    color: "#6b7280", // Gray
   },
 ];
 
@@ -51,8 +51,8 @@ const EventMarkerLegend: React.FC = () => (
       {LEGEND.map(({ label, icon: Icon, color }) => (
         <li key={label} className="flex items-center gap-2">
           <span
-            className={`inline-flex items-center justify-center rounded-full border border-border/50 ${color}`}
-            style={{ width: 28, height: 28 }}
+            className={`inline-flex items-center justify-center rounded-full border border-border/50`}
+            style={{ width: 28, height: 28, backgroundColor: color }}
             aria-hidden="true"
           >
             <Icon className="h-4 w-4 text-white" strokeWidth={2} />

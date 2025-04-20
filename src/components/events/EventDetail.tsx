@@ -145,16 +145,18 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           />
         </div>
 
-        <div className="p-6">
-          <h2 className="text-2xl font-bold mb-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h2>
+        <div className="p-6 space-y-6"> {/* Added space-y-6 for consistent vertical spacing */}
+          <div>
+            <h2 className="text-2xl font-bold mb-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h2>
 
-          <div className="flex flex-wrap items-center gap-2 mb-4">
-            <Badge variant="secondary" className="capitalize">{event.category}</Badge>
-            {event.source && <Badge variant="outline" className="capitalize">{event.source}</Badge>}
-            {event.price && <Badge variant="outline" className="capitalize">{event.price}</Badge>}
+            <div className="flex flex-wrap items-center gap-2"> {/* Removed mb-4 */}
+              <Badge variant="secondary" className="capitalize">{event.category}</Badge>
+              {event.source && <Badge variant="outline" className="capitalize">{event.source}</Badge>}
+              {event.price && <Badge variant="outline" className="capitalize">{event.price}</Badge>}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2 mb-6">
+          <div className="flex items-center gap-2"> {/* Removed mb-6 */}
             <Button
               variant="outline"
               size="icon"
@@ -210,11 +212,11 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
             </Button>
           </div>
 
-          <div className="border border-[hsl(var(--sidebar-border))] rounded-md p-4 mb-6 bg-[hsl(var(--sidebar-accent))]/40">
+          <div className="border border-[hsl(var(--sidebar-border))] rounded-md p-4 bg-[hsl(var(--sidebar-accent))]/40"> {/* Removed mb-6 */}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Date</p>
-                <div className="flex items-center">
+                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
                   <Calendar className="h-4 w-4 mr-2" />
                   <p>{event.date}</p>
                 </div>
@@ -222,7 +224,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
 
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Time</p>
-                <div className="flex items-center">
+                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
                   <Clock className="h-4 w-4 mr-2" />
                   <p>{event.time}</p>
                 </div>
@@ -230,7 +232,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
 
               <div className="col-span-2">
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Location</p>
-                <div className="flex items-center">
+                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
                   <MapPin className="h-4 w-4 mr-2" />
                   <p>{event.location}</p>
                 </div>
@@ -239,7 +241,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               {event.venue && event.venue !== event.location && (
                 <div className="col-span-2">
                   <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Venue</p>
-                  <p>{event.venue}</p>
+                  <p className="text-[hsl(var(--sidebar-foreground))]">{event.venue}</p> {/* Added text color */}
                 </div>
               )}
 
@@ -263,9 +265,9 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           </div>
 
           {event.description && (
-            <div className="mb-6">
+            <div> {/* Removed mb-6 */}
               <h3 className="text-lg font-semibold mb-2 text-[hsl(var(--sidebar-primary))]">About</h3>
-              <p className="text-[hsl(var(--sidebar-foreground))]/80">{event.description}</p>
+              <p className="text-[hsl(var(--sidebar-foreground))]">{event.description}</p> {/* Removed /80 opacity */}
             </div>
           )}
 
@@ -322,15 +324,15 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                         </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-sm line-clamp-2">{relatedEvent.title}</h4>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]/70">
+                          <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]"> {/* Adjusted text color */}
                             <Calendar className="h-3 w-3" />
                             <span>{relatedEvent.date}</span>
                             {relatedEvent.location && (
-                              <><span className="mx-1">·</span><MapPin className="h-3 w-3 inline" /> {relatedEvent.location}</>
+                                <><span className="mx-1">·</span><MapPin className="h-3 w-3 inline" /> {relatedEvent.location}</>
                             )}
                           </div>
                           {relatedEvent.price && (
-                            <div className="text-xs text-[hsl(var(--sidebar-foreground))]/60 mt-1">
+                            <div className="text-xs text-[hsl(var(--sidebar-foreground))] mt-1"> {/* Adjusted text color */}
                               Price: {relatedEvent.price}
                             </div>
                           )}
@@ -341,7 +343,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 ))}
               </div>
             ) : (
-              <p className="text-[hsl(var(--sidebar-foreground))]/70 text-sm">No related events found.</p>
+              <p className="text-[hsl(var(--sidebar-foreground))] text-sm">No related events found.</p>
             )}
           </div>
         </div>
