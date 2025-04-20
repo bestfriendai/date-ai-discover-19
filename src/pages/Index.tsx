@@ -5,10 +5,12 @@ import { Button } from '@/components/ui/button';
 import { motion, AnimatePresence } from 'framer-motion';
 import { EventsGlobe } from '@/components/home/EventsGlobe';
 import { MapIcon, CalendarIcon, SparklesIcon, ArrowRightIcon, GlobeIcon, FilterIcon, RouteIcon } from 'lucide-react';
+import { searchEvents } from '@/services/eventService'; // Import searchEvents
 
 const Index = () => {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [activeSection, setActiveSection] = useState('hero');
+  const [eventLocations, setEventLocations] = useState<[number, number][]>([]); // State for event locations
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -34,6 +36,31 @@ const Index = () => {
       window.removeEventListener('scroll', handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    // Fetch events within a 30-mile radius of a placeholder location (e.g., New York)
+    const fetchLocalEvents = async () => {
+      try {
+        const params = {
+          latitude: 40.7128, // Placeholder latitude (New York)
+          longitude: -74.0060, // Placeholder longitude (New York)
+          radius: 30, // 30-mile radius
+          limit: 100 // Limit the number of events
+        };
+        const result = await searchEvents(params);
+        if (result.events) {
+          const locations = result.events
+            .filter(event => event.coordinates) // Filter out events without coordinates
+            .map(event => event.coordinates as [number, number]); // Extract coordinates
+          setEventLocations(locations);
+        }
+      } catch (error) {
+        console.error('Error fetching local events:', error);
+      }
+    };
+
+    fetchLocalEvents();
+  }, []); // Empty dependency array means this runs once on mount
 
   const sectionVariants = {
     hidden: { opacity: 0, y: 50 },
@@ -115,6 +142,7 @@ const Index = () => {
                  {/* Globe container with enhanced glow effect */}
                 <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/30 via-purple-500/30 to-cyan-500/30 blur-3xl transform scale-110 animate-pulse-slow"></div>
                 <EventsGlobe
+                  eventLocations={eventLocations} // Pass fetched event locations
                   size={windowWidth < 768 ? 300 : 500}
                   className="relative z-10"
                 />
@@ -131,7 +159,7 @@ const Index = () => {
                      <span className="text-xs font-medium text-gray-200">Exciting Events</span>
                    </div>
                  </div>
-              </div>
+               </div>
             </motion.div>
           </div>
         </div>

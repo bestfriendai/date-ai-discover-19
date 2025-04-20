@@ -5,55 +5,10 @@ import { motion } from 'framer-motion'; // Import motion
 
 interface EventsGlobeProps {
   // Array of event locations as [longitude, latitude]
-  eventLocations?: [number, number][];
+  eventLocations: [number, number][]; // Make eventLocations required
   size?: number;
   className?: string;
 }
-
-// Generate 50+ event locations around the world
-const generateEventLocations = (): [number, number][] => {
-  // Start with some known major cities
-  const majorCities: [number, number][] = [
-    [-73.9857, 40.7484], // New York
-    [-0.1278, 51.5074], // London
-    [2.3522, 48.8566], // Paris
-    [139.6917, 35.6895], // Tokyo
-    [-118.2437, 34.0522], // Los Angeles
-    [37.6173, 55.7558], // Moscow
-    [28.9784, 41.0082], // Istanbul
-    [77.1025, 28.7041], // New Delhi
-    [121.4737, 31.2304], // Shanghai
-    [-43.1729, -22.9068], // Rio de Janeiro
-    [18.4241, -33.9249], // Cape Town
-    [151.2093, -33.8688], // Sydney
-    [-46.6333, -23.5505], // São Paulo
-    [55.2708, 25.2048], // Dubai
-    [-3.7038, 40.4168], // Madrid
-    [30.5234, 50.4501], // Kyiv
-    [100.5018, 13.7563], // Bangkok
-    [-79.3832, 43.6532], // Toronto
-    [114.1095, 22.3964], // Hong Kong
-    [103.8198, 1.3521], // Singapore
-    [13.4050, 52.5200], // Berlin
-    [12.4964, 41.9028], // Rome
-    [4.9041, 52.3676], // Amsterdam
-    [-58.3816, -34.6037], // Buenos Aires
-    [31.2357, 30.0444], // Cairo
-  ];
-
-  // Add more randomly generated locations
-  const randomLocations: [number, number][] = [];
-  for (let i = 0; i < 50; i++) {
-    // Generate random lat/long (-180 to 180 for long, -85 to 85 for lat to avoid poles)
-    const long = (Math.random() * 360 - 180);
-    const lat = (Math.random() * 170 - 85);
-    randomLocations.push([long, lat]);
-  }
-
-  return [...majorCities, ...randomLocations];
-};
-
-const DEFAULT_EVENT_LOCATIONS = generateEventLocations();
 
 // Colors for different types of events
 const EVENT_MARKER_COLORS: [number, number, number][] = [
@@ -65,7 +20,7 @@ const EVENT_MARKER_COLORS: [number, number, number][] = [
   [0.9, 0.5, 1.0], // Purple (party) - brighter violet
 ];
 
-export function EventsGlobe({ eventLocations = DEFAULT_EVENT_LOCATIONS, size = 450, className = '' }: EventsGlobeProps) {
+export function EventsGlobe({ eventLocations, size = 450, className = '' }: EventsGlobeProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { theme } = useTheme();
   const [isInteracting, setIsInteracting] = useState(false);
@@ -75,7 +30,32 @@ export function EventsGlobe({ eventLocations = DEFAULT_EVENT_LOCATIONS, size = 4
     return [Math.PI - ((long * Math.PI) / 180 - Math.PI / 2), (lat * Math.PI) / 180];
   };
   const focusRef = useRef([0, 0]);
-  const [r, setR] = useState(0); // State for zoom level (0 = default, >0 zoomed in)
+  const [r, setR] = useState(0.8); // Start zoomed in (0 = default, >0 zoomed in)
+  const [isZoomedIn, setIsZoomedIn] = useState(true); // Track zoom state
+
+  // Effect to automatically zoom out after a delay
+  useEffect(() => {
+    if (isZoomedIn && eventLocations.length > 0) {
+      // Wait 3 seconds before zooming out
+      const timer = setTimeout(() => {
+        setIsZoomedIn(false);
+        // Gradually zoom out
+        const zoomOutAnimation = () => {
+          setR((prevR) => {
+            const newR = prevR - 0.05;
+            if (newR <= 0) {
+              return 0; // Fully zoomed out
+            }
+            requestAnimationFrame(zoomOutAnimation);
+            return newR;
+          });
+        };
+        requestAnimationFrame(zoomOutAnimation);
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isZoomedIn, eventLocations]);
 
   useEffect(() => {
     let currentPhi = 0;
@@ -108,11 +88,14 @@ export function EventsGlobe({ eventLocations = DEFAULT_EVENT_LOCATIONS, size = 4
       }),
       onRender: (state) => {
         // Update marker sizes for pulsing effect
-        state.markers.forEach((marker: any) => {
-          if (marker.willPulse) {
-            marker.size = Math.abs(Math.sin(Date.now() * 0.0015 + marker.location[0])) * 0.06 + 0.04;
-          }
-        });
+        // Update marker sizes for pulsing effect
+        if (state.markers) { // Add check for state.markers
+          state.markers.forEach((marker: any) => {
+            if (marker.willPulse) {
+              marker.size = Math.abs(Math.sin(Date.now() * 0.0015 + marker.location[0])) * 0.06 + 0.04;
+            }
+          });
+        }
 
         // Handle rotation and interaction
         if (!isInteracting) {
