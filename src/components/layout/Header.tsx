@@ -19,10 +19,10 @@ const Header = () => {
       <div className="container flex items-center justify-between h-16 px-4">
         <div className="flex items-center">
           <Link to="/" className="flex items-center mr-6 group">
-            <div className="bg-gradient-to-br from-blue-500 to-purple-600 rounded-full p-1.5 mr-2 shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40 transition-all transform group-hover:scale-105">
-              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z"/></svg>
+            <div className="bg-gradient-to-br from-blue-500 to-indigo-600 rounded-full p-1.5 mr-2 shadow-lg shadow-blue-500/30 group-hover:shadow-xl group-hover:shadow-blue-500/40 transition-all transform group-hover:scale-105">
+              <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-white"><path d="M15 2H9a1 1 0 0 0-1 1v4H5a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3V3a1 1 0 0 0-1-1ZM9 4v4h6V4H9Z"/><path d="M9 14h6"/><path d="M9 18h6"/></svg>
             </div>
-            <span className="font-bold text-lg bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">DateAI</span>
+            <span className="font-bold text-lg bg-gradient-to-r from-white to-blue-100 bg-clip-text text-transparent">FomoAI</span>
             <span className="text-xs bg-blue-500/20 text-blue-300 border border-blue-500/30 rounded-full px-2 py-0.5 ml-2 font-medium">BETA</span>
           </Link>
 

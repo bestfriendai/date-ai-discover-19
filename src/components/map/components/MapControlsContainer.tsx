@@ -1,7 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { MapControls, EventFilters } from './MapControls';
 import { MapStyleControls } from './MapStyleControls';
 import { CoordinatesDisplay } from './CoordinatesDisplay';
+import { Clock, DollarSign, Filter, Settings } from 'lucide-react';
+import { CollapsiblePanel } from './CollapsiblePanel';
+import { TimeSlider } from './TimeSlider';
+import { PriceRangeFilter } from './PriceRangeFilter';
 
 interface MapControlsContainerProps {
   mapLoaded: boolean;
@@ -16,6 +20,10 @@ interface MapControlsContainerProps {
   onLocationSearch: (location: string) => void;
   onMapStyleChange: (style: string) => void;
   onFindMyLocation: () => void;
+  onTimeRangeChange?: (range: [number, number]) => void;
+  onPriceRangeChange?: (range: [number, number]) => void;
+  onFreeEventsChange?: (showFreeOnly: boolean) => void;
+  userPosition?: [number, number];
 }
 
 export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
@@ -27,17 +35,18 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
   onLocationSearch,
   onMapStyleChange,
   onFindMyLocation,
+  onTimeRangeChange,
+  onPriceRangeChange,
+  onFreeEventsChange,
+  userPosition
 }) => {
+  const [showSettings, setShowSettings] = useState(false);
+
   if (!mapLoaded) return null;
   
   return (
     <>
-      <CoordinatesDisplay
-        latitude={viewState.latitude}
-        longitude={viewState.longitude}
-        zoom={viewState.zoom}
-      />
-      
+      {/* Bottom center: Map Style Controls */}
       <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20">
         <MapStyleControls
           currentMapStyle={currentMapStyle}
@@ -45,6 +54,43 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
         />
       </div>
       
+      {/* Bottom right: Time Filter Panel */}
+      <CollapsiblePanel 
+        title="Time Filter" 
+        icon={<Clock className="h-4 w-4" />}
+        position="right"
+        className="bottom-4"
+      >
+        <TimeSlider 
+          onTimeRangeChange={(range) => onTimeRangeChange?.(range)} 
+          defaultValue={[8, 23]} // Default 8am to 11pm
+        />
+      </CollapsiblePanel>
+
+      {/* Bottom left: Price Filter Panel */}
+      <CollapsiblePanel 
+        title="Price Filter" 
+        icon={<DollarSign className="h-4 w-4" />}
+        position="left"
+        className="bottom-4"
+      >
+        <PriceRangeFilter 
+          onPriceRangeChange={(range) => onPriceRangeChange?.(range)}
+          onFreeEventsChange={(showFreeOnly) => onFreeEventsChange?.(showFreeOnly)}
+          defaultValue={[0, 200]}
+        />
+      </CollapsiblePanel>
+      
+      {/* Debug coordinates (hidden in production) */}
+      {process.env.NODE_ENV === 'development' && (
+        <CoordinatesDisplay
+          latitude={viewState.latitude}
+          longitude={viewState.longitude}
+          zoom={viewState.zoom}
+        />
+      )}
+      
+      {/* Main Map Controls (search, etc) */}
       <MapControls
         filters={filters}
         onLocationSearch={onLocationSearch}

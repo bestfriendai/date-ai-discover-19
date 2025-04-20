@@ -112,7 +112,7 @@ export const MapControls = ({
             <Button
               variant="secondary"
               size="lg"
-              className="h-14 px-5 bg-primary text-primary-foreground hover:bg-primary/90 rounded-full shadow-lg flex items-center gap-2"
+              className="h-14 px-5 bg-indigo-500 text-white hover:bg-indigo-600 rounded-full shadow-lg flex items-center gap-2"
               onClick={handleGetLocation}
               disabled={locationRequested}
             >

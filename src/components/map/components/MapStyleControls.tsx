@@ -1,61 +1,130 @@
-
 import React from 'react';
-import { Moon, Sun, Satellite, Map } from 'lucide-react';
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
+import { Map as MapIcon, Sunrise, Moon, Mountain, Globe, Building, Layers } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 
 interface MapStyleControlsProps {
   currentMapStyle: string;
-  onMapStyleChange: (styleUrl: string) => void;
+  onMapStyleChange: (style: string) => void;
 }
 
-export const MapStyleControls = ({ currentMapStyle, onMapStyleChange }: MapStyleControlsProps) => {
+const MAP_STYLES = {
+  streets: 'mapbox://styles/mapbox/streets-v12',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  light: 'mapbox://styles/mapbox/light-v11',
+  dark: 'mapbox://styles/mapbox/dark-v11',
+  outdoor: 'mapbox://styles/mapbox/outdoors-v12',
+  navigation: 'mapbox://styles/mapbox/navigation-day-v1'
+};
+
+export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
+  currentMapStyle,
+  onMapStyleChange,
+}) => {
   return (
-    <ToggleGroup type="single" className="bg-background/80 backdrop-blur-xl rounded-full border border-border/50 p-1 shadow-lg">
-      <ToggleGroupItem 
-        value="dark" 
-        onClick={() => onMapStyleChange('mapbox://styles/mapbox/dark-v11')}
-        className={cn(
-          "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
-          currentMapStyle.includes('dark-v11') && "bg-primary text-primary-foreground"
-        )}
-        aria-label="Dark mode"
-      >
-        <Moon className="h-5 w-5" />
-      </ToggleGroupItem>
-      <ToggleGroupItem 
-        value="light" 
-        onClick={() => onMapStyleChange('mapbox://styles/mapbox/light-v11')}
-        className={cn(
-          "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
-          currentMapStyle.includes('light-v11') && "bg-primary text-primary-foreground"
-        )}
-        aria-label="Light mode"
-      >
-        <Sun className="h-5 w-5" />
-      </ToggleGroupItem>
-      <ToggleGroupItem 
-        value="satellite" 
-        onClick={() => onMapStyleChange('mapbox://styles/mapbox/satellite-streets-v12')}
-        className={cn(
-          "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
-          currentMapStyle.includes('satellite-streets-v12') && "bg-primary text-primary-foreground"
-        )}
-        aria-label="Satellite view"
-      >
-        <Satellite className="h-5 w-5" />
-      </ToggleGroupItem>
-      <ToggleGroupItem 
-        value="streets" 
-        onClick={() => onMapStyleChange('mapbox://styles/mapbox/streets-v12')}
-        className={cn(
-          "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
-          currentMapStyle.includes('streets-v12') && "bg-primary text-primary-foreground"
-        )}
-        aria-label="Streets view"
-      >
-        <Map className="h-5 w-5" />
-      </ToggleGroupItem>
-    </ToggleGroup>
+    <TooltipProvider>
+      <div className="flex gap-2 bg-background/80 backdrop-blur p-1.5 rounded-lg shadow-lg border border-border/50">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon"
+              variant={currentMapStyle === MAP_STYLES.streets ? "default" : "ghost"}
+              onClick={() => onMapStyleChange(MAP_STYLES.streets)}
+              className="h-8 w-8 rounded-md"
+            >
+              <MapIcon className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Streets</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon"
+              variant={currentMapStyle === MAP_STYLES.light ? "default" : "ghost"}
+              onClick={() => onMapStyleChange(MAP_STYLES.light)}
+              className="h-8 w-8 rounded-md"
+            >
+              <Sunrise className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Light</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon"
+              variant={currentMapStyle === MAP_STYLES.dark ? "default" : "ghost"}
+              onClick={() => onMapStyleChange(MAP_STYLES.dark)}
+              className="h-8 w-8 rounded-md"
+            >
+              <Moon className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Dark</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon"
+              variant={currentMapStyle === MAP_STYLES.satellite ? "default" : "ghost"}
+              onClick={() => onMapStyleChange(MAP_STYLES.satellite)}
+              className="h-8 w-8 rounded-md"
+            >
+              <Globe className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Satellite</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon"
+              variant={currentMapStyle === MAP_STYLES.outdoor ? "default" : "ghost"}
+              onClick={() => onMapStyleChange(MAP_STYLES.outdoor)}
+              className="h-8 w-8 rounded-md"
+            >
+              <Mountain className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Outdoor</p>
+          </TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button 
+              size="icon"
+              variant={currentMapStyle === MAP_STYLES.navigation ? "default" : "ghost"}
+              onClick={() => onMapStyleChange(MAP_STYLES.navigation)}
+              className="h-8 w-8 rounded-md"
+            >
+              <Layers className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent side="bottom">
+            <p>Navigation</p>
+          </TooltipContent>
+        </Tooltip>
+      </div>
+    </TooltipProvider>
   );
 };

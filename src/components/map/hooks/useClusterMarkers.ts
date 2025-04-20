@@ -16,6 +16,7 @@ export interface ClusterFeature extends GeoJSON.Feature<GeoJSON.Point> {
 
 
 export function useClusterMarkers(map: mapboxgl.Map | null, events: Event[], zoomThreshold: number = 11) {
+  // Always disable clustering - we want individual markers
   const [clusteringEnabled, setClusteringEnabled] = useState(false);
   const [isClusterSourceInitialized, setIsClusterSourceInitialized] = useState(false);
 
@@ -285,10 +286,11 @@ export function useClusterMarkers(map: mapboxgl.Map | null, events: Event[], zoo
     };
   }, [map, clusteringEnabled, initializeClusterLayers, clearClusterLayers]); // Effect depends on map, clusteringEnabled, and useCallback-wrapped functions
 
-  // Toggle clustering functionality
+  // Toggle clustering functionality (no longer used - always returns false)
   const toggleClustering = useCallback(() => {
-    console.log('[useClusterMarkers] Toggling clustering enabled state.');
-    setClusteringEnabled(prev => !prev);
+    // Clustering is now permanently disabled
+    console.log('[useClusterMarkers] Clustering is permanently disabled.');
+    setClusteringEnabled(false);
   }, []);
 
   // The click handlers for the Mapbox layers ('clusters', 'unclustered-point')
