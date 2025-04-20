@@ -30,8 +30,9 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
     return [Math.PI - ((long * Math.PI) / 180 - Math.PI / 2), (lat * Math.PI) / 180];
   };
   const focusRef = useRef([0, 0]);
-  const [r, setR] = useState(0.8); // Start zoomed in (0 = default, >0 zoomed in)
-  const [isZoomedIn, setIsZoomedIn] = useState(true); // Track zoom state
+  // Start with a lower zoom level if there are no events
+  const [r, setR] = useState(eventLocations.length > 0 ? 0.8 : 0.3);
+  const [isZoomedIn, setIsZoomedIn] = useState(eventLocations.length > 0); // Only start zoomed in if we have events
 
   // Effect to automatically zoom out after a delay
   useEffect(() => {
@@ -57,37 +58,60 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
     }
   }, [isZoomedIn, eventLocations]);
 
+  // Update zoom level when eventLocations changes
+  useEffect(() => {
+    if (eventLocations.length === 0) {
+      // If no events, set a lower zoom level
+      setR(0.3);
+      setIsZoomedIn(false);
+    } else if (!isZoomedIn) {
+      // If we have events but aren't zoomed in, zoom in
+      setR(0.8);
+      setIsZoomedIn(true);
+    }
+  }, [eventLocations, isZoomedIn]);
+
   useEffect(() => {
     let currentPhi = 0;
     let currentTheta = 0.3;
     let width = 0;
 
     const globe = createGlobe(canvasRef.current!, {
-      devicePixelRatio: window.devicePixelRatio || 2,
+      // Cap devicePixelRatio to 1.5 to ensure compatibility with more devices
+      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
       width: size * 2,
       height: size * 2,
       phi: currentPhi,
       theta: currentTheta,
       dark: theme === 'dark' ? 1 : 0,
       diffuse: theme === 'dark' ? 1.5 : 2.0, // Adjust diffuse based on theme
-      mapSamples: 24000, // Slightly reduced for performance
+      mapSamples: 16000, // Reduced for better performance
       mapBrightness: theme === 'dark' ? 5 : 3.5, // Adjust brightness for theme
       baseColor: theme === 'dark' ? [0.15, 0.15, 0.35] : [0.8, 0.8, 0.95], // Dark/Light base
       markerColor: [1.0, 0.5, 0.9], // Consistent marker color base (can be overridden) - Adjusted to brighter pink/purple
       glowColor: theme === 'dark' ? [0.2, 0.2, 0.4] : [0.7, 0.7, 0.9], // Dark/Light glow
-      markers: eventLocations.map((location) => {
-        // Add a bit of randomness to marker colors and sizes
-        const colorIndex = Math.floor(Math.random() * EVENT_MARKER_COLORS.length);
-        const willPulse = Math.random() > 0.85; // Only a few markers will pulse
-        return {
-          location,
-          size: Math.random() * 0.06 + 0.03, // Slightly adjusted size range
-          color: EVENT_MARKER_COLORS[colorIndex],
-          willPulse,
-        };
-      }),
+      markers: eventLocations.length > 0
+        ? eventLocations.map((location) => {
+            // Add a bit of randomness to marker colors and sizes
+            const colorIndex = Math.floor(Math.random() * EVENT_MARKER_COLORS.length);
+            const willPulse = Math.random() > 0.85; // Only a few markers will pulse
+            return {
+              location,
+              size: Math.random() * 0.06 + 0.03, // Slightly adjusted size range
+              color: EVENT_MARKER_COLORS[colorIndex],
+              willPulse,
+            };
+          })
+        : [
+            // Add a default marker at the center if there are no events
+            {
+              location: [0, 0],
+              size: 0.05,
+              color: EVENT_MARKER_COLORS[0], // Use the first color from the EVENT_MARKER_COLORS array
+              willPulse: true,
+            }
+          ],
       onRender: (state) => {
-        // Update marker sizes for pulsing effect
         // Update marker sizes for pulsing effect
         if (state.markers) { // Add check for state.markers
           state.markers.forEach((marker: any) => {
