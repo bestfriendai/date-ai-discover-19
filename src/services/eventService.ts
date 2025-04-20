@@ -112,10 +112,10 @@ function getMockEvents(params: any): {
   const mockEvents: Event[] = [];
 
   // Generate events in a grid around the center
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 100; i++) { // Increased from 10 to 100
     // Create a variation from the center point (about 0.01 degrees is roughly 1 km)
-    const latOffset = (Math.random() - 0.5) * 0.05;
-    const lngOffset = (Math.random() - 0.5) * 0.05;
+    const latOffset = (Math.random() - 0.5) * 0.1; // Increased spread slightly
+    const lngOffset = (Math.random() - 0.5) * 0.1; // Increased spread slightly
 
     mockEvents.push({
       id: `mock-${i}`,
@@ -136,7 +136,7 @@ function getMockEvents(params: any): {
     sourceStats: {
       mock: { count: mockEvents.length, error: null }
     },
-    totalEvents: 50, // Pretend there are 50 total events
+    totalEvents: mockEvents.length, // Report the actual number of mock events
     pageSize: params.limit || 100,
     page: params.page || 1
   };

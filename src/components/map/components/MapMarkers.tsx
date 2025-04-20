@@ -9,6 +9,7 @@ import {
   Tooltip,
   TooltipTrigger,
   TooltipContent,
+  TooltipProvider,
 } from '@/components/ui/tooltip'; // Corrected path
 import { MapPin, Music, Trophy, Palette, Users, Utensils, CalendarDays, PartyPopper } from 'lucide-react';
 import { cn } from '@/lib/utils'; // Corrected path
@@ -286,11 +287,13 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
                 const clickHandler = () => currentOnClick(feature);
 
                 root.render(
-                  <EventMarker
-                    event={feature}
-                    isSelected={isSelected}
-                    onClick={clickHandler}
-                  />
+                  <TooltipProvider delayDuration={0}>
+                    <EventMarker
+                      event={feature}
+                      isSelected={isSelected}
+                      onClick={clickHandler}
+                    />
+                  </TooltipProvider>
                 );
 
                 const marker = new mapboxgl.Marker({
