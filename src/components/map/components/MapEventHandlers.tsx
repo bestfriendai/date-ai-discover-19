@@ -100,4 +100,4 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
   }, [map, supercluster, events, onEventSelect]);
   
   return null;
-});
+};
