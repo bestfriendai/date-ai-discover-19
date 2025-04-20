@@ -72,9 +72,15 @@ export async function searchEvents(params: SearchParams): Promise<{
 
       // Check if we have events before returning
       if (!data?.events || data.events.length === 0) {
-        console.log('[DEBUG] No events returned from API, using mock data');
-        // If no events were returned, use mock data for testing
-        return getMockEvents(searchParams);
+        console.log('[DEBUG] No events returned from API');
+        // Return empty array instead of mock data
+        return {
+          events: [],
+          sourceStats: data?.sourceStats || { ticketmaster: { count: 0 }, eventbrite: { count: 0 }, serpapi: { count: 0 } },
+          totalEvents: 0,
+          pageSize: params.limit || 100,
+          page: params.page || 1
+        };
       }
 
       return {
@@ -86,9 +92,14 @@ export async function searchEvents(params: SearchParams): Promise<{
       };
     } catch (error) {
       console.error('[ERROR] Error calling Supabase function:', error);
-      console.log('[DEBUG] Falling back to mock data');
-      // Return mock data for development when Supabase function fails
-      return getMockEvents(searchParams);
+      // Return empty array instead of mock data
+      return {
+        events: [],
+        sourceStats: { ticketmaster: { count: 0, error: String(error) }, eventbrite: { count: 0 }, serpapi: { count: 0 } },
+        totalEvents: 0,
+        pageSize: params.limit || 100,
+        page: params.page || 1
+      };
     }
   } catch (error) {
     console.error('Error searching events:', error);

@@ -41,21 +41,66 @@ const Index = () => {
     // Fetch events within a 30-mile radius of a placeholder location (e.g., New York)
     const fetchLocalEvents = async () => {
       try {
-        const params = {
+        // Get current date and format it as YYYY-MM-DD
+        const today = new Date();
+        const nextMonth = new Date(today);
+        nextMonth.setMonth(today.getMonth() + 3); // Look 3 months ahead
+        
+        const startDate = today.toISOString().split('T')[0];
+        const endDate = nextMonth.toISOString().split('T')[0];
+        
+        // First, fetch local events (30-mile radius)
+        const localParams = {
           latitude: 40.7128, // Placeholder latitude (New York)
           longitude: -74.0060, // Placeholder longitude (New York)
           radius: 30, // 30-mile radius
-          limit: 100 // Limit the number of events
+          limit: 200, // Increased limit for more events
+          startDate,
+          endDate
         };
-        const result = await searchEvents(params);
-        if (result.events) {
-          const locations = result.events
+        
+        console.log('[DEBUG] Fetching local events with params:', localParams);
+        const localResult = await searchEvents(localParams);
+        
+        // Then, fetch events from a wider radius to get more variety
+        const widerParams = {
+          latitude: 40.7128,
+          longitude: -74.0060,
+          radius: 100, // Wider radius (100 miles)
+          limit: 300, // Even more events
+          startDate,
+          endDate
+        };
+        
+        console.log('[DEBUG] Fetching wider-area events with params:', widerParams);
+        const widerResult = await searchEvents(widerParams);
+        
+        // Combine the results, removing duplicates by ID
+        const allEvents = [...(localResult.events || [])];
+        const localEventIds = new Set(allEvents.map(event => event.id));
+        
+        if (widerResult.events) {
+          widerResult.events.forEach(event => {
+            if (!localEventIds.has(event.id)) {
+              allEvents.push(event);
+            }
+          });
+        }
+        
+        console.log(`[DEBUG] Combined ${localResult.events?.length || 0} local events with ${widerResult.events?.length || 0} wider-area events, total: ${allEvents.length}`);
+        
+        if (allEvents.length > 0) {
+          const locations = allEvents
             .filter(event => event.coordinates) // Filter out events without coordinates
             .map(event => event.coordinates as [number, number]); // Extract coordinates
+          
+          console.log(`[DEBUG] Found ${locations.length} events with valid coordinates`);
           setEventLocations(locations);
+        } else {
+          console.warn('[WARN] No events found, globe will be empty');
         }
       } catch (error) {
-        console.error('Error fetching local events:', error);
+        console.error('Error fetching events:', error);
       }
     };
 
