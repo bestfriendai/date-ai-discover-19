@@ -33,6 +33,7 @@ export function useSupercluster(events: Event[], bounds: [number, number, number
       }
       return hasValidCoords;
     });
+    console.log('[CLUSTER] Generated', validEvents.length, 'points for clustering input'); // Log count instead of full array
 
     return validEvents.map(ev => ({
       type: 'Feature' as const,
@@ -97,7 +98,7 @@ export function useSupercluster(events: Event[], bounds: [number, number, number
 
     try {
       const clusterFeatures = superclusterRef.current.getClusters(bounds, currentZoom);
-      console.log('[CLUSTER] Generated', clusterFeatures.length, 'clusters/points');
+      console.log('[CLUSTER] Generated', clusterFeatures.length, 'clusters/points for display'); // Log count instead of full array
       setClusters(clusterFeatures as ClusterFeature[]);
     } catch (error) {
       console.error('[CLUSTER] Error generating clusters:', error);

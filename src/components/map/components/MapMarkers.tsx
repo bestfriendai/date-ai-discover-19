@@ -56,8 +56,11 @@ export const MapMarkers = memo(({ map, features, onMarkerClick, selectedFeatureI
     // Log sample points for debugging
     if (points.length > 0) {
       const samplePoint = points[0];
-      console.log('[MARKERS] Sample point:', JSON.stringify(samplePoint));
-      console.log('[MARKERS] Sample point coordinates:', samplePoint.geometry.coordinates);
+    console.log('[MARKERS] Sample point summary:', {
+        id: samplePoint.properties?.id,
+        title: samplePoint.properties?.title,
+        coordinates: samplePoint.geometry.coordinates
+    });
     } else {
       console.warn('[MARKERS] No individual points to display!');
     }
@@ -69,7 +72,9 @@ export const MapMarkers = memo(({ map, features, onMarkerClick, selectedFeatureI
   // Memoize the click handler to prevent unnecessary re-renders
   const handleMarkerClick = useCallback((feature: CustomFeature) => {
     const id = String(feature.properties?.id ?? feature.properties?.cluster_id);
-    console.log('[MARKERS] Marker clicked:', id);
+    // Log only ID and type (cluster/point)
+    const type = feature.properties?.cluster ? 'Cluster' : 'Point';
+    console.log(`[MARKERS] ${type} clicked:`, id);
     onMarkerClick(feature);
   }, [onMarkerClick]);
 

@@ -107,7 +107,12 @@ export const useMapPopup = ({ map, event, onClose, onViewDetails, onAddToPlan }:
       return html;
     };
 
-    console.log('[useMapPopup] Event with coordinates received, opening popup:', event.id);
+    // Log only event ID to avoid deep traversal
+    if (event?.id) {
+      console.log('[useMapPopup] Opening popup for event ID:', event.id);
+    } else if (popupRef.current) {
+       console.log('[useMapPopup] Closing popup');
+    }
 
     // Create the Mapbox popup instance if it doesn't exist
     if (!popupRef.current) {

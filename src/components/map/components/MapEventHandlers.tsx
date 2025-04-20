@@ -19,17 +19,25 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
   React.useEffect(() => {
     if (!map) return;
     
-    const handleClick = (e: mapboxgl.MapMouseEvent & { features?: mapboxgl.MapboxGeoJSONFeature[] }) => {
+    const handleClick = (e: mapboxgl.MapMouseEvent & { features?: GeoJSON.Feature[] }) => {
       const features = map.queryRenderedFeatures(e.point, {
         layers: ['clusters', 'unclustered-point']
       });
-      
+
+      // Log count of features found in this handler
+      console.log('[MapEventHandlers] Handling map click, found features:', features.length);
+
       if (features.length === 0) {
-        if (onEventSelect) onEventSelect(null);
+        // Let the MapComponent listener handle deselecting if needed
         return;
       }
-      
+
       const feature = features[0];
+
+      // Log the ID/type of the feature clicked
+      const featureId = feature.properties?.id ?? feature.properties?.cluster_id;
+      const featureType = feature.properties?.cluster ? 'cluster' : 'point';
+      console.log(`[MapEventHandlers] Clicked on a ${featureType} feature with ID:`, featureId);
       
       if (feature.properties?.cluster) {
         if (!supercluster) return;
@@ -37,13 +45,18 @@ export const MapEventHandlers: React.FC<MapEventHandlersProps> = ({
         const clusterId = feature.properties.cluster_id;
         try {
           const zoom = supercluster.getClusterExpansionZoom(clusterId);
-          map.flyTo({
-            center: feature.geometry?.coordinates as [number, number],
-            zoom: zoom,
-            duration: 1000,
+          // Ensure geometry is a Point before accessing coordinates
+          if (feature.geometry && feature.geometry.type === 'Point') {
+            map.flyTo({
+              center: feature.geometry.coordinates as [number, number],
+              zoom: zoom,
+              duration: 1000,
             essential: true,
             easing: (t) => t * (2 - t)
-          });
+            });
+          } else {
+            console.warn('[MAP_EVENTS] Clicked cluster feature does not have Point geometry:', feature);
+          }
         } catch (err) {
           console.error('[MAP_EVENTS] Error expanding cluster:', err);
         }

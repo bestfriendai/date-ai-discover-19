@@ -91,7 +91,7 @@ const MapComponent = ({
   const { handleMapMoveEnd: handleMapMoveEndFromHook } = useMapEvents(
      (center) => {
        if (center && 'lat' in center && 'lng' in center) {
-         onMapMoveEnd({ latitude: center.lat, longitude: center.lng }, (map?.getZoom() as number) ?? initialViewState.zoom, true);
+         onMapMoveEnd({ latitude: center.lat as number, longitude: center.lng as number }, (map?.getZoom() as number) ?? initialViewState.zoom, true);
        }
      },
      (zoom) => {
@@ -163,25 +163,33 @@ const MapComponent = ({
   }, [map, onEventSelect, selectedEvent]);
 
   useEffect(() => {
-    if (map && onEventSelect && selectedEvent) {
+    if (map && onEventSelect) { // Keep listener active even when no event is selected to allow deselecting
       const handleMapClick = (e: mapboxgl.MapMouseEvent) => {
         const point = e.point;
-        const features = map.queryRenderedFeatures(point, { 
-          layers: ['clusters', 'unclustered-point'] 
+        const features = map.queryRenderedFeatures(point, {
+          layers: ['clusters', 'unclustered-point']
         });
-        
+
+        // Log only the count of features found
+        console.log('[MapComponent] Map clicked, found features:', features.length);
+
         if (features.length === 0) {
-          onEventSelect(null);
+          // If selectedEvent exists, deselect it. Otherwise, no action needed.
+          if (selectedEvent) {
+             onEventSelect(null);
+             console.log('[MapComponent] Deselecting event.');
+          }
         }
+        // The logic for clicking on features (clusters/points) is now handled by MapEventHandlers.tsx
       };
-      
+
       map.on('click', handleMapClick);
 
       return () => {
         map.off('click', handleMapClick);
       };
     }
-  }, [map, onEventSelect, selectedEvent]);
+  }, [map, onEventSelect, selectedEvent]); // Depend on selectedEvent to re-evaluate logic if needed
 
   useKeyboardNavigation({
     events,
