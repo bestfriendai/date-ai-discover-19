@@ -26,14 +26,14 @@ export async function fetchPredictHQEvents(params: {
     apiKey,
     latitude,
     longitude,
-    radius = 10,
+    radius = 25, // Increased default radius for more events
     startDate,
     endDate,
     categories = [],
     location,
     withinParam,
     keyword,
-    limit = 100
+    limit = 300 // Increased limit for more events
   } = params;
 
   try {
@@ -71,7 +71,13 @@ export async function fetchPredictHQEvents(params: {
       console.log(`[PREDICTHQ] Using pre-formatted within parameter: ${withinParam}`);
     } else if (latitude && longitude) {
       // Convert radius from miles to km (PredictHQ uses km)
-      const radiusKm = Math.round(radius * 1.60934);
+      // For party events, use a larger radius
+      let effectiveRadius = radius;
+      if (categories && categories.includes('party')) {
+        effectiveRadius = Math.max(radius, 50); // At least 50 miles for party events
+        console.log(`[PREDICTHQ] Using increased radius for party events: ${effectiveRadius} miles`);
+      }
+      const radiusKm = Math.round(effectiveRadius * 1.60934);
       queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
       console.log(`[PREDICTHQ] Using coordinates: ${latitude},${longitude} with radius ${radiusKm}km`);
     } else if (location) {
@@ -83,7 +89,13 @@ export async function fetchPredictHQEvents(params: {
         if (!isNaN(lat) && !isNaN(lng) &&
             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           // Convert radius from miles to km (PredictHQ uses km)
-          const radiusKm = Math.round(radius * 1.60934);
+          // For party events, use a larger radius
+          let effectiveRadius = radius;
+          if (categories && categories.includes('party')) {
+            effectiveRadius = Math.max(radius, 50); // At least 50 miles for party events
+            console.log(`[PREDICTHQ] Using increased radius for party events: ${effectiveRadius} miles`);
+          }
+          const radiusKm = Math.round(effectiveRadius * 1.60934);
           queryParams.append('within', `${radiusKm}km@${lat},${lng}`);
           console.log(`[PREDICTHQ] Parsed coordinates from location string: ${lat},${lng} with radius ${radiusKm}km`);
         } else {
@@ -127,19 +139,49 @@ export async function fetchPredictHQEvents(params: {
     let labelsForQuery = [];
     if (categoriesForQuery.includes('party')) {
       // Add all party-related PredictHQ categories
-      const partyCategories = ['concerts','festivals','community','conferences','performing-arts','expos'];
+      const partyCategories = ['concerts','festivals','community','conferences','performing-arts','expos','entertainment','sports'];
       categoriesForQuery = Array.from(new Set([...categoriesForQuery, ...partyCategories]));
 
-      // Add party-related labels - expanded for better coverage
+      // Add party-related labels - significantly expanded for better coverage
       labelsForQuery = [
-        'nightlife','party','club','social-gathering','celebration',
-        'music','dance','dj','entertainment','networking',
-        'mixer','social','happy-hour','cocktail'
+        // Nightlife and club related
+        'nightlife','party','club','nightclub','dance-club','disco','lounge','bar',
+        'dance-party','dance-floor','dancing','dj-set','dj-night','dj-party',
+        'after-hours','late-night','bottle-service','vip-tables','vip-section',
+
+        // Social events
+        'social-gathering','celebration','networking','mixer','social',
+        'meetup','meet-and-greet','singles','speed-dating','social-event',
+        'happy-hour','cocktail','cocktail-party','open-bar','drinks',
+
+        // Music and entertainment
+        'music','live-music','concert','performance','show','entertainment',
+        'dance','dj','electronic-music','hip-hop','edm','house-music',
+        'techno','rave','festival','music-festival','dance-music',
+
+        // Special events
+        'gala','reception','vip','exclusive','launch-party','opening',
+        'premiere','after-party','release-party','album-release',
+        'birthday-party','anniversary-party','celebration-event',
+
+        // Day parties
+        'day-party','pool-party','beach-party','brunch','day-club',
+        'afternoon-party','rooftop-party','outdoor-party','bbq-party',
+
+        // Venue types
+        'venue','club-venue','event-space','rooftop','terrace',
+        'warehouse-party','underground-party','pop-up-party'
       ];
 
       // Add comprehensive party-related keywords if not present
       if (!keywordForQuery) {
-        keywordForQuery = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave';
+        keywordForQuery = 'party OR club OR nightclub OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR concert OR lounge OR venue OR vip OR exclusive OR "pool party" OR "day party" OR "dance party" OR "after party" OR "launch party" OR "birthday party" OR "singles party" OR "warehouse party" OR "underground party" OR "rooftop party" OR "beach party" OR "brunch party" OR "dj set" OR "bottle service" OR "vip tables" OR "open bar"';
+      }
+
+      // Increase the limit for party events
+      if (limit < 300) {
+        limit = 300;
+        console.log('[PREDICTHQ] Increased limit for party events to 300');
       }
 
       console.log('[PARTY_DEBUG] Enhanced PredictHQ filters for party events');
@@ -156,7 +198,7 @@ export async function fetchPredictHQEvents(params: {
         'family': ['community', 'expos'],
         'food': ['food-drink'],
         // Include categories that might contain party events
-        'party': ['festivals', 'community', 'conferences', 'concerts', 'expos', 'performing-arts']
+        'party': ['festivals', 'community', 'conferences', 'concerts', 'expos', 'performing-arts', 'entertainment', 'sports', 'food-drink']
       };
 
       // Log the categories for debugging
@@ -444,10 +486,31 @@ function normalizePredictHQEvent(event: any): Event {
     let partySubcategory: any = undefined;
     const isPartyByDetection = detectPartyEvent(event.title, event.description);
 
-    // Log party detection for debugging
-    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, IsPartyByDetection: ${isPartyByDetection}`);
+    // Also check if the event has party-related labels
+    const hasPartyLabels = event.labels && Array.isArray(event.labels) && event.labels.some(label => {
+      const partyLabels = [
+        'nightlife', 'party', 'club', 'nightclub', 'dance-club', 'disco', 'lounge',
+        'dance-party', 'dj-set', 'dj-night', 'dj-party', 'social-gathering', 'celebration',
+        'mixer', 'happy-hour', 'cocktail', 'rave', 'festival', 'gala', 'reception',
+        'day-party', 'pool-party', 'beach-party', 'brunch', 'day-club', 'rooftop-party'
+      ];
+      return partyLabels.includes(label);
+    });
 
-    if (isPartyByDetection) {
+    // Check if the event is in a venue that suggests it's a party
+    const hasPartyVenue = event.entities && Array.isArray(event.entities) && event.entities.some(entity => {
+      if (entity.type === 'venue' && entity.name) {
+        const partyVenueTerms = ['club', 'lounge', 'bar', 'nightclub', 'disco', 'party'];
+        return partyVenueTerms.some(term => entity.name.toLowerCase().includes(term));
+      }
+      return false;
+    });
+
+    // Log party detection for debugging
+    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, IsPartyByDetection: ${isPartyByDetection}, HasPartyLabels: ${hasPartyLabels}, HasPartyVenue: ${hasPartyVenue}`);
+
+    // If any of our party detection methods return true, categorize as a party
+    if (isPartyByDetection || hasPartyLabels || hasPartyVenue) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.title, event.description, time);
       console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);

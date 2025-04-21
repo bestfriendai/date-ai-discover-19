@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { MapLayout } from '@/components/map/layout/MapLayout';
-import { MapContent } from '@/components/map/layout/MapContent';
+import { PartyContent } from '@/components/party/PartyContent';
 import { useEventSearch } from '@/components/map/hooks/useEventSearch';
 import { useMapState } from '@/components/map/hooks/useMapState';
 import { useMapFilters } from '@/components/map/hooks/useMapFilters';
@@ -215,12 +215,9 @@ const PartyAI = () => {
 
   return (
     <MapLayout>
-      <div className="absolute top-0 left-0 right-0 z-50 bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 text-white py-3 px-4 text-center">
-        <h1 className="text-xl font-bold">🎉 PartyAI - Discover the Best Parties Near You 🎉</h1>
-        <p className="text-sm opacity-90">Powered by AI to find the hottest clubs, day parties, social events & more</p>
-      </div>
 
-      <MapContent
+
+      <PartyContent
         leftSidebarOpen={leftSidebarOpen}
         rightSidebarOpen={rightSidebarOpen}
         selectedEvent={selectedEvent}

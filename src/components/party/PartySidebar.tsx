@@ -25,38 +25,38 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedSubcategories, setSelectedSubcategories] = useState<PartySubcategory[]>([]);
-  
+
   // Filter events based on search term and selected subcategories
   const filteredEvents = events.filter(event => {
     // Search term filter
-    const matchesSearch = searchTerm === '' || 
+    const matchesSearch = searchTerm === '' ||
       event.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (event.description && event.description.toLowerCase().includes(searchTerm.toLowerCase())) ||
       (event.venue && event.venue.toLowerCase().includes(searchTerm.toLowerCase()));
-    
+
     // Subcategory filter
-    const matchesSubcategory = selectedSubcategories.length === 0 || 
+    const matchesSubcategory = selectedSubcategories.length === 0 ||
       (event.partySubcategory && selectedSubcategories.includes(event.partySubcategory));
-    
+
     return matchesSearch && matchesSubcategory;
   });
-  
+
   // Get unique subcategories from events
   const subcategories = Array.from(new Set(
     events
       .filter(event => event.partySubcategory)
       .map(event => event.partySubcategory as PartySubcategory)
   ));
-  
+
   // Toggle subcategory selection
   const toggleSubcategory = (subcategory: PartySubcategory) => {
-    setSelectedSubcategories(prev => 
+    setSelectedSubcategories(prev =>
       prev.includes(subcategory)
         ? prev.filter(sc => sc !== subcategory)
         : [...prev, subcategory]
     );
   };
-  
+
   return (
     <aside className="h-full flex flex-col bg-gradient-to-b from-black/90 to-purple-950/90 backdrop-blur-xl border-r border-purple-900/30 shadow-lg rounded-r-xl">
       {/* Header */}
@@ -64,10 +64,10 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
             <h2 className="text-xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
-              Party Events
+              Parties
             </h2>
             <div className="ml-2 px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-xs font-medium">
-              {isLoading ? '...' : filteredEvents.length} Events
+              {isLoading ? '...' : filteredEvents.length} Parties
             </div>
           </div>
           <button
@@ -78,7 +78,7 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
             <X className="h-5 w-5 text-gray-300" />
           </button>
         </div>
-        
+
         {/* Search input */}
         <div className="relative mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
@@ -97,15 +97,22 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
             </button>
           )}
         </div>
-        
-        {/* Subcategory filters */}
+
+        {/* Party type filters */}
         <div className="mb-4">
           <div className="flex items-center mb-2">
             <Filter className="h-4 w-4 mr-2 text-purple-400" />
-            <span className="text-sm font-medium text-gray-200">Filter by type</span>
+            <span className="text-sm font-medium text-gray-200">Party Type</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {subcategories.map(subcategory => (
+            {/* Always show these party types even if not in current events */}
+            {[
+              'club' as PartySubcategory,
+              'day-party' as PartySubcategory,
+              'celebration' as PartySubcategory,
+              'networking' as PartySubcategory,
+              'brunch' as PartySubcategory
+            ].map(subcategory => (
               <button
                 key={subcategory}
                 onClick={() => toggleSubcategory(subcategory)}
@@ -116,10 +123,25 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
                 <PartySubcategoryBadge subcategory={subcategory} size="sm" />
               </button>
             ))}
+
+            {/* Show any additional subcategories from events */}
+            {subcategories
+              .filter(sc => !['club', 'day-party', 'celebration', 'networking', 'brunch'].includes(sc))
+              .map(subcategory => (
+                <button
+                  key={subcategory}
+                  onClick={() => toggleSubcategory(subcategory)}
+                  className={`transition-all duration-300 transform hover:scale-105 ${
+                    selectedSubcategories.includes(subcategory) ? 'ring-2 ring-white' : ''
+                  }`}
+                >
+                  <PartySubcategoryBadge subcategory={subcategory} size="sm" />
+                </button>
+              ))}
           </div>
         </div>
       </div>
-      
+
       {/* Event list */}
       <div className="flex-1 overflow-y-auto p-4">
         {isLoading ? (

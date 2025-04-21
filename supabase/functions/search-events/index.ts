@@ -378,19 +378,22 @@ serve(async (req: Request) => {
 
     // Fetch from Ticketmaster API
     try {
-      // Fetch up to 200 events from Ticketmaster (reduced for performance)
+      // Fetch up to 400 events from Ticketmaster (increased for party events)
       let ticketmasterEvents: any[] = [];
       let ticketmasterPage = 0;
       let ticketmasterTotalPages = 1;
-      const ticketmasterMaxPages = 1; // Reduced to 1 page (200 events) for better performance
+      const ticketmasterMaxPages = 2; // Increased to 2 pages (400 events) for more party events
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
-        // Use a stricter radius for more local results (default 25 miles)
-        const effectiveRadius = Math.max(1, Math.min(Number(radius) || 25, 100));
+        // Use a wider radius for party events (default 50 miles)
+        const effectiveRadius = Math.max(1, Math.min(Number(radius) || 50, 100));
+        // For party events, we want a wider radius to find more events
+        const partyRadius = params.categories && params.categories.includes('party') ?
+          Math.max(effectiveRadius, 50) : effectiveRadius;
         let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
 
         // Add location parameters
         if (userLat && userLng) {
-          ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${effectiveRadius}&unit=miles`
+          ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${partyRadius}&unit=miles`
         } else if (location) {
           ticketmasterUrl += `&city=${encodeURIComponent(location)}`
         }
@@ -591,7 +594,7 @@ serve(async (req: Request) => {
           location: phqLocation,
           withinParam: phqWithinParam, // Pass the pre-formatted within parameter if available
           keyword,
-          limit: 200 // Increased limit to get more events
+          limit: 300 // Increased limit to get more party events
         });
 
         // Log the result of the API call
@@ -690,7 +693,7 @@ serve(async (req: Request) => {
         let serpEvents: any[] = [];
         let serpStart = 0;
         const serpPageSize = 10;
-        const serpMaxPages = 2; // Reduced to 2 pages for better performance
+        const serpMaxPages = 3; // Increased to 3 pages for more party events
         let serpHasMore = true;
         let serpApiWorked = false;
         let serpApiLastError = null;
