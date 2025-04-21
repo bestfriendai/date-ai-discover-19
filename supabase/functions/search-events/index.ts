@@ -3,6 +3,8 @@ import { corsHeaders } from "../_shared/cors.ts"
 import { Event, SearchParams, SourceStats, SearchEventsResponse } from "./types.ts"
 // Import the fixed PredictHQ integration
 import { fetchPredictHQEvents } from "./predicthq-fixed.ts"
+// Import party detection utilities
+import { detectPartyEvent, detectPartySubcategory } from "./partyUtils.ts"
 
 /**
  * Normalize a Ticketmaster event to our standard format
@@ -60,12 +62,11 @@ function normalizeTicketmasterEvent(event: any): Event {
       if (segment === 'miscellaneous' && genreName?.includes('party')) category = 'party';
     }
 
-    // Fallback check on keywords if category is still 'other'
-    const titleLower = event.name.toLowerCase();
-    if (category === 'other') {
-      if (titleLower.includes('party') || titleLower.includes('social') || titleLower.includes('gathering')) {
-        category = 'party';
-      }
+    // Check for party events
+    let partySubcategory: any = undefined;
+    if (category === 'party' || detectPartyEvent(event.name, event.description || event.info || '')) {
+      category = 'party';
+      partySubcategory = detectPartySubcategory(event.name, event.description || event.info || '', time);
     }
 
     return {
@@ -78,6 +79,7 @@ function normalizeTicketmasterEvent(event: any): Event {
       location,
       venue: venue?.name,
       category,
+      partySubcategory,
       image: event.images && event.images.length > 0
         ? event.images.sort((a: any, b: any) => b.width - a.width)[0].url
         : 'https://via.placeholder.com/400',
@@ -157,6 +159,12 @@ function normalizeSerpApiEvent(event: any): Event {
       category = 'party';
     }
 
+    // Check for party subcategory
+    let partySubcategory: any = undefined;
+    if (category === 'party') {
+      partySubcategory = detectPartySubcategory(event.title, event.description || '', time);
+    }
+
     // Generate a unique ID
     const id = `serpapi-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -170,6 +178,7 @@ function normalizeSerpApiEvent(event: any): Event {
       location,
       venue: event.venue?.name,
       category,
+      partySubcategory,
       image: event.thumbnail || 'https://via.placeholder.com/400',
       url: event.link,
       price: event.ticket_info?.price

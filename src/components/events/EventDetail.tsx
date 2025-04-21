@@ -11,6 +11,19 @@ import { toast } from '@/hooks/use-toast';
 import { Event } from '@/types';
 import { ExternalLink, MapPin, Calendar, Clock, Heart, Plus, Share2, Ticket } from 'lucide-react';
 
+// Helper function to format party subcategory for display
+const formatPartySubcategory = (subcategory: string): string => {
+  switch(subcategory) {
+    case 'day-party': return 'Day Party';
+    case 'brunch': return 'Brunch';
+    case 'club': return 'Club';
+    case 'networking': return 'Networking';
+    case 'celebration': return 'Celebration';
+    case 'social': return 'Social';
+    default: return subcategory.charAt(0).toUpperCase() + subcategory.slice(1);
+  }
+};
+
 interface EventDetailProps {
   event: Event;
   onClose: () => void;
@@ -151,6 +164,11 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
 
             <div className="flex flex-wrap items-center gap-2"> {/* Removed mb-4 */}
               <Badge variant="secondary" className="capitalize">{event.category}</Badge>
+              {event.category === 'party' && event.partySubcategory && (
+                <Badge variant="secondary" className="capitalize bg-purple-600">
+                  {formatPartySubcategory(event.partySubcategory)}
+                </Badge>
+              )}
               {event.source && <Badge variant="outline" className="capitalize">{event.source}</Badge>}
               {event.price && <Badge variant="outline" className="capitalize">{event.price}</Badge>}
             </div>

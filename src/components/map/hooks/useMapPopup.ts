@@ -37,100 +37,26 @@ export const useMapPopup = ({ map, event, onClose, onViewDetails, onAddToPlan }:
 
   // Main effect to manage the Mapbox popup lifecycle
   useEffect(() => {
-    // If map is not initialized, or event is null/missing coordinates, ensure popup is closed
-    if (!map || !event?.coordinates) {
-      if (popupRef.current) {
-        console.log('[useMapPopup] Event is null or missing coordinates, removing existing popup.');
-        popupRef.current.remove();
-        popupRef.current = null;
-        cleanupReactRoot();
-      }
-      return; // Nothing to do if no event or map
-    }
+    // Popups have been disabled as requested
+    console.log('[useMapPopup] Popups are disabled as requested');
 
-    // Ensure coordinates are valid (Mapbox expects [longitude, latitude])
-    const coordinates = Array.isArray(event.coordinates) && event.coordinates.length === 2 &&
-                        typeof event.coordinates[0] === 'number' && typeof event.coordinates[1] === 'number' &&
-                        !isNaN(event.coordinates[0]) && !isNaN(event.coordinates[1])
-      ? (event.coordinates as [number, number])
-      : undefined;
-
-    if (!coordinates) {
-      console.warn('[useMapPopup] Cannot open popup: event has invalid coordinates', event);
-      if (popupRef.current) {
-        popupRef.current.remove();
-        popupRef.current = null;
-        cleanupReactRoot();
-      }
-      return; // Cannot proceed without valid coordinates
-    }
-
-    // Create a popup container and render React into it
-    const createPopupContent = () => {
-      const popupContainer = document.createElement('div');
-      popupContainer.className = 'date-ai-popup-content-wrapper';
-
-      // Clean up any existing React root
-      cleanupReactRoot();
-
-      // Create a new React root and render the EventPopup component
-      const root = createRoot(popupContainer);
-
-      // Use the EventPopup component
-      root.render(
-        EventPopup({
-          event,
-          onViewDetails: onViewDetails ? () => onViewDetails(event) : undefined,
-          onAddToPlan: onAddToPlan ? () => onAddToPlan(event) : undefined
-        })
-      );
-
-      // Store the root for cleanup
-      popupRootRef.current = root;
-
-      return popupContainer;
-    };
-
-    // If a popup already exists, update its content and position
+    // Clean up any existing popup
     if (popupRef.current) {
-      console.log('[useMapPopup] Existing popup found, updating.');
-      // Use type assertion to handle the missing setDOMContent in type definition
-      const popup = popupRef.current as any;
-      popup.setLngLat(coordinates);
-      popup.setDOMContent(createPopupContent());
-      console.log('[useMapPopup] Existing popup updated with React content.');
-    } else {
-      // Create a new Mapbox popup instance
-      console.log('[useMapPopup] No existing popup found, creating new instance.');
-      const newPopup = new mapboxgl.Popup({
-        closeOnClick: false,
-        closeButton: true,
-        offset: 25,
-        className: 'date-ai-popup-container',
-        maxWidth: '300px'
-      });
-
-      // Use type assertion for methods not in TypeScript definitions
-      const popup = newPopup as any;
-      popup.setLngLat(coordinates);
-      popup.setDOMContent(createPopupContent());
-      popup.addTo(map);
-
-      // Add the 'close' listener
-      newPopup.on('close', handlePopupClose);
-
-      // Store the popup reference
-      popupRef.current = newPopup;
-      console.log('[useMapPopup] New popup created and added to map with React content.');
+      console.log('[useMapPopup] Removing existing popup.');
+      popupRef.current.remove();
+      popupRef.current = null;
+      cleanupReactRoot();
     }
 
-    // Cleanup function for when dependencies change
+    // We still want to maintain the event selection functionality
+    // but without showing the popup
+
     return () => {
-      console.log('[useMapPopup] Effect dependencies changed, cleaning up React root.');
+      // Cleanup function when dependencies change
       cleanupReactRoot();
-      // Note: We don't remove the popup here, as it will be updated or removed in the next effect run
     };
-  }, [map, event, onViewDetails, onAddToPlan, cleanupReactRoot, handlePopupClose]);
+  }, [map, event, cleanupReactRoot]);
+
 
   // Effect to remove the popup when the hook unmounts
   useEffect(() => {

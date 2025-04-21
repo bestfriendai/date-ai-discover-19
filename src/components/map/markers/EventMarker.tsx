@@ -106,8 +106,9 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
         </div>
       )}
 
-      {category && (
-        <div className="mt-1 flex items-center">
+      {/* Category and subcategory badges */}
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        {category && (
           <div className="text-xs px-1.5 py-0.5 rounded-full font-medium"
                style={{
                  background: `linear-gradient(to right, var(--${getCategoryColor(category)}), var(--${getCategoryColor(category)}-foreground))`,
@@ -116,10 +117,17 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
                }}>
             {category.charAt(0).toUpperCase() + category.slice(1)}
           </div>
-        </div>
-      )}
+        )}
+
+        {/* Show party subcategory if available */}
+        {category === 'party' && event.partySubcategory && (
+          <div className="text-xs px-1.5 py-0.5 rounded-full font-medium bg-purple-100 text-purple-800">
+            {formatPartySubcategory(event.partySubcategory)}
+          </div>
+        )}
+      </div>
     </div>
-  ), [title, formattedDate, event.venue, event.price, category]);
+  ), [title, formattedDate, event.venue, event.price, category, event.partySubcategory]);
 
   const handleClick = () => {
     if (onClick) {
@@ -137,6 +145,19 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
       case 'food': return 'color-orange';
       case 'party': return 'color-violet';
       default: return 'color-slate';
+    }
+  }
+
+  // Helper function to format party subcategory for display
+  function formatPartySubcategory(subcategory: string): string {
+    switch(subcategory) {
+      case 'day-party': return 'Day Party';
+      case 'brunch': return 'Brunch';
+      case 'club': return 'Club';
+      case 'networking': return 'Networking';
+      case 'celebration': return 'Celebration';
+      case 'social': return 'Social';
+      default: return subcategory.charAt(0).toUpperCase() + subcategory.slice(1);
     }
   }
 

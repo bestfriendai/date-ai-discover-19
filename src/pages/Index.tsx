@@ -256,6 +256,14 @@ const Index = () => {
                     Explore Map <MapIcon className="ml-2 h-5 w-5" />
                   </Button>
                 </Link>
+                <Link to="/party">
+                  <Button
+                    size="lg"
+                    className="font-medium text-base xs:text-lg w-full sm:w-auto rounded-full bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 hover:from-purple-700 hover:via-pink-600 hover:to-red-600 text-white shadow-lg shadow-purple-700/20 transform transition-all duration-300 hover:scale-105 hover:shadow-xl hover:shadow-purple-700/30"
+                  >
+                    Party Finder <SparklesIcon className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
                 <Link to="/events">
                   <Button
                     size="lg"
@@ -483,7 +491,15 @@ const Index = () => {
                   size="lg"
                   className="w-full sm:w-auto rounded-full bg-white hover:bg-gray-200 text-indigo-700 font-semibold text-lg px-10 transform transition-transform hover:scale-105"
                 >
-                  Get Started
+                  Explore Map
+                </Button>
+              </Link>
+              <Link to="/party">
+                <Button
+                  size="lg"
+                  className="w-full sm:w-auto rounded-full bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 hover:from-purple-700 hover:via-pink-600 hover:to-red-600 text-white font-semibold text-lg px-10 transform transition-transform hover:scale-105"
+                >
+                  Find Parties
                 </Button>
               </Link>
               <Link to="/about">

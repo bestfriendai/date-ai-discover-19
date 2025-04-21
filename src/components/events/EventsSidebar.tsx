@@ -22,22 +22,22 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
   // Filter events based on selected categories and date
   const filteredEvents = useCallback(() => {
     if (isLoading) return [];
-    
+
     let filtered = [...events];
-    
+
     // Apply category filter if any categories are selected
     if (selectedCategories.length > 0) {
-      filtered = filtered.filter(event => 
+      filtered = filtered.filter(event =>
         selectedCategories.includes(event.category?.toLowerCase() || 'other')
       );
     }
-    
+
     // Apply date filter
     if (dateFilter) {
       const now = new Date();
       let startDate: Date;
       let endDate: Date;
-      
+
       if (dateFilter === 'today') {
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
         endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
@@ -49,14 +49,14 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
       }
-      
+
       filtered = filtered.filter(event => {
         if (!event.date) return false;
         const eventDate = new Date(event.date);
         return eventDate >= startDate && eventDate <= endDate;
       });
     }
-    
+
     return filtered;
   }, [events, selectedCategories, dateFilter, isLoading]);
 
@@ -64,9 +64,9 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
   const skeletonCount = 5;
 
   const toggleCategory = (category: string) => {
-    setSelectedCategories(prev => 
-      prev.includes(category) 
-        ? prev.filter(c => c !== category) 
+    setSelectedCategories(prev =>
+      prev.includes(category)
+        ? prev.filter(c => c !== category)
         : [...prev, category]
     );
   };
@@ -85,6 +85,19 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
       case 'food': return <Utensils className="h-4 w-4" />;
       case 'party': return <PartyPopper className="h-4 w-4" />;
       default: return <Calendar className="h-4 w-4" />;
+    }
+  };
+
+  // Helper function to format party subcategory for display
+  const formatPartySubcategory = (subcategory: string): string => {
+    switch(subcategory) {
+      case 'day-party': return 'Day Party';
+      case 'brunch': return 'Brunch';
+      case 'club': return 'Club';
+      case 'networking': return 'Networking';
+      case 'celebration': return 'Celebration';
+      case 'social': return 'Social';
+      default: return subcategory.charAt(0).toUpperCase() + subcategory.slice(1);
     }
   };
 
@@ -132,20 +145,20 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
         </div>
 
         {/* Category and Date Filters */}
-        <button 
-          onClick={() => setShowFilters(!showFilters)} 
+        <button
+          onClick={() => setShowFilters(!showFilters)}
           className="w-full flex items-center justify-between p-2 mb-2 bg-background/30 hover:bg-background/50 rounded-lg transition-all"
         >
           <span className="font-medium">Filters</span>
-          <svg 
-            xmlns="http://www.w3.org/2000/svg" 
-            width="16" 
-            height="16" 
-            viewBox="0 0 24 24" 
-            fill="none" 
-            stroke="currentColor" 
-            strokeWidth="2" 
-            strokeLinecap="round" 
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
             strokeLinejoin="round"
             className={`transition-transform ${showFilters ? 'rotate-180' : ''}`}
           >
@@ -171,8 +184,8 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                     key={category.name}
                     variant="outline"
                     size="sm"
-                    className={`rounded-full px-3 py-1 transition-all ${selectedCategories.includes(category.name) 
-                      ? `${category.color} text-white border-transparent` 
+                    className={`rounded-full px-3 py-1 transition-all ${selectedCategories.includes(category.name)
+                      ? `${category.color} text-white border-transparent`
                       : 'bg-background/40 hover:bg-background/60 border-border/50'}`}
                     onClick={() => toggleCategory(category.name)}
                   >
@@ -296,9 +309,16 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                           target.src = '/placeholder.jpg';
                         }}
                       />
-                      {/* Event category badge */}
-                      <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded">
-                        {event.category?.charAt(0).toUpperCase() + event.category?.slice(1) || 'Event'}
+                      {/* Event category badges */}
+                      <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
+                        <div className="bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+                          {event.category?.charAt(0).toUpperCase() + event.category?.slice(1) || 'Event'}
+                        </div>
+                        {event.category === 'party' && event.partySubcategory && (
+                          <div className="bg-purple-600 text-white text-xs font-medium px-2 py-0.5 rounded">
+                            {formatPartySubcategory(event.partySubcategory)}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <h3 className="font-semibold line-clamp-1 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
@@ -348,6 +368,13 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                         <div className="text-xs bg-blue-600/10 text-blue-500 rounded px-1.5 py-0.5 mr-1 font-medium">
                           {event.category?.charAt(0).toUpperCase() + event.category?.slice(1) || 'Event'}
                         </div>
+
+                        {/* Party subcategory badge */}
+                        {event.category === 'party' && event.partySubcategory && (
+                          <div className="text-xs bg-purple-100 text-purple-800 rounded px-1.5 py-0.5 mr-1 font-medium">
+                            {formatPartySubcategory(event.partySubcategory)}
+                          </div>
+                        )}
                         {/* Price */}
                         {event.price && (
                           <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">

@@ -2,6 +2,19 @@ import type { Event } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Calendar, MapPin, Heart } from 'lucide-react';
 
+// Helper function to format party subcategory for display
+const formatPartySubcategory = (subcategory: string): string => {
+  switch(subcategory) {
+    case 'day-party': return 'Day Party';
+    case 'brunch': return 'Brunch';
+    case 'club': return 'Club';
+    case 'networking': return 'Networking';
+    case 'celebration': return 'Celebration';
+    case 'social': return 'Social';
+    default: return subcategory.charAt(0).toUpperCase() + subcategory.slice(1);
+  }
+};
+
 interface EventPopupProps {
   event: Event;
   onViewDetails?: () => void;
@@ -27,6 +40,11 @@ export const EventPopup = ({ event, onViewDetails, onAddToPlan }: EventPopupProp
       </div>
       <div className="text-xs mb-2">
         <span className="font-medium">Category:</span> {event.category}
+        {event.category === 'party' && event.partySubcategory && (
+          <span className="ml-2 bg-purple-100 text-purple-800 rounded px-1.5 py-0.5 font-medium">
+            {formatPartySubcategory(event.partySubcategory)}
+          </span>
+        )}
       </div>
       {event.description && (
         <div className="text-xs text-muted-foreground mb-2 line-clamp-3">{event.description}</div>

@@ -2,6 +2,8 @@
  * Type definitions for the search-events function
  */
 
+import { PartySubcategory } from './partyUtils';
+
 /**
  * Event interface matching the frontend type
  */
@@ -15,6 +17,7 @@ export interface Event {
   location: string;
   venue?: string;
   category: string;
+  partySubcategory?: PartySubcategory; // Added for party event subcategorization
   image: string;
   coordinates?: [number, number]; // [longitude, latitude]
   url?: string;

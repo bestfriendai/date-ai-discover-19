@@ -17,7 +17,7 @@ import { useMapControls } from './hooks/useMapControls';
 import { useMapState } from './hooks/useMapState';
 import { useMapEvents } from './hooks/useMapEvents';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
-import EventMarkerLegend from './markers/EventMarkerLegend';
+// import EventMarkerLegend from './markers/EventMarkerLegend'; // Removed as requested
 // import { MapEventHandlers } from './components/MapEventHandlers'; // Logic moved into MapComponent or hooks
 import { toast } from '@/hooks/use-toast'; // Import toast
 
@@ -300,7 +300,7 @@ const MapComponent = ({
 
   return (
     <div className="w-full h-full relative">
-      {isMapInitialized && <EventMarkerLegend />}
+      {/* Map marker categories panel removed as requested */}
 
       {/* Map Container */}
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50 transition-all duration-300 hover:shadow-xl" />

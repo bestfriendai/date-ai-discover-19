@@ -12,7 +12,8 @@ import DatePlan from "./pages/DatePlan";
 import Favorites from "./pages/Favorites";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
-import EditItinerary from "./pages/EditItinerary"; // Import EditItinerary
+import EditItinerary from "./pages/EditItinerary";
+import PartyAI from "./pages/PartyAI"; // Import PartyAI page
 
 const App = () => {
   const location = useLocation();
@@ -30,6 +31,11 @@ const App = () => {
         <Route path="/map" element={
           <PageTransition>
             <MapView />
+          </PageTransition>
+        } />
+        <Route path="/party" element={
+          <PageTransition>
+            <PartyAI />
           </PageTransition>
         } />
         <Route path="/plan" element={

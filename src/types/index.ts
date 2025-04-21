@@ -1,3 +1,6 @@
+// Import party subcategory type
+import { PartySubcategory } from '../utils/eventNormalizers';
+
 // Event types
 export interface Event {
   id: string;
@@ -9,6 +12,7 @@ export interface Event {
   location: string;
   venue?: string;
   category: string;
+  partySubcategory?: PartySubcategory; // Added for party event subcategorization
   image: string;
   coordinates?: [number, number]; // [longitude, latitude]
   url?: string;
