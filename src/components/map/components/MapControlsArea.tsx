@@ -39,40 +39,7 @@ export const MapControlsArea = ({
 }: MapControlsAreaProps) => {
   return (
     <>
-      {/* --- CATEGORY & DATE FILTER BAR --- */}
-      <div className="absolute top-4 left-1/2 -translate-x-1/2 z-40 flex gap-2 bg-background/80 backdrop-blur border border-border/40 rounded-full px-4 py-2 shadow-lg">
-        {/* Category Filter */}
-        <div className="flex gap-1">
-          {["music","arts","sports","family","food","party"].map(cat => (
-            <Button
-              key={cat}
-              variant={filters.categories?.includes(cat) ? "default" : "outline"}
-              size="sm"
-              className={filters.categories?.includes(cat) ? "bg-blue-600 text-white" : "bg-white text-gray-800"}
-              onClick={() => {
-                const next = filters.categories?.includes(cat)
-                  ? filters.categories.filter((c:string) => c !== cat)
-                  : [...(filters.categories||[]), cat];
-                filters.onCategoriesChange?.(next);
-              }}
-            >
-              {cat.charAt(0).toUpperCase()+cat.slice(1)}
-            </Button>
-          ))}
-        </div>
-        {/* Date Range Filter */}
-        <div className="flex gap-1 ml-4">
-          {[{label:"Today",val:"today"},{label:"This Week",val:"week"},{label:"This Month",val:"month"}].map(({label,val}) => (
-            <Button
-              key={val}
-              variant={filters.datePreset===val?"default":"outline"}
-              size="sm"
-              className={filters.datePreset===val?"bg-blue-600 text-white":"bg-white text-gray-800"}
-              onClick={()=>filters.onDatePresetChange?.(val as 'today'|'week'|'month')}
-            >{label}</Button>
-          ))}
-        </div>
-      </div>
+      {/* Category & Date filter bar removed as requested */}
 
       <div className="absolute top-4 left-4 z-30 flex gap-2">
         <Button
