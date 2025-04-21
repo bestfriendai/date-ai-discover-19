@@ -40,6 +40,8 @@ export async function fetchPredictHQEvents(params: {
       hasDateRange: !!(startDate && endDate),
       categories,
       location,
+      locationProvided: !!location,
+      locationLength: location ? location.length : 0,
       keyword,
       limit
     });
@@ -55,8 +57,29 @@ export async function fetchPredictHQEvents(params: {
       // Convert radius from miles to km (PredictHQ uses km)
       const radiusKm = Math.round(radius * 1.60934);
       queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
+      console.log(`[PREDICTHQ] Using coordinates: ${latitude},${longitude} with radius ${radiusKm}km`);
     } else if (location) {
-      queryParams.append('place.name', location);
+      // Check if location is a comma-separated lat,lng string
+      const latLngMatch = location.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+      if (latLngMatch) {
+        const lat = parseFloat(latLngMatch[1]);
+        const lng = parseFloat(latLngMatch[2]);
+        if (!isNaN(lat) && !isNaN(lng) &&
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+          // Convert radius from miles to km (PredictHQ uses km)
+          const radiusKm = Math.round(radius * 1.60934);
+          queryParams.append('within', `${radiusKm}km@${lat},${lng}`);
+          console.log(`[PREDICTHQ] Parsed coordinates from location string: ${lat},${lng} with radius ${radiusKm}km`);
+        } else {
+          console.log(`[PREDICTHQ] Invalid coordinates in location string: ${location}, using as place name`);
+          queryParams.append('place.name', location);
+        }
+      } else {
+        console.log(`[PREDICTHQ] Using location as place name: ${location}`);
+        queryParams.append('place.name', location);
+      }
+    } else {
+      console.log(`[PREDICTHQ] No location or coordinates provided`);
     }
 
     // Always filter for future events
@@ -126,14 +149,14 @@ export async function fetchPredictHQEvents(params: {
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[PREDICTHQ] API error:', response.status, errorText);
-      
+
       // More detailed error logging
       if (response.status === 401) {
         console.error('[PREDICTHQ] Authentication error - check API key');
       } else if (response.status === 429) {
         console.error('[PREDICTHQ] Rate limit exceeded');
       }
-      
+
       return {
         events: [],
         error: `PredictHQ API error: ${response.status} ${errorText}`
@@ -304,12 +327,12 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Get image URL
     let imageUrl = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
-    
+
     // Try to get image from event
     if (event.images && Array.isArray(event.images) && event.images.length > 0) {
       imageUrl = event.images[0].url;
     }
-    
+
     // Category-based fallback images
     const categoryImages = {
       'music': 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&auto=format&fit=crop',
@@ -318,7 +341,7 @@ function normalizePredictHQEvent(event: any): Event {
       'family': 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop',
       'food': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&auto=format&fit=crop'
     };
-    
+
     // Use category image if no event image
     if (!event.images && category !== 'other' && categoryImages[category]) {
       imageUrl = categoryImages[category];

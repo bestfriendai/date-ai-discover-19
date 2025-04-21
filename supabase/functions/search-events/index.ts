@@ -270,7 +270,8 @@ serve(async (req: Request) => {
       serpDate = '',
       limit = 50,
       page = 1,
-      excludeIds = []
+      excludeIds = [],
+      predicthqLocation
     } = params;
 
     // Allow location to be reassigned if reverse geocoding is needed
@@ -423,6 +424,7 @@ serve(async (req: Request) => {
           startDate,
           endDate,
           location,
+          predicthqLocation,
           keyword,
           categories
         });
@@ -435,7 +437,7 @@ serve(async (req: Request) => {
           startDate,
           endDate,
           categories,
-          location,
+          location: predicthqLocation || location, // Use predicthqLocation if available, otherwise fall back to location
           keyword,
           limit: 200 // Increased limit to get more events
         });
