@@ -68,6 +68,9 @@ export async function searchEvents(params: SearchParams): Promise<{
         console.log(
           `[Events] Serpapi: ${data.sourceStats.serpapi.count} ${data.sourceStats.serpapi.error ? `(Error: ${data.sourceStats.serpapi.error})` : ''}`
         );
+        console.log(
+          `[Events] PredictHQ: ${data.sourceStats.predicthq.count} ${data.sourceStats.predicthq.error ? `(Error: ${data.sourceStats.predicthq.error})` : ''}`
+        );
       }
 
       // Check if we have events before returning
