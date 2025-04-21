@@ -42,6 +42,18 @@ export async function searchEvents(params: SearchParams): Promise<{
       fields: params.fields || []
     };
 
+    // --- Patch: Ensure PredictHQ always gets a valid location ---
+    // Only for PredictHQ, if location is missing but lat/lng exist, synthesize a location string for PredictHQ
+    // This must NOT interfere with other APIs that use 'location' differently.
+    // So, add a new field for PredictHQ-specific location if needed.
+    let predictHQLocation = params.location;
+    if (!predictHQLocation && params.latitude && params.longitude) {
+      // PredictHQ expects location as 'lat,lng' string or a geo parameter
+      predictHQLocation = `${params.latitude},${params.longitude}`;
+    }
+    // Add a dedicated field so only the backend PredictHQ handler uses it
+    searchParams['predicthqLocation'] = predictHQLocation;
+
     console.log('[DEBUG] Sending search params to search-events function:', searchParams);
 
     try {
