@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { MapLayout } from '@/components/map/layout/MapLayout';
 import { MapContent } from '@/components/map/layout/MapContent';
 import { useEventSearch } from '@/components/map/hooks/useEventSearch';
@@ -12,19 +12,7 @@ import { SourceStatsDisplay } from '@/components/map/components/SourceStatsDispl
 import { PartySubcategory } from '@/utils/eventNormalizers';
 import { motion, AnimatePresence } from 'framer-motion';
 import PartySidebar from '@/components/party/PartySidebar';
-import PartyMapMarkers from '@/components/party/PartyMapMarkers';
-import mapboxgl, { Map as MapboxMap } from 'mapbox-gl';
-import { MapControlsArea } from '@/components/map/components/MapControlsArea';
-import 'mapbox-gl/dist/mapbox-gl.css';
-
-// Map styles
-const MAP_STYLES = {
-  streets: 'mapbox://styles/mapbox/streets-v12',
-  outdoors: 'mapbox://styles/mapbox/outdoors-v12',
-  light: 'mapbox://styles/mapbox/light-v11',
-  dark: 'mapbox://styles/mapbox/dark-v11',
-  satellite: 'mapbox://styles/mapbox/satellite-streets-v12'
-};
+import MapComponent from '@/components/map/MapComponent';
 
 const PartyAI = () => {
   const {
@@ -45,91 +33,6 @@ const PartyAI = () => {
     setMapLoaded,
     handleEventSelect
   } = useMapState();
-
-  // Map container reference
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<MapboxMap | null>(null);
-  const [isMapInitialized, setIsMapInitialized] = useState(false);
-
-  // Initialize map
-  useEffect(() => {
-    if (mapContainer.current && !map) {
-      const mapboxToken = 'pk.eyJ1IjoiZGF0ZWFpIiwiYSI6ImNscWRxZWJhZzBhcXkya3BpZWVvNmJlbXQifQ.Wz7q-GJvQnQPuoUzDXfJJw';
-
-      // Set Mapbox token
-      mapboxgl.accessToken = mapboxToken;
-
-      // Create map instance
-      const newMap = new mapboxgl.Map({
-        container: mapContainer.current,
-        style: MAP_STYLES.dark, // Use dark style for party theme
-        center: [-98.5795, 39.8283], // Center on US
-        zoom: 3.5,
-        pitch: 0,
-        bearing: 0,
-        attributionControl: false
-      });
-
-      // Add navigation controls
-      newMap.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-
-      // Add geolocate control
-      newMap.addControl(
-        new mapboxgl.GeolocateControl({
-          positionOptions: {
-            enableHighAccuracy: true
-          },
-          trackUserLocation: true
-        }),
-        'bottom-right'
-      );
-
-      // Set map instance
-      setMap(newMap);
-
-      // Handle map load
-      newMap.on('load', () => {
-        console.log('[PartyAI] Map loaded');
-        setIsMapInitialized(true);
-        setMapLoaded(true);
-
-        // Get initial center
-        const center = newMap.getCenter();
-        setMapCenter({ latitude: center.lat, longitude: center.lng });
-      });
-
-      // Handle map move end
-      newMap.on('moveend', () => {
-        if (!newMap) return;
-
-        const center = newMap.getCenter();
-        const zoom = newMap.getZoom();
-
-        setMapCenter({ latitude: center.lat, longitude: center.lng });
-        setMapZoom(zoom);
-        setMapHasMoved(true);
-      });
-
-      // Add party-themed map features
-      newMap.on('load', () => {
-        // Add a subtle glow effect to the map
-        newMap.setPaintProperty('water', 'fill-color', '#120338');
-
-        // Make the map more vibrant for party theme
-        newMap.setPaintProperty('building', 'fill-color', '#2a0a4a');
-        newMap.setPaintProperty('building', 'fill-opacity', 0.8);
-      });
-    }
-
-    // Cleanup
-    return () => {
-      if (map) {
-        map.remove();
-        setMap(null);
-        setIsMapInitialized(false);
-      }
-    };
-  }, [mapContainer, map, setMapCenter, setMapZoom, setMapHasMoved, setMapLoaded]);
 
   const { filters, handleFiltersChange } = useMapFilters();
   const { onCategoriesChange, onDatePresetChange, ...restFilters } = filters;
@@ -245,6 +148,14 @@ const PartyAI = () => {
     }
   }, [mapLoaded, mapCenter, events.length, isEventsLoading, fetchEvents, filters, onCategoriesChange, toast]);
 
+  // Always ensure the category filter is set to 'party'
+  useEffect(() => {
+    // Make sure we always have 'party' in the categories filter
+    if (!filters.categories?.includes('party')) {
+      onCategoriesChange(['party']);
+    }
+  }, [filters.categories, onCategoriesChange]);
+
   // Score and sort party events to find the best ones
   const partyEvents = useMemo(() => {
     // First, filter to only include party events
@@ -312,63 +223,31 @@ const PartyAI = () => {
         <p className="text-sm opacity-90">Powered by AI to find the hottest clubs, day parties, social events & more</p>
       </div>
 
-      {/* Custom Party Sidebar */}
-      <div className="flex h-full">
-        <AnimatePresence mode="wait">
-          {leftSidebarOpen && (
-            <motion.div
-              initial={{ x: -380 }}
-              animate={{ x: 0 }}
-              exit={{ x: -380 }}
-              transition={{ type: "spring", damping: 20, stiffness: 200 }}
-              className="w-full max-w-[380px] sm:w-[380px] relative z-20 overflow-y-auto h-full fixed sm:static left-0 top-0 sm:relative"
-              style={{ height: '100%', maxHeight: 'calc(100vh - 64px)' }}
-            >
-              <PartySidebar
-                events={partyEvents}
-                isLoading={isEventsLoading}
-                onClose={() => setLeftSidebarOpen(false)}
-                onEventSelect={handleEventSelect}
-                selectedEvent={selectedEvent}
-              />
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        <div className="flex-1 relative">
-          {/* Custom Map Implementation for PartyAI */}
-          <div className="h-full w-full">
-            <div id="party-map" className="h-full w-full" ref={mapContainer}></div>
-
-            {/* Custom Party Map Markers */}
-            {isMapInitialized && map && partyEvents.length > 0 && (
-              <PartyMapMarkers
-                map={map}
-                events={partyEvents}
-                selectedEventId={selectedEvent?.id || null}
-                onMarkerClick={handleEventSelect}
-              />
-            )}
-
-            {/* Map Controls */}
-            <MapControlsArea
-              leftSidebarOpen={leftSidebarOpen}
-              showSearch={showSearch}
-              isEventsLoading={isEventsLoading}
-              filters={{ ...restFilters, onCategoriesChange, onDatePresetChange }}
-              mapHasMoved={mapHasMoved}
-              hasMoreEvents={hasMore}
-              totalEvents={totalEvents}
-              loadedEvents={partyEvents.length}
-              onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
-              onSearchToggle={() => setShowSearch(!showSearch)}
-              onSearch={handleAdvancedSearch}
-              onSearchThisArea={handleSearchThisArea}
-              onLoadMore={loadMoreEvents}
-            />
-          </div>
-        </div>
-      </div>
+      <MapContent
+        leftSidebarOpen={leftSidebarOpen}
+        rightSidebarOpen={rightSidebarOpen}
+        selectedEvent={selectedEvent}
+        showSearch={showSearch}
+        mapHasMoved={mapHasMoved}
+        mapLoaded={mapLoaded}
+        events={partyEvents}
+        isEventsLoading={isEventsLoading}
+        filters={{ ...restFilters, onCategoriesChange, onDatePresetChange }}
+        hasMoreEvents={hasMore}
+        totalEvents={totalEvents}
+        onLeftSidebarClose={() => setLeftSidebarOpen(false)}
+        onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
+        onRightSidebarClose={() => setRightSidebarOpen(false)}
+        onShowSearchToggle={() => setShowSearch(!showSearch)}
+        onEventSelect={handleEventSelect}
+        onAdvancedSearch={handleAdvancedSearch}
+        onSearchThisArea={handleSearchThisArea}
+        onMapMoveEnd={handleMapMoveEnd}
+        onMapLoad={handleMapLoad}
+        onFetchEvents={fetchEvents}
+        onLoadMore={loadMoreEvents}
+        onAddToPlan={handleAddToPlan}
+      />
 
       {sourceStats && <SourceStatsDisplay stats={sourceStats} />}
 
