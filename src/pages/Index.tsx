@@ -122,100 +122,100 @@ const Index = () => {
       <Header />
 
       {/* Hero Section */}
-      <section id="hero" className="relative overflow-hidden pt-24 pb-16 md:pt-32 md:pb-24">
+      <section
+        id="hero"
+        className="relative overflow-hidden pt-20 pb-12 md:pt-32 md:pb-20 bg-gradient-to-br from-gray-950 via-blue-950/50 to-gray-900"
+      >
         {/* Background elements */}
-        <div className="absolute inset-0 z-0">
-          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-transparent opacity-50"></div>
-          <div className="absolute bottom-0 right-0 w-1/2 h-1/2 bg-gradient-to-tl from-indigo-900/20 via-cyan-900/20 to-transparent opacity-50"></div>
+        <div className="absolute inset-0 z-0 pointer-events-none">
+          <div className="absolute top-0 left-0 w-full h-full bg-gradient-to-br from-blue-900/20 via-purple-900/20 to-transparent opacity-60"></div>
+          <div className="absolute bottom-0 right-0 w-2/3 h-1/2 bg-gradient-to-tl from-indigo-900/20 via-cyan-900/20 to-transparent opacity-60"></div>
         </div>
 
-        <div className="container mx-auto px-4 md:px-6 relative z-10">
-          <div className="flex flex-col lg:flex-row items-center lg:gap-16">
-            {/* Left Column: Text Content */}
+        <div className="container mx-auto px-2 md:px-6 relative z-10 flex flex-col md:flex-row md:items-center md:gap-10 lg:gap-20">
+          {/* Left Column: Text Content */}
+          <motion.div
+            className="flex-1 text-center md:text-left mb-10 md:mb-0"
+            initial="hidden"
+            animate="visible"
+            variants={sectionVariants}
+          >
+            <h1 className="text-3xl xs:text-4xl md:text-6xl font-extrabold mb-5 leading-tight tracking-tight">
+              <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Find Your Vibe:</span>
+              <span className="block text-white">Discover Events Near You</span>
+            </h1>
+
+            <p className="text-base xs:text-lg md:text-xl text-gray-300 mb-7 max-w-xl mx-auto md:mx-0">
+              Dive into a world of exciting events happening around you. From hidden local gems to major global gatherings, find experiences that resonate with your interests and create unforgettable moments.
+            </p>
+
             <motion.div
-              className="flex-1 text-center lg:text-left mb-12 lg:mb-0"
+              className="flex flex-col xs:flex-row gap-4 justify-center md:justify-start"
               initial="hidden"
               animate="visible"
-              variants={sectionVariants}
             >
-              <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight tracking-tight">
-                <span className="block bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-purple-500">Find Your Vibe:</span>
-                <span className="block text-white">Discover Events Near You</span>
-              </h1>
-
-              <p className="text-lg md:text-xl text-gray-300 mb-10 max-w-2xl mx-auto lg:mx-0">
-                Dive into a world of exciting events happening around you. From hidden local gems to major global gatherings, find experiences that resonate with your interests and create unforgettable moments.
-              </p>
-
-              <motion.div
-                className="flex flex-col sm:flex-row gap-5 justify-center lg:justify-start"
-                initial="hidden"
-                animate="visible"
-              >
-                <motion.div variants={itemVariants}>
-                  <Link to="/map">
-                    <Button
-                      size="lg"
-                      className="font-semibold text-lg w-full sm:w-auto rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg transform transition-transform hover:scale-105"
-                    >
-                      Explore Map <MapIcon className="ml-3 h-5 w-5" />
-                    </Button>
-                  </Link>
-                </motion.div>
-                <motion.div variants={itemVariants}>
-                  <Link to="/events">
-                    <Button
-                      size="lg"
-                      variant="outline"
-                      className="font-semibold text-lg w-full sm:w-auto rounded-full border-2 border-gray-600 text-gray-200 hover:bg-gray-800 hover:border-gray-500 transition-colors transform hover:scale-105"
-                    >
-                      Browse Events <CalendarIcon className="ml-3 h-5 w-5" />
-                    </Button>
-                  </Link>
-                </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link to="/map">
+                  <Button
+                    size="lg"
+                    className="font-semibold text-base xs:text-lg w-full xs:w-auto rounded-full bg-gradient-to-r from-blue-600 to-indigo-700 hover:from-blue-700 hover:to-indigo-800 text-white shadow-lg transform transition-transform hover:scale-105"
+                  >
+                    Explore Map <MapIcon className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
+              </motion.div>
+              <motion.div variants={itemVariants}>
+                <Link to="/events">
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="font-semibold text-base xs:text-lg w-full xs:w-auto rounded-full border-2 border-gray-600 text-gray-200 hover:bg-gray-800 hover:border-gray-500 transition-colors transform hover:scale-105"
+                  >
+                    Browse Events <CalendarIcon className="ml-2 h-5 w-5" />
+                  </Button>
+                </Link>
               </motion.div>
             </motion.div>
+          </motion.div>
 
-            {/* Right Column: Globe Visualization */}
-            <motion.div
-              className="flex-1 flex justify-center items-center"
-              initial="hidden"
-              animate="visible"
-              variants={sectionVariants}
-            >
-              {/* Globe container with responsive, unconstrained layout */}
-              <div className="relative w-full flex justify-center items-center min-h-[220px] md:min-h-[340px] lg:min-h-[420px]">
-                {/* Modern glowing gradient background */}
-                <div
-                  className="absolute inset-0 blur-3xl animate-pulse-slow"
-                  style={{
-                    borderRadius: '30%',
-                    background: 'radial-gradient(circle at 60% 40%, rgba(80,180,255,0.18) 0%, rgba(180,80,255,0.13) 60%, rgba(0,0,0,0.05) 100%)',
-                    zIndex: 1
-                  }}
-                ></div>
-                {/* Globe with no border-radius or cropping */}
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <EventsGlobe
-                    eventLocations={eventLocations}
-                    size={windowWidth < 640 ? 180 : windowWidth < 1024 ? 260 : 360}
-                    className="z-10"
-                  />
-                </div>
-                {/* Floating event count badge */}
-                <div className="absolute -top-4 right-4 bg-gradient-to-r from-blue-600 via-fuchsia-500 to-cyan-400 text-white rounded-full px-3 py-1 text-xs md:text-sm font-bold shadow-lg border border-white/20 animate-fade-in z-20">
-                  {eventLocations.length} Events
-                </div>
-                {/* Decorative floating icons, repositioned for mobile */}
-                <div className="absolute left-2 bottom-4 bg-white/10 rounded-full p-1 md:p-2 border border-white/20 shadow-md animate-float-slow z-20">
-                  <SparklesIcon className="h-5 w-5 md:h-6 md:w-6 text-fuchsia-400" />
-                </div>
-                <div className="absolute right-2 top-8 bg-white/10 rounded-full p-1 md:p-2 border border-white/20 shadow-md animate-float-slow z-20">
-                  <GlobeIcon className="h-5 w-5 md:h-6 md:w-6 text-blue-400" />
-                </div>
+          {/* Right Column: Globe Visualization (responsive, visually open, not cropped) */}
+          <motion.div
+            className="flex-1 flex justify-center items-center w-full min-h-[180px] md:min-h-[320px]"
+            initial="hidden"
+            animate="visible"
+            variants={sectionVariants}
+          >
+            <div className="relative w-full flex justify-center items-center min-h-[180px] md:min-h-[320px]">
+              {/* Globe background effect */}
+              <div
+                className="absolute inset-0 blur-2xl animate-pulse-slow"
+                style={{
+                  borderRadius: '30%',
+                  background: 'radial-gradient(circle at 60% 40%, rgba(80,180,255,0.12) 0%, rgba(180,80,255,0.09) 60%, rgba(0,0,0,0.03) 100%)',
+                  zIndex: 1
+                }}
+              ></div>
+              {/* Globe (not cropped, open, shadowed) */}
+              <div className="absolute inset-0 flex items-center justify-center globe-uncropped">
+                <EventsGlobe
+                  eventLocations={eventLocations}
+                  size={windowWidth < 640 ? 160 : windowWidth < 1024 ? 220 : 320}
+                  className="z-10"
+                />
               </div>
-            </motion.div>
-          </div>
+              {/* Floating event count badge */}
+              <div className="absolute -top-3 right-3 bg-gradient-to-r from-blue-600 via-fuchsia-500 to-cyan-400 text-white rounded-full px-2.5 py-0.5 text-xs md:text-sm font-bold shadow-lg border border-white/20 animate-fade-in z-20">
+                {eventLocations.length} Events
+              </div>
+              {/* Decorative floating icons */}
+              <div className="absolute left-2 bottom-3 bg-white/10 rounded-full p-1 md:p-2 border border-white/20 shadow-md animate-float-slow z-20">
+                <SparklesIcon className="h-4 w-4 md:h-5 md:w-5 text-fuchsia-400" />
+              </div>
+              <div className="absolute right-2 top-7 bg-white/10 rounded-full p-1 md:p-2 border border-white/20 shadow-md animate-float-slow z-20">
+                <GlobeIcon className="h-4 w-4 md:h-5 md:w-5 text-blue-400" />
+              </div>
+            </div>
+          </motion.div>
         </div>
       </section>
 
