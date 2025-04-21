@@ -11,7 +11,7 @@ export type PartySubcategory = 'day-party' | 'social' | 'brunch' | 'club' | 'net
 export function detectPartyEvent(title: string = '', description: string = ''): boolean {
   // Define specific party-related keywords for different types of party events
   const partyKeywords = {
-    // General party terms that strongly indicate a party event
+    // General party terms that strongly indicate a party event - expanded for more aggressive detection
     strong: [
       'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
       'reception', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
@@ -19,7 +19,12 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
       'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
       'afterparty', 'after-party', 'singles', 'speed dating', 'social gathering',
       'festival', 'fest', 'concert', 'live music', 'live dj', 'entertainment',
-      'vip', 'exclusive', 'launch', 'premiere', 'opening', 'event'
+      'vip', 'exclusive', 'launch', 'premiere', 'opening', 'event',
+      'night out', 'dance floor', 'dancing', 'electronic music', 'hip hop', 'edm',
+      'house music', 'techno', 'disco', 'bar crawl', 'pub crawl', 'social event',
+      'networking event', 'mixer event', 'celebration event', 'vip event',
+      'exclusive event', 'special event', 'dance event', 'music event', 'nightlife event',
+      'show', 'performance', 'dj', 'nightlife', 'bar', 'lounge', 'club'
     ],
 
     // Day party specific terms
@@ -67,7 +72,16 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   console.log(`[PARTY_DETECTION] Event: "${title}", Matches: Strong=${strongMatch || 'none'}, DayParty=${dayPartyMatch || 'none'}, Brunch=${brunchMatch || 'none'}, Club=${clubMatch || 'none'}, Social=${socialMatch || 'none'}`);
 
   // If any category matches, it's a party event
-  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch);
+  // Also check for common venue types that typically host parties
+  const venueTypes = ['club', 'lounge', 'bar', 'venue', 'hall', 'ballroom', 'terrace', 'rooftop'];
+  const hasPartyVenue = venueTypes.some(venue => combinedText.includes(venue));
+
+  // Check for music genres that are common at parties
+  const musicGenres = ['dj', 'electronic', 'hip hop', 'hip-hop', 'edm', 'house', 'techno', 'dance', 'disco'];
+  const hasPartyMusic = musicGenres.some(genre => combinedText.includes(genre));
+
+  // More aggressive detection - return true if any match is found
+  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch || hasPartyVenue || hasPartyMusic);
 }
 
 /**
