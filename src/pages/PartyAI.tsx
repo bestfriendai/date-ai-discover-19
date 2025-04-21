@@ -10,9 +10,6 @@ import { toast } from '@/hooks/use-toast';
 import type { Event } from '@/types';
 import { SourceStatsDisplay } from '@/components/map/components/SourceStatsDisplay';
 import { PartySubcategory } from '@/utils/eventNormalizers';
-import { motion, AnimatePresence } from 'framer-motion';
-import PartySidebar from '@/components/party/PartySidebar';
-import MapComponent from '@/components/map/MapComponent';
 
 const PartyAI = () => {
   const {
