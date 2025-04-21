@@ -36,6 +36,12 @@ export async function fetchPredictHQEvents(params: {
   } = params;
 
   try {
+    // Validate API key
+    if (!apiKey) {
+      console.error('[PREDICTHQ] API key is missing');
+      return { events: [], error: 'PredictHQ API key is missing' };
+    }
+
     console.log('[PREDICTHQ] Fetching events with params:', {
       hasCoordinates: !!(latitude && longitude),
       radius,
@@ -46,7 +52,9 @@ export async function fetchPredictHQEvents(params: {
       locationLength: location ? location.length : 0,
       withinParam,
       keyword,
-      limit
+      limit,
+      apiKeyProvided: !!apiKey,
+      apiKeyPrefix: apiKey ? apiKey.substring(0, 4) + '...' : 'N/A'
     });
 
     // Build the PredictHQ API URL
@@ -82,11 +90,15 @@ export async function fetchPredictHQEvents(params: {
           queryParams.append('place.name', location);
         }
       } else {
-        console.log(`[PREDICTHQ] Using location as place name: ${location}`);
-        queryParams.append('place.name', location);
+        // Try to clean up the location string to improve matching
+        const cleanLocation = location.replace(/\s+/g, ' ').trim();
+        console.log(`[PREDICTHQ] Using location as place name: ${cleanLocation}`);
+        queryParams.append('place.name', cleanLocation);
       }
     } else {
-      console.log(`[PREDICTHQ] No location or coordinates provided`);
+      // Default to a popular location if none provided
+      console.log(`[PREDICTHQ] No location or coordinates provided, using default location`);
+      queryParams.append('place.name', 'New York');
     }
 
     // Always filter for future events
@@ -149,7 +161,9 @@ export async function fetchPredictHQEvents(params: {
       headers: {
         'Authorization': `Bearer ${apiKey}`,
         'Accept': 'application/json'
-      }
+      },
+      // Add timeout to prevent hanging requests
+      signal: AbortSignal.timeout(10000) // 10 second timeout
     });
 
     // Check for HTTP errors
@@ -212,7 +226,21 @@ export async function fetchPredictHQEvents(params: {
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[PREDICTHQ] Error fetching events:', errorMessage);
-    return { events: [], error: errorMessage };
+
+    // Provide more detailed error information
+    let detailedError = errorMessage;
+
+    if (error instanceof Error) {
+      if (error.name === 'AbortError') {
+        detailedError = 'PredictHQ API request timed out after 10 seconds';
+      } else if (error.name === 'TypeError' && error.message.includes('fetch')) {
+        detailedError = 'Network error when connecting to PredictHQ API';
+      } else if (error.stack) {
+        console.error('[PREDICTHQ] Error stack:', error.stack);
+      }
+    }
+
+    return { events: [], error: detailedError };
   }
 }
 
@@ -221,6 +249,12 @@ export async function fetchPredictHQEvents(params: {
  */
 function normalizePredictHQEvent(event: any): Event {
   try {
+    // Validate event object
+    if (!event || typeof event !== 'object') {
+      console.error('[PREDICTHQ] Invalid event object:', event);
+      throw new Error('Invalid event object');
+    }
+
     // Extract date and time
     const startDate = event.start || new Date().toISOString();
     const date = startDate.split('T')[0];
@@ -330,6 +364,21 @@ function normalizePredictHQEvent(event: any): Event {
       coordinates = [event.geo.geometry.coordinates[0], event.geo.geometry.coordinates[1]];
     }
 
+    // If no coordinates yet, try to get them from the venue entity
+    if (!coordinates && event.entities) {
+      const venueEntity = event.entities.find((e: any) => e.type === 'venue');
+      if (venueEntity && venueEntity.coordinates && Array.isArray(venueEntity.coordinates) &&
+          venueEntity.coordinates.length === 2) {
+        coordinates = [venueEntity.coordinates[0], venueEntity.coordinates[1]];
+      }
+    }
+
+    // If no coordinates yet, try to get them from the place field
+    if (!coordinates && event.place && event.place.location &&
+        Array.isArray(event.place.location) && event.place.location.length === 2) {
+      coordinates = [event.place.location[0], event.place.location[1]];
+    }
+
     // Map category with improved detection
     let category = 'other';
 
@@ -352,12 +401,24 @@ function normalizePredictHQEvent(event: any): Event {
     const id = `predicthq-${event.id || Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     // Get the description and ensure it's clean
-    let description = event.description || `${event.title} in ${location}`;
+    let description = '';
+
+    // Safely get description
+    if (event.description && typeof event.description === 'string') {
+      description = event.description;
+    } else {
+      // Create a fallback description
+      description = `${event.title || 'Event'} in ${location}`;
+    }
 
     // Remove any mention of predicthq anywhere in the text
     if (description) {
       description = description.replace(/\bpredicthq\b.*?(?=[.!?]|$)/gi, '').trim();
       description = description.replace(/\bpredicthq\.com\b.*?(?=[.!?]|$)/gi, '').trim();
+
+      // Clean up any double spaces or trailing punctuation
+      description = description.replace(/\s{2,}/g, ' ').trim();
+      description = description.replace(/[.,;:\s]+$/, '').trim();
     }
 
     // Get image URL
@@ -399,6 +460,19 @@ function normalizePredictHQEvent(event: any): Event {
     };
   } catch (error) {
     console.error('Error normalizing PredictHQ event:', error);
-    throw error;
+    console.error('Problem event:', JSON.stringify(event, null, 2).substring(0, 500) + '...');
+
+    // Instead of throwing, return a minimal valid event
+    return {
+      id: `predicthq-error-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      source: 'predicthq',
+      title: event?.title || 'Unknown Event',
+      description: 'Error processing event details',
+      date: new Date().toISOString().split('T')[0],
+      time: '00:00',
+      location: 'Location unavailable',
+      category: 'other',
+      image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop'
+    };
   }
 }

@@ -408,67 +408,106 @@ serve(async (req: Request) => {
 
     // PredictHQ API integration with improved error handling
     // Docs: https://docs.predicthq.com/
-    if (PREDICTHQ_API_KEY) {
-      try {
-        console.log('[DEBUG] Using PredictHQ API to fetch events');
-        console.log('[DEBUG] PredictHQ API Key available:', !!PREDICTHQ_API_KEY);
-        console.log('[DEBUG] PredictHQ API Key prefix:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.substring(0, 4) + '...' : 'N/A');
+    // Always attempt to use PredictHQ, even if API key is missing - the function will handle the error
+    try {
+      console.log('[DEBUG] Using PredictHQ API to fetch events');
+      console.log('[DEBUG] PredictHQ API Key available:', !!PREDICTHQ_API_KEY);
+      console.log('[DEBUG] PredictHQ API Key prefix:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.substring(0, 4) + '...' : 'N/A');
 
-        // Process PredictHQ location parameters first
-        let phqLatitude = userLat ? Number(userLat) : undefined;
-        let phqLongitude = userLng ? Number(userLng) : undefined;
-        let phqLocation = location;
-        let phqWithinParam;
+      // Validate API key
+      if (!PREDICTHQ_API_KEY) {
+        console.warn('[DEBUG] PredictHQ API key is missing or invalid');
+        predicthqError = 'PredictHQ API key is missing or invalid';
+      }
 
-        console.log('[DEBUG] Processing PredictHQ location parameters');
-        console.log('[DEBUG] predicthqLocation:', predicthqLocation);
+      // Process PredictHQ location parameters first
+      let phqLatitude = userLat ? Number(userLat) : undefined;
+      let phqLongitude = userLng ? Number(userLng) : undefined;
+      let phqLocation = location || 'New York'; // Default to New York if no location provided
+      let phqWithinParam;
 
-        if (predicthqLocation) {
-          // Check if it's already in the within format: {radius}km@{lat},{lng}
-          const withinMatch = predicthqLocation.match(/^(\d+)km@(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
-          if (withinMatch) {
-            // It's already in the correct format for the 'within' parameter
-            phqWithinParam = predicthqLocation;
-            console.log('[DEBUG] Using predicthqLocation as within parameter:', phqWithinParam);
-          } else {
-            // Check if it's a lat,lng format
-            const latLngMatch = predicthqLocation.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
-            if (latLngMatch) {
-              const lat = parseFloat(latLngMatch[1]);
-              const lng = parseFloat(latLngMatch[2]);
-              if (!isNaN(lat) && !isNaN(lng) &&
-                  lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-                phqLatitude = lat;
-                phqLongitude = lng;
-                console.log(`[DEBUG] Parsed coordinates from predicthqLocation: ${lat},${lng}`);
-              } else {
-                console.log(`[DEBUG] Invalid coordinates in predicthqLocation: ${predicthqLocation}`);
-              }
+      console.log('[DEBUG] Processing PredictHQ location parameters');
+      console.log('[DEBUG] predicthqLocation:', predicthqLocation);
+      console.log('[DEBUG] location:', location);
+      console.log('[DEBUG] userLat:', userLat);
+      console.log('[DEBUG] userLng:', userLng);
+
+      if (predicthqLocation) {
+        // Check if it's already in the within format: {radius}km@{lat},{lng}
+        const withinMatch = predicthqLocation.match(/^(\d+)km@(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+        if (withinMatch) {
+          // It's already in the correct format for the 'within' parameter
+          phqWithinParam = predicthqLocation;
+          console.log('[DEBUG] Using predicthqLocation as within parameter:', phqWithinParam);
+          // Clear other location parameters to avoid conflicts
+          phqLatitude = undefined;
+          phqLongitude = undefined;
+          phqLocation = undefined;
+        } else {
+          // Check if it's a lat,lng format
+          const latLngMatch = predicthqLocation.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+          if (latLngMatch) {
+            const lat = parseFloat(latLngMatch[1]);
+            const lng = parseFloat(latLngMatch[2]);
+            if (!isNaN(lat) && !isNaN(lng) &&
+                lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+              phqLatitude = lat;
+              phqLongitude = lng;
+              // Clear other location parameters to avoid conflicts
+              phqLocation = undefined;
+              console.log(`[DEBUG] Parsed coordinates from predicthqLocation: ${lat},${lng}`);
             } else {
-              // Use it as a place name
-              phqLocation = predicthqLocation;
-              console.log(`[DEBUG] Using predicthqLocation as place name: ${phqLocation}`);
+              console.log(`[DEBUG] Invalid coordinates in predicthqLocation: ${predicthqLocation}`);
             }
+          } else {
+            // Use it as a place name
+            phqLocation = predicthqLocation;
+            // Clear other location parameters to avoid conflicts
+            phqLatitude = undefined;
+            phqLongitude = undefined;
+            console.log(`[DEBUG] Using predicthqLocation as place name: ${phqLocation}`);
           }
         }
+      } else if (!phqLatitude || !phqLongitude) {
+        // If no predicthqLocation and no coordinates, ensure we have a location
+        console.log(`[DEBUG] No predicthqLocation and no coordinates, using location: ${phqLocation}`);
+      }
 
-        // Log request parameters for debugging
-        console.log('[DEBUG] PredictHQ request parameters:', {
+      // Log request parameters for debugging
+      console.log('[DEBUG] PredictHQ request parameters:', {
+        hasLatLng: !!(phqLatitude && phqLongitude),
+        lat: phqLatitude,
+        lng: phqLongitude,
+        radius,
+        hasDateRange: !!(startDate && endDate),
+        startDate,
+        endDate,
+        location: phqLocation,
+        withinParam: phqWithinParam,
+        keyword,
+        categories,
+        apiKeyAvailable: !!PREDICTHQ_API_KEY,
+        apiKeyPrefix: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.substring(0, 4) + '...' : 'N/A'
+      });
+
+      // Make the API call with the processed parameters
+      console.log('[DEBUG] Making PredictHQ API call with processed parameters');
+      try {
+        // Ensure we have a valid location parameter
+        // If phqLocation is undefined, set it to a default value
+        if (phqLocation === undefined && !phqLatitude && !phqLongitude && !phqWithinParam) {
+          phqLocation = 'New York';
+          console.log('[DEBUG] Setting default location for PredictHQ:', phqLocation);
+        }
+
+        console.log('[DEBUG] Final PredictHQ parameters:', {
           hasLatLng: !!(phqLatitude && phqLongitude),
           lat: phqLatitude,
           lng: phqLongitude,
-          radius,
-          hasDateRange: !!(startDate && endDate),
-          startDate,
-          endDate,
           location: phqLocation,
-          withinParam: phqWithinParam,
-          keyword,
-          categories
+          withinParam: phqWithinParam
         });
 
-        // Make the API call with the processed parameters
-        console.log('[DEBUG] Making PredictHQ API call with processed parameters');
         const { events: predicthqEvents, error } = await fetchPredictHQEvents({
           apiKey: PREDICTHQ_API_KEY,
           latitude: phqLatitude,
@@ -485,26 +524,20 @@ serve(async (req: Request) => {
 
         // Log the result of the API call
         if (error) {
+          predicthqError = error;
           console.error('[DEBUG] PredictHQ API call failed with error:', error);
         } else {
           console.log(`[DEBUG] PredictHQ API call succeeded with ${predicthqEvents.length} events`);
-        }
-
-        if (error) {
-          predicthqError = error;
-          console.error('[PredictHQ] API error:', error);
-        } else {
-          console.log(`[PredictHQ] Successfully fetched ${predicthqEvents.length} events`);
           allEvents = [...allEvents, ...predicthqEvents];
           predicthqCount = predicthqEvents.length;
         }
       } catch (err) {
         predicthqError = err instanceof Error ? err.message : String(err);
-        console.error('[PredictHQ] Error fetching events:', predicthqError);
+        console.error('[DEBUG] PredictHQ API call threw exception:', predicthqError);
       }
-    } else {
-      console.log('[DEBUG] PredictHQ API key not available, skipping');
-      predicthqError = 'PredictHQ API key not configured';
+    } catch (err) {
+      predicthqError = err instanceof Error ? err.message : String(err);
+      console.error('[DEBUG] Unexpected error in PredictHQ setup:', predicthqError);
     }
 
     // SerpApi Google Events API integration - Enhanced to replace Eventbrite
