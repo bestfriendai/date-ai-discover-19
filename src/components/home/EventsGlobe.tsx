@@ -30,9 +30,8 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
     return [Math.PI - ((long * Math.PI) / 180 - Math.PI / 2), (lat * Math.PI) / 180];
   };
   const focusRef = useRef([0, 0]);
-  // Start with a lower zoom level if there are no events
   const [r, setR] = useState(eventLocations.length > 0 ? 0.8 : 0.3);
-  const [isZoomedIn, setIsZoomedIn] = useState(eventLocations.length > 0); // Only start zoomed in if we have events
+  const [isZoomedIn, setIsZoomedIn] = useState(eventLocations.length > 0);
 
   // Effect to automatically zoom out after a delay
   useEffect(() => {
@@ -193,7 +192,7 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
   return (
     <motion.div
       className={`relative flex items-center justify-center ${className}`}
-      style={{ width: size, height: size, minWidth: size, minHeight: size, maxWidth: '100%', maxHeight: '100%', borderRadius: '50%', overflow: 'hidden', background: 'rgba(20, 22, 34, 0.8)' }}
+      style={{ width: size, height: size, minWidth: size, minHeight: size, maxWidth: '100%', maxHeight: '100%', background: 'rgba(20, 22, 34, 0.8)', overflow: 'visible', borderRadius: 0, boxShadow: '0 8px 40px 0 rgba(31,38,135,0.17)' }}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
@@ -208,19 +207,16 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
           transform: 'translate(-50%, -50%)',
           width: '100%',
           height: '100%',
-          borderRadius: '50%',
-          objectFit: 'cover',
           background: 'transparent',
-          zIndex: 1
+          zIndex: 1,
+          borderRadius: 0,
+          overflow: 'visible',
+          boxShadow: '0 8px 32px 0 rgba(31,38,135,0.17)'
         }}
         width={size * 2}
         height={size * 2}
       />
-      {/* Overlay gradient */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{ borderRadius: '50%', background: 'linear-gradient(to bottom, transparent 60%, #181824 100%)', zIndex: 2 }}
-      ></div>
+      {/* Overlay gradient (optional, can be removed for full globe) */}
       {/* Instructions */}
       <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-blue-300/60 pointer-events-none" style={{ zIndex: 3 }}>
         <span>Drag to rotate • Scroll to zoom</span>
