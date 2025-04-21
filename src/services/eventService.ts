@@ -32,12 +32,12 @@ export async function searchEvents(params: SearchParams): Promise<{
       lat: params.latitude,
       lng: params.longitude,
       location: params.location,
-      radius: params.radius || 30, // Default radius set to 30 miles
+      radius: params.radius || 30,
       startDate: params.startDate,
       endDate: params.endDate,
       categories: params.categories,
-      limit: params.limit || 100, // Increased from 50 to 100 events per page
-      page: params.page || 1, // Default to first page
+      limit: params.limit || 200, // Fetch up to 200 events
+      page: params.page || 1,
       excludeIds: params.excludeIds || [],
       fields: params.fields || []
     };
@@ -78,16 +78,27 @@ export async function searchEvents(params: SearchParams): Promise<{
           events: [],
           sourceStats: data?.sourceStats || { ticketmaster: { count: 0 }, eventbrite: { count: 0 }, serpapi: { count: 0 } },
           totalEvents: 0,
-          pageSize: params.limit || 100,
+          pageSize: params.limit || 200,
           page: params.page || 1
         };
       }
 
+      // --- FILTER EVENTS: Only include those with image and description ---
+      const filteredEvents = (data.events || []).filter(
+        (ev: any) =>
+          !!ev.image &&
+          typeof ev.image === 'string' &&
+          ev.image.trim().length > 0 &&
+          !!ev.description &&
+          typeof ev.description === 'string' &&
+          ev.description.trim().length > 0
+      );
+
       return {
-        events: data.events || [],
+        events: filteredEvents,
         sourceStats: data?.sourceStats,
-        totalEvents: data?.meta?.totalEvents || data.events.length,
-        pageSize: params.limit || 100,
+        totalEvents: filteredEvents.length,
+        pageSize: params.limit || 200,
         page: params.page || 1
       };
     } catch (error) {
@@ -97,7 +108,7 @@ export async function searchEvents(params: SearchParams): Promise<{
         events: [],
         sourceStats: { ticketmaster: { count: 0, error: String(error) }, eventbrite: { count: 0 }, serpapi: { count: 0 } },
         totalEvents: 0,
-        pageSize: params.limit || 100,
+        pageSize: params.limit || 200,
         page: params.page || 1
       };
     }

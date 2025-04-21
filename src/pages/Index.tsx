@@ -183,38 +183,40 @@ const Index = () => {
               animate="visible"
               variants={sectionVariants}
             >
-              {/* Globe container with fixed dimensions */}
-              <div className="relative w-full max-w-md mx-auto">
-                {/* Perfect square container */}
-                <div className="relative" style={{ paddingBottom: '100%' }}>
-                  {/* Enhanced glow effect */}
+              {/* Globe container with professional visual polish */}
+              <div className="relative w-full max-w-lg mx-auto">
+                {/* Modern glowing gradient background */}
+                <div
+                  className="absolute inset-0 blur-3xl animate-pulse-slow"
+                  style={{
+                    borderRadius: '50%',
+                    background: 'radial-gradient(circle at 60% 40%, rgba(80,180,255,0.18) 0%, rgba(180,80,255,0.13) 60%, rgba(0,0,0,0.05) 100%)',
+                    zIndex: 1
+                  }}
+                ></div>
+                {/* Globe with glass and shadow effect */}
+                <div className="absolute inset-0 flex items-center justify-center">
                   <div
-                    className="absolute inset-0 bg-gradient-to-br from-blue-500/30 via-purple-500/30 to-cyan-500/30 blur-3xl animate-pulse-slow"
-                    style={{ borderRadius: '50%', transform: 'scale(1.1)' }}
-                  ></div>
-                  
-                  {/* Globe component */}
-                  <div className="absolute inset-0 flex items-center justify-center">
+                    className="backdrop-blur-xl shadow-2xl border border-white/10"
+                    style={{ borderRadius: '50%', boxShadow: '0 8px 32px 0 rgba(31,38,135,0.37)' }}
+                  >
                     <EventsGlobe
                       eventLocations={eventLocations}
                       size={windowWidth < 768 ? 280 : 360}
                       className="z-10"
                     />
                   </div>
-                  
-                  {/* Floating elements - repositioned */}
-                  <div className="absolute top-1/4 left-8 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-xl animate-float z-20">
-                    <div className="flex items-center gap-2">
-                      <GlobeIcon className="w-4 h-4 text-blue-300"/>
-                      <span className="text-xs font-medium text-gray-200">Global Reach</span>
-                    </div>
-                  </div>
-                  <div className="absolute bottom-1/4 right-8 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-xl animate-float-delay z-20">
-                    <div className="flex items-center gap-2">
-                      <SparklesIcon className="w-4 h-4 text-purple-300"/>
-                      <span className="text-xs font-medium text-gray-200">Exciting Events</span>
-                    </div>
-                  </div>
+                </div>
+                {/* Floating event count badge */}
+                <div className="absolute -top-4 right-6 bg-gradient-to-r from-blue-600 via-fuchsia-500 to-cyan-400 text-white rounded-full px-4 py-1 text-sm font-bold shadow-lg border border-white/20 animate-fade-in z-20">
+                  {eventLocations.length} Events
+                </div>
+                {/* Decorative floating icons */}
+                <div className="absolute left-0 bottom-8 bg-white/10 rounded-full p-2 border border-white/20 shadow-md animate-float-slow z-20">
+                  <SparklesIcon className="h-6 w-6 text-fuchsia-400" />
+                </div>
+                <div className="absolute right-0 top-10 bg-white/10 rounded-full p-2 border border-white/20 shadow-md animate-float-slow z-20">
+                  <GlobeIcon className="h-6 w-6 text-blue-400" />
                 </div>
               </div>
             </motion.div>
