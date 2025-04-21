@@ -120,13 +120,34 @@ export async function fetchPredictHQEvents(params: {
       queryParams.append('active.lte', endDate);
     }
 
-    // Add keyword search
-    if (keyword) {
-      queryParams.append('q', keyword);
+    // --- Ensure party events are prioritized in PredictHQ queries ---
+    // If categories includes 'party', always add party-related PredictHQ categories and labels/keywords
+    let categoriesForQuery = categories || [];
+    let keywordForQuery = keyword;
+    let labelsForQuery = [];
+    if (categoriesForQuery.includes('party')) {
+      // Add all party-related PredictHQ categories
+      const partyCategories = ['concerts','festivals','community','conferences','performing-arts','expos'];
+      categoriesForQuery = Array.from(new Set([...categoriesForQuery, ...partyCategories]));
+
+      // Add party-related labels - expanded for better coverage
+      labelsForQuery = [
+        'nightlife','party','club','social-gathering','celebration',
+        'music','dance','dj','entertainment','networking',
+        'mixer','social','happy-hour','cocktail'
+      ];
+
+      // Add comprehensive party-related keywords if not present
+      if (!keywordForQuery) {
+        keywordForQuery = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave';
+      }
+
+      console.log('[PARTY_DEBUG] Enhanced PredictHQ filters for party events');
     }
+    // --- END party events prioritization ---
 
     // Add category filters
-    if (categories && categories.length > 0) {
+    if (categoriesForQuery && categoriesForQuery.length > 0) {
       // Map our categories to PredictHQ categories
       const categoryMap: Record<string, string[]> = {
         'music': ['concerts', 'festivals'],
@@ -134,25 +155,34 @@ export async function fetchPredictHQEvents(params: {
         'arts': ['performing-arts', 'community', 'expos'],
         'family': ['community', 'expos'],
         'food': ['food-drink'],
-        'party': ['festivals', 'community', 'conferences', 'concerts']
+        // Include categories that might contain party events
+        'party': ['festivals', 'community', 'conferences', 'concerts', 'expos', 'performing-arts']
       };
 
       // Log the categories for debugging
-      console.log(`[CATEGORY_DEBUG] Requested categories: ${categories.join(', ')}`);
-      console.log(`[CATEGORY_DEBUG] Mapped PredictHQ categories: ${categories.flatMap(cat => categoryMap[cat] || []).join(', ')}`);
+      console.log(`[CATEGORY_DEBUG] Requested categories: ${categoriesForQuery.join(', ')}`);
+      console.log(`[CATEGORY_DEBUG] Mapped PredictHQ categories: ${categoriesForQuery.flatMap(cat => categoryMap[cat] || []).join(', ')}`);
 
       // Make sure 'party' is included in the categories if requested
-      if (categories.includes('party')) {
+      if (categoriesForQuery.includes('party')) {
         console.log('[CATEGORY_DEBUG] Party category requested, ensuring party-related categories are included');
       }
 
-      const predictHQCategories = categories
+      const predictHQCategories = categoriesForQuery
         .flatMap(cat => categoryMap[cat] || [])
         .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
       if (predictHQCategories.length > 0) {
         queryParams.append('category', predictHQCategories.join(','));
       }
+    }
+    // Add labels if present
+    if (labelsForQuery.length > 0) {
+      queryParams.append('labels', labelsForQuery.join(','));
+    }
+    // Add keyword search
+    if (keywordForQuery) {
+      queryParams.append('q', keywordForQuery);
     }
 
     // Add limit parameter
@@ -412,14 +442,14 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Check if this is a party event based on title and description
     let partySubcategory: any = undefined;
-    const isPartyByDetection = detectPartyEvent(event.title, description);
+    const isPartyByDetection = detectPartyEvent(event.title, event.description);
 
     // Log party detection for debugging
     console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, IsPartyByDetection: ${isPartyByDetection}`);
 
     if (isPartyByDetection) {
       category = 'party';
-      partySubcategory = detectPartySubcategory(event.title, description, time);
+      partySubcategory = detectPartySubcategory(event.title, event.description, time);
       console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
     }
 

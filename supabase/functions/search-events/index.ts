@@ -56,22 +56,34 @@ function normalizeTicketmasterEvent(event: any): Event {
       else if (segment === 'food & drink' || segment === 'food') category = 'food';
 
       // Check for party-related genres and segments
-      if (genreName?.includes('party') || segment?.includes('party')) category = 'party';
+      if (genreName?.includes('party') || segment?.includes('party')) {
+        category = 'party';
+        console.log(`[TICKETMASTER_DEBUG] Party detected by genre/segment: ${event.name}, Genre: ${genreName}, Segment: ${segment}`);
+      }
 
       // Check for nightlife, club, and dance events which are typically parties
-      if (genreName?.includes('nightlife') || genreName?.includes('club') || genreName?.includes('dance')) category = 'party';
+      if (genreName?.includes('nightlife') || genreName?.includes('club') || genreName?.includes('dance')) {
+        category = 'party';
+        console.log(`[TICKETMASTER_DEBUG] Party detected by nightlife/club/dance: ${event.name}, Genre: ${genreName}`);
+      }
 
       // Further refinement based on segment & genre
-      if (segment === 'miscellaneous' && (genreName?.includes('party') || genreName?.includes('social'))) category = 'party';
+      if (segment === 'miscellaneous' && (genreName?.includes('party') || genreName?.includes('social'))) {
+        category = 'party';
+        console.log(`[TICKETMASTER_DEBUG] Party detected by miscellaneous segment: ${event.name}, Genre: ${genreName}`);
+      }
 
       // Check for specific subgenres that are typically parties
       const subGenreName = classifications[0].subGenre?.name?.toLowerCase();
-      if (subGenreName?.includes('party') || subGenreName?.includes('club') || subGenreName?.includes('dance')) category = 'party';
-
-      // For testing purposes, let's consider all music events as potential parties
-      if (segment === 'music') {
-        console.log(`[TICKETMASTER_DEBUG] Considering music event as party: ${event.name}`);
+      if (subGenreName?.includes('party') || subGenreName?.includes('club') || subGenreName?.includes('dance')) {
         category = 'party';
+        console.log(`[TICKETMASTER_DEBUG] Party detected by subgenre: ${event.name}, SubGenre: ${subGenreName}`);
+      }
+
+      // Check for specific event names that indicate parties
+      if (detectPartyEvent(event.name, event.description || event.info || '')) {
+        category = 'party';
+        console.log(`[TICKETMASTER_DEBUG] Party detected by keywords: ${event.name}`);
       }
     }
 
@@ -83,6 +95,7 @@ function normalizeTicketmasterEvent(event: any): Event {
     // Log party detection for debugging
     console.log(`[PARTY_DEBUG] Event: ${event.name}, Category: ${category}, IsPartyByCategory: ${isPartyByCategory}, IsPartyByDetection: ${isPartyByDetection}`);
 
+    // Check if this is a party event based on category or detection
     if (isPartyByCategory || isPartyByDetection) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.name, event.description || event.info || '', time);
@@ -182,11 +195,14 @@ function normalizeSerpApiEvent(event: any): Event {
     // Check for party subcategory
     let partySubcategory: any = undefined;
     const isPartyByCategory = category === 'party';
+    const isPartyByDetection = detectPartyEvent(event.title, event.description || '');
 
     // Log party detection for debugging
-    console.log(`[PARTY_DEBUG] SerpApi Event: ${event.title}, Category: ${category}, IsPartyByCategory: ${isPartyByCategory}`);
+    console.log(`[PARTY_DEBUG] SerpApi Event: ${event.title}, Category: ${category}, IsPartyByCategory: ${isPartyByCategory}, IsPartyByDetection: ${isPartyByDetection}`);
 
-    if (isPartyByCategory) {
+    // Check if this is a party event based on category or detection
+    if (isPartyByCategory || isPartyByDetection) {
+      category = 'party';
       partySubcategory = detectPartySubcategory(event.title, event.description || '', time);
       console.log(`[PARTY_DEBUG] SerpApi event categorized as party with subcategory: ${partySubcategory}`);
     }
@@ -347,6 +363,19 @@ serve(async (req: Request) => {
     let serpapiCount = 0, serpapiError: string | null = null
     let predicthqCount = 0, predicthqError: string | null = null
 
+    // --- Always include party-related filters for Ticketmaster queries if 'party' is requested ---
+    if (params.categories && params.categories.includes('party')) {
+      // Add Ticketmaster-specific filters for party events
+      if (!params.keyword) {
+        params.keyword = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave';
+      }
+      // Add Ticketmaster-specific segment and classification parameters for party events
+      params.segmentName = 'Music';
+      params.classificationName = 'Concert';
+      console.log('[PARTY_DEBUG] Enhanced Ticketmaster filters for party events');
+    }
+    // --- END Ticketmaster party filter enhancement ---
+
     // Fetch from Ticketmaster API
     try {
       // Fetch up to 200 events from Ticketmaster (reduced for performance)
@@ -364,6 +393,14 @@ serve(async (req: Request) => {
           ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${effectiveRadius}&unit=miles`
         } else if (location) {
           ticketmasterUrl += `&city=${encodeURIComponent(location)}`
+        }
+
+        // Add segmentName and classificationName if party category is requested
+        if (params.segmentName) {
+          ticketmasterUrl += `&segmentName=${encodeURIComponent(params.segmentName)}`;
+        }
+        if (params.classificationName) {
+          ticketmasterUrl += `&classificationName=${encodeURIComponent(params.classificationName)}`;
         }
 
         // Add date range
@@ -774,71 +811,6 @@ serve(async (req: Request) => {
       return dateA.getTime() - dateB.getTime();
     });
 
-    // Helper function to parse event dates in various formats
-    function parseEventDate(dateStr: string, timeStr: string): Date {
-      try {
-        // Try to parse ISO date format (YYYY-MM-DD)
-        if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-          const [year, month, day] = dateStr.split('-').map(Number);
-
-          // Parse time (HH:MM format)
-          let hours = 0, minutes = 0;
-          if (timeStr) {
-            const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-            if (timeParts) {
-              hours = parseInt(timeParts[1], 10);
-              minutes = parseInt(timeParts[2], 10);
-
-              // Handle AM/PM
-              if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
-                hours += 12;
-              } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
-                hours = 0;
-              }
-            }
-          }
-
-          return new Date(year, month - 1, day, hours, minutes);
-        }
-
-        // Try to parse date strings like "Mon, May 19"
-        const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
-        if (monthMatch) {
-          const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-          const month = monthNames.indexOf(monthMatch[1].toLowerCase());
-          const day = parseInt(monthMatch[2], 10);
-
-          // Use current year as default
-          const year = new Date().getFullYear();
-
-          // Parse time (HH:MM AM/PM format)
-          let hours = 0, minutes = 0;
-          if (timeStr) {
-            const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-            if (timeParts) {
-              hours = parseInt(timeParts[1], 10);
-              minutes = parseInt(timeParts[2], 10);
-
-              // Handle AM/PM
-              if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
-                hours += 12;
-              } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
-                hours = 0;
-              }
-            }
-          }
-
-          return new Date(year, month, day, hours, minutes);
-        }
-
-        // Fallback: return current date (events with unparseable dates will be sorted last)
-        return new Date();
-      } catch (error) {
-        console.error('Error parsing event date:', error, { dateStr, timeStr });
-        return new Date(); // Fallback to current date
-      }
-    }
-
     // Calculate total events before pagination
     const totalEvents = filteredEvents.length;
 
@@ -932,3 +904,68 @@ serve(async (req: Request) => {
     })
   }
 })
+
+// Helper function to parse event dates in various formats
+function parseEventDate(dateStr: string, timeStr: string): Date {
+  try {
+    // Try to parse ISO date format (YYYY-MM-DD)
+    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
+      const [year, month, day] = dateStr.split('-').map(Number);
+
+      // Parse time (HH:MM format)
+      let hours = 0, minutes = 0;
+      if (timeStr) {
+        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+        if (timeParts) {
+          hours = parseInt(timeParts[1], 10);
+          minutes = parseInt(timeParts[2], 10);
+
+          // Handle AM/PM
+          if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
+            hours += 12;
+          } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
+            hours = 0;
+          }
+        }
+      }
+
+      return new Date(year, month - 1, day, hours, minutes);
+    }
+
+    // Try to parse date strings like "Mon, May 19"
+    const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
+    if (monthMatch) {
+      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+      const month = monthNames.indexOf(monthMatch[1].toLowerCase());
+      const day = parseInt(monthMatch[2], 10);
+
+      // Use current year as default
+      const year = new Date().getFullYear();
+
+      // Parse time (HH:MM AM/PM format)
+      let hours = 0, minutes = 0;
+      if (timeStr) {
+        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+        if (timeParts) {
+          hours = parseInt(timeParts[1], 10);
+          minutes = parseInt(timeParts[2], 10);
+
+          // Handle AM/PM
+          if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
+            hours += 12;
+          } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
+            hours = 0;
+          }
+        }
+      }
+
+      return new Date(year, month, day, hours, minutes);
+    }
+
+    // Fallback: return current date (events with unparseable dates will be sorted last)
+    return new Date();
+  } catch (error) {
+    console.error('Error parsing event date:', error, { dateStr, timeStr });
+    return new Date(); // Fallback to current date
+  }
+}

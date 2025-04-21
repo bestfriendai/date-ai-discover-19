@@ -9,44 +9,65 @@ export type PartySubcategory = 'day-party' | 'social' | 'brunch' | 'club' | 'net
  * Helper function to detect party-related keywords in title or description
  */
 export function detectPartyEvent(title: string = '', description: string = ''): boolean {
-  // For debugging, let's be more aggressive with party detection
-  // If the title or description contains any of these words, it's likely a party
-  const strongPartyKeywords = [
-    'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
-    'reception', 'festival', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
-    'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
-    'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
-    'DJ', 'dance night', 'club night', 'night out', 'mixer', 'brunch',
-    'day party', 'day-party', 'pool party', 'rooftop', 'lounge', 'nightclub',
-    'singles', 'speed dating', 'social gathering', 'afterparty', 'after-party',
-    'nightlife', 'night life', 'club', 'clubbing', 'dance floor', 'dancing',
-    'disco', 'bar crawl', 'pub crawl', 'vip', 'bottle service', 'open bar',
-    'gala', 'ball', 'masquerade', 'costume party', 'themed party',
-    'launch party', 'release party', 'opening party', 'closing party',
-    'holiday party', 'new years', 'halloween party', 'christmas party'
-  ];
+  // Define specific party-related keywords for different types of party events
+  const partyKeywords = {
+    // General party terms that strongly indicate a party event
+    strong: [
+      'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
+      'reception', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
+      'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
+      'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
+      'afterparty', 'after-party', 'singles', 'speed dating', 'social gathering',
+      'festival', 'fest', 'concert', 'live music', 'live dj', 'entertainment',
+      'vip', 'exclusive', 'launch', 'premiere', 'opening', 'event'
+    ],
 
-  // For testing purposes, let's also consider music events as potential parties
-  const weakPartyKeywords = [
-    'music', 'concert', 'performance', 'show', 'live', 'band', 'artist',
-    'singer', 'performer', 'stage', 'venue', 'entertainment', 'night',
-    'weekend', 'friday', 'saturday', 'dance', 'dancing', 'drinks', 'bar',
-    'lounge', 'club', 'rooftop', 'speakeasy', 'venue', 'ballroom', 'dance hall', 'event space'
-  ];
+    // Day party specific terms
+    dayParty: [
+      'day party', 'day-party', 'pool party', 'daytime', 'day time',
+      'outdoor party', 'garden party', 'patio party', 'beach party',
+      'pool', 'day club', 'dayclub', 'afternoon party', 'rooftop party'
+    ],
+
+    // Brunch event terms
+    brunch: [
+      'brunch', 'breakfast', 'morning', 'mimosa', 'bottomless',
+      'champagne brunch', 'sunday brunch', 'brunch party',
+      'brunch & bubbles', 'brunch and bubbles'
+    ],
+
+    // Club event terms
+    club: [
+      'nightclub', 'night club', 'club night', 'dance club', 'disco',
+      'DJ', 'dance night', 'nightlife', 'night life', 'clubbing',
+      'dance floor', 'dancing', 'bottle service', 'vip table',
+      'vip section', 'bar crawl', 'pub crawl', 'open bar',
+      'lounge', 'venue', 'live music', 'concert', 'performance',
+      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music'
+    ],
+
+    // Social gathering terms
+    social: [
+      'networking', 'mixer', 'mingle', 'social gathering', 'business mixer',
+      'professional', 'industry', 'entrepreneur', 'startup',
+      'business social', 'career', 'professionals', 'business networking'
+    ]
+  };
 
   const combinedText = `${title.toLowerCase()} ${description.toLowerCase()}`;
 
-  // Check for strong keywords first
-  const strongMatch = strongPartyKeywords.find(keyword => combinedText.includes(keyword));
-
-  // If no strong match, check for weak keywords
-  const weakMatch = !strongMatch ? weakPartyKeywords.find(keyword => combinedText.includes(keyword)) : null;
+  // Check each category of keywords
+  const strongMatch = partyKeywords.strong.find(keyword => combinedText.includes(keyword));
+  const dayPartyMatch = partyKeywords.dayParty.find(keyword => combinedText.includes(keyword));
+  const brunchMatch = partyKeywords.brunch.find(keyword => combinedText.includes(keyword));
+  const clubMatch = partyKeywords.club.find(keyword => combinedText.includes(keyword));
+  const socialMatch = partyKeywords.social.find(keyword => combinedText.includes(keyword));
 
   // Log the detection result for debugging
-  console.log(`[PARTY_DETECTION] Text: "${title}", Strong match: ${strongMatch || 'none'}, Weak match: ${weakMatch || 'none'}`);
+  console.log(`[PARTY_DETECTION] Event: "${title}", Matches: Strong=${strongMatch || 'none'}, DayParty=${dayPartyMatch || 'none'}, Brunch=${brunchMatch || 'none'}, Club=${clubMatch || 'none'}, Social=${socialMatch || 'none'}`);
 
-  // For now, let's be more lenient and consider weak matches as parties too
-  return !!(strongMatch || weakMatch);
+  // If any category matches, it's a party event
+  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch);
 }
 
 /**
@@ -55,124 +76,99 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
 export function detectPartySubcategory(title: string = '', description: string = '', time: string = ''): PartySubcategory {
   const combinedText = `${title.toLowerCase()} ${description.toLowerCase()}`;
 
-  // Check for day party indicators
-  if (
-    combinedText.includes('day party') ||
-    combinedText.includes('day-party') ||
-    combinedText.includes('pool party') ||
-    combinedText.includes('afternoon party') ||
-    combinedText.includes('daytime') ||
-    combinedText.includes('day time') ||
-    combinedText.includes('outdoor party') ||
-    combinedText.includes('garden party') ||
-    combinedText.includes('patio party') ||
-    combinedText.includes('beach party') ||
-    combinedText.includes('pool') ||
-    combinedText.includes('day club') ||
-    combinedText.includes('dayclub') ||
-    (combinedText.includes('rooftop') && !combinedText.includes('night')) ||
-    (combinedText.includes('terrace') && !combinedText.includes('night')) ||
-    // Check if time is during day hours (before 6 PM)
-    (time && time.length >= 5 && parseInt(time.substring(0, 2)) < 18 && parseInt(time.substring(0, 2)) > 8)
-  ) {
-    return 'day-party';
+  // Use the same keyword categories from detectPartyEvent for consistency
+  const subcategoryKeywords = {
+    dayParty: [
+      'day party', 'day-party', 'pool party', 'afternoon party', 'daytime',
+      'day time', 'outdoor party', 'garden party', 'patio party', 'beach party',
+      'pool', 'day club', 'dayclub', 'rooftop party', 'terrace party'
+    ],
+
+    brunch: [
+      'brunch', 'breakfast', 'morning', 'mimosa', 'bottomless',
+      'champagne brunch', 'sunday brunch', 'brunch party',
+      'brunch & bubbles', 'brunch and bubbles'
+    ],
+
+    club: [
+      'nightclub', 'night club', 'club night', 'dance club', 'disco',
+      'rave', 'DJ', 'dance night', 'dance party', 'nightlife',
+      'night life', 'clubbing', 'dance floor', 'bottle service',
+      'vip table', 'vip section', 'bar crawl', 'pub crawl',
+      'lounge', 'venue', 'live music', 'concert', 'performance',
+      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music'
+    ],
+
+    networking: [
+      'networking', 'mixer', 'mingle', 'meet-up', 'meetup',
+      'social gathering', 'social event', 'singles', 'speed dating',
+      'happy hour', 'happy-hour', 'business mixer', 'professional',
+      'industry', 'entrepreneur', 'startup', 'business social',
+      'career', 'professionals', 'business networking'
+    ],
+
+    celebration: [
+      'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
+      'celebration', 'gala', 'reception', 'new years', 'new year\'s',
+      'halloween', 'christmas', 'holiday party', 'launch party',
+      'release party', 'grand opening', 'farewell', 'retirement',
+      'engagement', 'wedding'
+    ]
+  };
+
+  // Check for time-based indicators
+  let timeBasedCategory: PartySubcategory | null = null;
+
+  if (time && time.length >= 5) {
+    const hour = parseInt(time.substring(0, 2));
+
+    // Day party: 9 AM to 6 PM
+    if (hour >= 9 && hour < 18) {
+      timeBasedCategory = 'day-party';
+    }
+    // Brunch: 10 AM to 2 PM
+    if (hour >= 10 && hour < 14) {
+      timeBasedCategory = 'brunch';
+    }
+    // Club: 9 PM to 4 AM
+    if (hour >= 21 || hour < 4) {
+      timeBasedCategory = 'club';
+    }
   }
 
-  // Check for brunch events
-  if (
-    combinedText.includes('brunch') ||
-    combinedText.includes('breakfast') ||
-    combinedText.includes('morning') ||
-    combinedText.includes('mimosa') ||
-    combinedText.includes('bottomless') ||
-    combinedText.includes('champagne brunch') ||
-    combinedText.includes('sunday brunch') ||
-    combinedText.includes('brunch party') ||
-    combinedText.includes('brunch & bubbles') ||
-    combinedText.includes('brunch and bubbles') ||
-    (combinedText.includes('lunch') && combinedText.includes('party')) ||
-    // Check if time is during brunch hours (10 AM to 2 PM)
-    (time && time.length >= 5 && parseInt(time.substring(0, 2)) >= 10 && parseInt(time.substring(0, 2)) < 14)
-  ) {
+  // Check for keyword matches
+  const matchesDayParty = subcategoryKeywords.dayParty.some(keyword => combinedText.includes(keyword));
+  const matchesBrunch = subcategoryKeywords.brunch.some(keyword => combinedText.includes(keyword));
+  const matchesClub = subcategoryKeywords.club.some(keyword => combinedText.includes(keyword));
+  const matchesNetworking = subcategoryKeywords.networking.some(keyword => combinedText.includes(keyword));
+  const matchesCelebration = subcategoryKeywords.celebration.some(keyword => combinedText.includes(keyword));
+
+  // Log the detection results
+  console.log(`[SUBCATEGORY_DETECTION] Event: "${title}", Matches: DayParty=${matchesDayParty}, Brunch=${matchesBrunch}, Club=${matchesClub}, Networking=${matchesNetworking}, Celebration=${matchesCelebration}, TimeBasedCategory=${timeBasedCategory || 'none'}`);
+
+  // Determine the subcategory based on keyword matches and time
+  // Priority: Brunch > Day Party > Club > Networking > Celebration > General
+
+  if (matchesBrunch) {
     return 'brunch';
   }
 
-  // Check for club events
-  if (
-    combinedText.includes('club') ||
-    combinedText.includes('nightclub') ||
-    combinedText.includes('night club') ||
-    combinedText.includes('dance club') ||
-    combinedText.includes('disco') ||
-    combinedText.includes('rave') ||
-    combinedText.includes('DJ') ||
-    combinedText.includes('dance night') ||
-    combinedText.includes('dance party') ||
-    combinedText.includes('nightlife') ||
-    combinedText.includes('night life') ||
-    combinedText.includes('clubbing') ||
-    combinedText.includes('dance floor') ||
-    combinedText.includes('bottle service') ||
-    combinedText.includes('vip table') ||
-    combinedText.includes('vip section') ||
-    // Check if time is during night hours (after 9 PM)
-    (time && time.length >= 5 && (parseInt(time.substring(0, 2)) >= 21 || parseInt(time.substring(0, 2)) < 4))
-  ) {
+  if (matchesDayParty || (timeBasedCategory === 'day-party' && !matchesClub && !matchesNetworking)) {
+    return 'day-party';
+  }
+
+  if (matchesClub || timeBasedCategory === 'club') {
     return 'club';
   }
 
-  // Check for networking/social events
-  if (
-    combinedText.includes('networking') ||
-    combinedText.includes('mixer') ||
-    combinedText.includes('mingle') ||
-    combinedText.includes('meet-up') ||
-    combinedText.includes('meetup') ||
-    combinedText.includes('social gathering') ||
-    combinedText.includes('social event') ||
-    combinedText.includes('singles') ||
-    combinedText.includes('speed dating') ||
-    combinedText.includes('happy hour') ||
-    combinedText.includes('happy-hour') ||
-    combinedText.includes('business mixer') ||
-    combinedText.includes('professional') ||
-    combinedText.includes('industry') ||
-    combinedText.includes('entrepreneur') ||
-    combinedText.includes('startup') ||
-    combinedText.includes('business social') ||
-    combinedText.includes('career') ||
-    combinedText.includes('professionals') ||
-    combinedText.includes('business networking')
-  ) {
+  if (matchesNetworking) {
     return 'networking';
   }
 
-  // Check for celebration events
-  if (
-    combinedText.includes('birthday') ||
-    combinedText.includes('anniversary') ||
-    combinedText.includes('graduation') ||
-    combinedText.includes('bachelor') ||
-    combinedText.includes('bachelorette') ||
-    combinedText.includes('celebration') ||
-    combinedText.includes('gala') ||
-    combinedText.includes('reception') ||
-    combinedText.includes('new years') ||
-    combinedText.includes('new year\'s') ||
-    combinedText.includes('halloween') ||
-    combinedText.includes('christmas') ||
-    combinedText.includes('holiday party') ||
-    combinedText.includes('launch party') ||
-    combinedText.includes('release party') ||
-    combinedText.includes('grand opening') ||
-    combinedText.includes('farewell') ||
-    combinedText.includes('retirement') ||
-    combinedText.includes('engagement') ||
-    combinedText.includes('wedding')
-  ) {
+  if (matchesCelebration) {
     return 'celebration';
   }
 
-  // Default to general party
+  // Default to general if no specific subcategory is detected
   return 'general';
 }
