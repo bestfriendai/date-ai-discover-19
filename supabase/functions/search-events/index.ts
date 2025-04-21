@@ -1,7 +1,8 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { Event, SearchParams, SourceStats, SearchEventsResponse } from "./types.ts"
-import { fetchPredictHQEvents } from "./predicthq.ts"
+// Import the fixed PredictHQ integration
+import { fetchPredictHQEvents } from "./predicthq-fixed.ts"
 
 /**
  * Normalize a Ticketmaster event to our standard format
@@ -404,11 +405,27 @@ serve(async (req: Request) => {
     eventbriteCount = 0;
     eventbriteError = null;
 
-    // PredictHQ API integration
+    // PredictHQ API integration with improved error handling
     // Docs: https://docs.predicthq.com/
     if (PREDICTHQ_API_KEY) {
       try {
         console.log('[DEBUG] Using PredictHQ API to fetch events');
+        console.log('[DEBUG] PredictHQ API Key available:', !!PREDICTHQ_API_KEY);
+        console.log('[DEBUG] PredictHQ API Key prefix:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.substring(0, 4) + '...' : 'N/A');
+
+        // Log request parameters for debugging
+        console.log('[DEBUG] PredictHQ request parameters:', {
+          hasLatLng: !!(userLat && userLng),
+          lat: userLat,
+          lng: userLng,
+          radius,
+          hasDateRange: !!(startDate && endDate),
+          startDate,
+          endDate,
+          location,
+          keyword,
+          categories
+        });
 
         const { events: predicthqEvents, error } = await fetchPredictHQEvents({
           apiKey: PREDICTHQ_API_KEY,
@@ -437,6 +454,7 @@ serve(async (req: Request) => {
       }
     } else {
       console.log('[DEBUG] PredictHQ API key not available, skipping');
+      predicthqError = 'PredictHQ API key not configured';
     }
 
     // SerpApi Google Events API integration - Enhanced to replace Eventbrite
