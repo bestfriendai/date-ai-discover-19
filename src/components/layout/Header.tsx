@@ -63,7 +63,7 @@ const Header = () => {
                 className={`gap-2 rounded-full px-4 transition-all duration-300 ${location.pathname === '/chat' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30' : 'hover:bg-slate-800/70 text-slate-300 hover:text-white'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
-                AI Chat
+                Event Chat
               </Button>
             </Link>
             <Link to="/plan">

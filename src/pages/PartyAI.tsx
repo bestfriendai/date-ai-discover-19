@@ -127,11 +127,12 @@ const PartyAI = () => {
       onCategoriesChange(['party']);
 
       // Fetch events with the party category filter and party-related keywords
+      // Use a comprehensive set of keywords to find all types of parties
       fetchEvents(
         {
           ...filters,
           categories: ['party'],
-          keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival'
+          keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"'
         },
         mapCenter,
         filters.distance

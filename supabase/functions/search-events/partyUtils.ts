@@ -80,8 +80,22 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   const musicGenres = ['dj', 'electronic', 'hip hop', 'hip-hop', 'edm', 'house', 'techno', 'dance', 'disco'];
   const hasPartyMusic = musicGenres.some(genre => combinedText.includes(genre));
 
-  // More aggressive detection - return true if any match is found
-  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch || hasPartyVenue || hasPartyMusic);
+  // Check for time-based indicators that suggest a party
+  let isPartyTime = false;
+  if (combinedText.includes('night') || combinedText.includes('evening') ||
+      combinedText.includes('pm') || combinedText.includes('tonight') ||
+      combinedText.includes('weekend')) {
+    isPartyTime = true;
+  }
+
+  // Check for event types that are often parties
+  const eventTypes = ['concert', 'show', 'performance', 'festival', 'fest', 'event'];
+  const isEventType = eventTypes.some(type => combinedText.includes(type));
+
+  // Super aggressive detection - return true if any match is found
+  // This ensures we catch as many party events as possible
+  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch ||
+           hasPartyVenue || hasPartyMusic || isPartyTime || isEventType);
 }
 
 /**

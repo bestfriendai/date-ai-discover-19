@@ -583,6 +583,30 @@ serve(async (req: Request) => {
           withinParam: phqWithinParam
         });
 
+        // Enhance parameters for party events
+        let enhancedKeyword = keyword;
+        let enhancedLimit = 300; // Default increased limit
+
+        // If searching for parties, enhance the parameters
+        if (categories && categories.includes('party')) {
+          console.log('[PARTY_DEBUG] Enhancing PredictHQ parameters for party search');
+
+          // Add party-related keywords if not already present
+          if (!enhancedKeyword || enhancedKeyword.toLowerCase().indexOf('party') === -1) {
+            enhancedKeyword = enhancedKeyword ?
+              `${enhancedKeyword} OR party OR club OR nightlife OR dj OR dance OR festival` :
+              'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music';
+          }
+
+          // Increase limit for party searches
+          enhancedLimit = 500;
+
+          console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
+            enhancedKeyword,
+            enhancedLimit
+          });
+        }
+
         const { events: predicthqEvents, error } = await fetchPredictHQEvents({
           apiKey: PREDICTHQ_API_KEY,
           latitude: phqLatitude,
@@ -593,8 +617,8 @@ serve(async (req: Request) => {
           categories,
           location: phqLocation,
           withinParam: phqWithinParam, // Pass the pre-formatted within parameter if available
-          keyword,
-          limit: 300 // Increased limit to get more party events
+          keyword: enhancedKeyword,
+          limit: enhancedLimit // Use enhanced limit for party events
         });
 
         // Log the result of the API call

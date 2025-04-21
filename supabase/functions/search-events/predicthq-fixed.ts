@@ -139,8 +139,12 @@ export async function fetchPredictHQEvents(params: {
     let labelsForQuery = [];
     if (categoriesForQuery.includes('party')) {
       // Add all party-related PredictHQ categories - only using valid PredictHQ categories
+      // Prioritize categories that are most likely to contain party events
       const partyCategories = ['concerts','festivals','community','conferences','performing-arts','expos','sports'];
       categoriesForQuery = Array.from(new Set([...categoriesForQuery, ...partyCategories]));
+
+      // Force the category parameter to include all party-related categories
+      queryParams.append('category', partyCategories.join(','));
 
       // Add party-related labels - significantly expanded for better coverage
       // We'll rely more heavily on labels since we had to remove some categories
@@ -536,6 +540,23 @@ function normalizePredictHQEvent(event: any): Event {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.title, event.description, time);
       console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
+    }
+
+    // For events from PredictHQ with certain categories, force them to be parties
+    // This ensures we get more party events from PredictHQ
+    if (event.category === 'concerts' || event.category === 'festivals') {
+      // Check if the title or description contains music-related terms that suggest a party
+      const musicPartyTerms = ['dj', 'dance', 'club', 'party', 'nightlife', 'electronic', 'hip hop', 'hip-hop', 'edm', 'house', 'techno'];
+      const lowerTitle = (event.title || '').toLowerCase();
+      const lowerDesc = (event.description || '').toLowerCase();
+
+      const hasMusicPartyTerms = musicPartyTerms.some(term => lowerTitle.includes(term) || lowerDesc.includes(term));
+
+      if (hasMusicPartyTerms) {
+        category = 'party';
+        partySubcategory = partySubcategory || 'club';
+        console.log(`[PARTY_DEBUG] PredictHQ music event categorized as party: ${event.title}`);
+      }
     }
 
     // Generate a unique ID
