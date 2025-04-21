@@ -4,6 +4,7 @@
  */
 
 import { Event } from './types.ts';
+import { detectPartyEvent, detectPartySubcategory } from './partyUtils.ts';
 
 /**
  * Fetch events from PredictHQ API with improved error handling
@@ -132,7 +133,8 @@ export async function fetchPredictHQEvents(params: {
         'sports': ['sports'],
         'arts': ['performing-arts', 'community', 'expos'],
         'family': ['community', 'expos'],
-        'food': ['food-drink']
+        'food': ['food-drink'],
+        'party': ['festivals', 'community', 'conferences', 'concerts']
       };
 
       const predictHQCategories = categories
@@ -397,6 +399,15 @@ function normalizePredictHQEvent(event: any): Event {
       }
     }
 
+    // Check for party events using party detection utilities
+
+    // Check if this is a party event based on title and description
+    let partySubcategory: any = undefined;
+    if (detectPartyEvent(event.title, description)) {
+      category = 'party';
+      partySubcategory = detectPartySubcategory(event.title, description, time);
+    }
+
     // Generate a unique ID
     const id = `predicthq-${event.id || Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
@@ -453,6 +464,7 @@ function normalizePredictHQEvent(event: any): Event {
       location,
       venue,
       category,
+      partySubcategory,
       image: imageUrl,
       coordinates,
       url: event.url,

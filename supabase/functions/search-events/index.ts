@@ -55,11 +55,18 @@ function normalizeTicketmasterEvent(event: any): Event {
       else if (segment === 'family') category = 'family';
       else if (segment === 'food & drink' || segment === 'food') category = 'food';
 
-      // Check for party-related genres
+      // Check for party-related genres and segments
       if (genreName?.includes('party') || segment?.includes('party')) category = 'party';
 
+      // Check for nightlife, club, and dance events which are typically parties
+      if (genreName?.includes('nightlife') || genreName?.includes('club') || genreName?.includes('dance')) category = 'party';
+
       // Further refinement based on segment & genre
-      if (segment === 'miscellaneous' && genreName?.includes('party')) category = 'party';
+      if (segment === 'miscellaneous' && (genreName?.includes('party') || genreName?.includes('social'))) category = 'party';
+
+      // Check for specific subgenres that are typically parties
+      const subGenreName = classifications[0].subGenre?.name?.toLowerCase();
+      if (subGenreName?.includes('party') || subGenreName?.includes('club') || subGenreName?.includes('dance')) category = 'party';
     }
 
     // Check for party events

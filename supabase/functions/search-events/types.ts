@@ -2,7 +2,7 @@
  * Type definitions for the search-events function
  */
 
-import { PartySubcategory } from './partyUtils';
+import { PartySubcategory } from './partyUtils.ts';
 
 /**
  * Event interface matching the frontend type
