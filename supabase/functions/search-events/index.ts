@@ -67,13 +67,26 @@ function normalizeTicketmasterEvent(event: any): Event {
       // Check for specific subgenres that are typically parties
       const subGenreName = classifications[0].subGenre?.name?.toLowerCase();
       if (subGenreName?.includes('party') || subGenreName?.includes('club') || subGenreName?.includes('dance')) category = 'party';
+
+      // For testing purposes, let's consider all music events as potential parties
+      if (segment === 'music') {
+        console.log(`[TICKETMASTER_DEBUG] Considering music event as party: ${event.name}`);
+        category = 'party';
+      }
     }
 
     // Check for party events
     let partySubcategory: any = undefined;
-    if (category === 'party' || detectPartyEvent(event.name, event.description || event.info || '')) {
+    const isPartyByCategory = category === 'party';
+    const isPartyByDetection = detectPartyEvent(event.name, event.description || event.info || '');
+
+    // Log party detection for debugging
+    console.log(`[PARTY_DEBUG] Event: ${event.name}, Category: ${category}, IsPartyByCategory: ${isPartyByCategory}, IsPartyByDetection: ${isPartyByDetection}`);
+
+    if (isPartyByCategory || isPartyByDetection) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.name, event.description || event.info || '', time);
+      console.log(`[PARTY_DEBUG] Categorized as party with subcategory: ${partySubcategory}`);
     }
 
     return {
@@ -168,8 +181,14 @@ function normalizeSerpApiEvent(event: any): Event {
 
     // Check for party subcategory
     let partySubcategory: any = undefined;
-    if (category === 'party') {
+    const isPartyByCategory = category === 'party';
+
+    // Log party detection for debugging
+    console.log(`[PARTY_DEBUG] SerpApi Event: ${event.title}, Category: ${category}, IsPartyByCategory: ${isPartyByCategory}`);
+
+    if (isPartyByCategory) {
       partySubcategory = detectPartySubcategory(event.title, event.description || '', time);
+      console.log(`[PARTY_DEBUG] SerpApi event categorized as party with subcategory: ${partySubcategory}`);
     }
 
     // Generate a unique ID

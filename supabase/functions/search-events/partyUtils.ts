@@ -9,8 +9,9 @@ export type PartySubcategory = 'day-party' | 'social' | 'brunch' | 'club' | 'net
  * Helper function to detect party-related keywords in title or description
  */
 export function detectPartyEvent(title: string = '', description: string = ''): boolean {
-  const partyKeywords = [
-    // General party terms
+  // For debugging, let's be more aggressive with party detection
+  // If the title or description contains any of these words, it's likely a party
+  const strongPartyKeywords = [
     'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
     'reception', 'festival', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
     'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
@@ -18,23 +19,34 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
     'DJ', 'dance night', 'club night', 'night out', 'mixer', 'brunch',
     'day party', 'day-party', 'pool party', 'rooftop', 'lounge', 'nightclub',
     'singles', 'speed dating', 'social gathering', 'afterparty', 'after-party',
-
-    // Nightlife terms
     'nightlife', 'night life', 'club', 'clubbing', 'dance floor', 'dancing',
     'disco', 'bar crawl', 'pub crawl', 'vip', 'bottle service', 'open bar',
-
-    // Event types that are often parties
     'gala', 'ball', 'masquerade', 'costume party', 'themed party',
     'launch party', 'release party', 'opening party', 'closing party',
-    'holiday party', 'new years', 'halloween party', 'christmas party',
+    'holiday party', 'new years', 'halloween party', 'christmas party'
+  ];
 
-    // Venue types that typically host parties
-    'lounge', 'bar', 'club', 'rooftop bar', 'speakeasy', 'venue',
-    'ballroom', 'dance hall', 'event space'
+  // For testing purposes, let's also consider music events as potential parties
+  const weakPartyKeywords = [
+    'music', 'concert', 'performance', 'show', 'live', 'band', 'artist',
+    'singer', 'performer', 'stage', 'venue', 'entertainment', 'night',
+    'weekend', 'friday', 'saturday', 'dance', 'dancing', 'drinks', 'bar',
+    'lounge', 'club', 'rooftop', 'speakeasy', 'venue', 'ballroom', 'dance hall', 'event space'
   ];
 
   const combinedText = `${title.toLowerCase()} ${description.toLowerCase()}`;
-  return partyKeywords.some(keyword => combinedText.includes(keyword));
+
+  // Check for strong keywords first
+  const strongMatch = strongPartyKeywords.find(keyword => combinedText.includes(keyword));
+
+  // If no strong match, check for weak keywords
+  const weakMatch = !strongMatch ? weakPartyKeywords.find(keyword => combinedText.includes(keyword)) : null;
+
+  // Log the detection result for debugging
+  console.log(`[PARTY_DETECTION] Text: "${title}", Strong match: ${strongMatch || 'none'}, Weak match: ${weakMatch || 'none'}`);
+
+  // For now, let's be more lenient and consider weak matches as parties too
+  return !!(strongMatch || weakMatch);
 }
 
 /**

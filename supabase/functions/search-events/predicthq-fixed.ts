@@ -137,6 +137,15 @@ export async function fetchPredictHQEvents(params: {
         'party': ['festivals', 'community', 'conferences', 'concerts']
       };
 
+      // Log the categories for debugging
+      console.log(`[CATEGORY_DEBUG] Requested categories: ${categories.join(', ')}`);
+      console.log(`[CATEGORY_DEBUG] Mapped PredictHQ categories: ${categories.flatMap(cat => categoryMap[cat] || []).join(', ')}`);
+
+      // Make sure 'party' is included in the categories if requested
+      if (categories.includes('party')) {
+        console.log('[CATEGORY_DEBUG] Party category requested, ensuring party-related categories are included');
+      }
+
       const predictHQCategories = categories
         .flatMap(cat => categoryMap[cat] || [])
         .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
@@ -403,9 +412,15 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Check if this is a party event based on title and description
     let partySubcategory: any = undefined;
-    if (detectPartyEvent(event.title, description)) {
+    const isPartyByDetection = detectPartyEvent(event.title, description);
+
+    // Log party detection for debugging
+    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, IsPartyByDetection: ${isPartyByDetection}`);
+
+    if (isPartyByDetection) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.title, description, time);
+      console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
     }
 
     // Generate a unique ID
