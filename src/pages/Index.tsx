@@ -183,28 +183,40 @@ const Index = () => {
               animate="visible"
               variants={sectionVariants}
             >
-              <div className="relative w-full max-w-lg aspect-square">
-                 {/* Globe container with enhanced glow effect */}
-                <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/30 via-purple-500/30 to-cyan-500/30 blur-3xl transform scale-110 animate-pulse-slow"></div>
-                <EventsGlobe
-                  eventLocations={eventLocations} // Pass fetched event locations
-                  size={windowWidth < 768 ? 300 : 500}
-                  className="relative z-10"
-                />
-                 {/* Floating elements */}
-                <div className="absolute top-1/4 left-10 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-xl animate-float">
-                   <div className="flex items-center gap-2">
-                     <GlobeIcon className="w-4 h-4 text-blue-300"/>
-                     <span className="text-xs font-medium text-gray-200">Global Reach</span>
-                   </div>
-                 </div>
-                 <div className="absolute bottom-1/4 right-10 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-xl animate-float-delay">
-                   <div className="flex items-center gap-2">
-                     <SparklesIcon className="w-4 h-4 text-purple-300"/>
-                     <span className="text-xs font-medium text-gray-200">Exciting Events</span>
-                   </div>
-                 </div>
-               </div>
+              {/* Globe container with fixed dimensions */}
+              <div className="relative w-full max-w-md mx-auto">
+                {/* Perfect square container */}
+                <div className="relative" style={{ paddingBottom: '100%' }}>
+                  {/* Enhanced glow effect */}
+                  <div
+                    className="absolute inset-0 bg-gradient-to-br from-blue-500/30 via-purple-500/30 to-cyan-500/30 blur-3xl animate-pulse-slow"
+                    style={{ borderRadius: '50%', transform: 'scale(1.1)' }}
+                  ></div>
+                  
+                  {/* Globe component */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <EventsGlobe
+                      eventLocations={eventLocations}
+                      size={windowWidth < 768 ? 280 : 360}
+                      className="z-10"
+                    />
+                  </div>
+                  
+                  {/* Floating elements - repositioned */}
+                  <div className="absolute top-1/4 left-8 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-xl animate-float z-20">
+                    <div className="flex items-center gap-2">
+                      <GlobeIcon className="w-4 h-4 text-blue-300"/>
+                      <span className="text-xs font-medium text-gray-200">Global Reach</span>
+                    </div>
+                  </div>
+                  <div className="absolute bottom-1/4 right-8 bg-white/10 backdrop-blur-sm rounded-lg p-2 border border-white/20 shadow-xl animate-float-delay z-20">
+                    <div className="flex items-center gap-2">
+                      <SparklesIcon className="w-4 h-4 text-purple-300"/>
+                      <span className="text-xs font-medium text-gray-200">Exciting Events</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           </div>
         </div>

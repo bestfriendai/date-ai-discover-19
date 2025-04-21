@@ -77,18 +77,18 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
     let width = 0;
 
     const globe = createGlobe(canvasRef.current!, {
-      // Cap devicePixelRatio to 1.5 to ensure compatibility with more devices
-      devicePixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+      // Use a fixed devicePixelRatio for consistent rendering
+      devicePixelRatio: 1.0,
       width: size * 2,
       height: size * 2,
       phi: currentPhi,
       theta: currentTheta,
       dark: theme === 'dark' ? 1 : 0,
-      diffuse: theme === 'dark' ? 1.5 : 2.0, // Adjust diffuse based on theme
-      mapSamples: 16000, // Reduced for better performance
-      mapBrightness: theme === 'dark' ? 5 : 3.5, // Adjust brightness for theme
+      diffuse: theme === 'dark' ? 1.2 : 1.8, // Slightly reduced diffuse for better visibility
+      mapSamples: 12000, // Further reduced for better performance
+      mapBrightness: theme === 'dark' ? 4 : 3, // Adjusted brightness for better visibility
       baseColor: theme === 'dark' ? [0.15, 0.15, 0.35] : [0.8, 0.8, 0.95], // Dark/Light base
-      markerColor: [1.0, 0.5, 0.9], // Consistent marker color base (can be overridden) - Adjusted to brighter pink/purple
+      markerColor: [1.0, 0.5, 0.9], // Consistent marker color base
       glowColor: theme === 'dark' ? [0.2, 0.2, 0.4] : [0.7, 0.7, 0.9], // Dark/Light glow
       markers: eventLocations.length > 0
         ? eventLocations.map((location) => {
@@ -191,37 +191,41 @@ export function EventsGlobe({ eventLocations, size = 450, className = '' }: Even
   }, [theme, size, eventLocations, isInteracting, r]); // Dependency on r for zoom
 
   return (
-    <motion.div // Wrap in motion.div for potential future animations
+    <motion.div
       className={`relative w-full h-full flex items-center justify-center ${className}`}
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       transition={{ duration: 0.5 }}
     >
-      {/* Background glow effect */}
-      <div className="absolute inset-0 rounded-full bg-gradient-to-br from-blue-500/15 via-purple-500/10 to-transparent filter blur-xl"></div>
-      
-      {/* Canvas container to ensure proper centering */}
-      <div className="relative w-full h-full flex items-center justify-center overflow-hidden rounded-full">
+      {/* Fixed-size container for the globe */}
+      <div className="relative w-full h-full flex items-center justify-center">
+        {/* Canvas with fixed dimensions */}
         <canvas
           ref={canvasRef}
           style={{
-            width: size,
-            height: size,
+            position: 'absolute',
+            top: '50%',
+            left: '50%',
+            transform: 'translate(-50%, -50%)',
+            width: `${size}px`,
+            height: `${size}px`,
             maxWidth: '100%',
             maxHeight: '100%',
-            objectFit: 'contain',
+            borderRadius: '50%',
             cursor: 'grab'
           }}
           width={size * 2}
           height={size * 2}
-          className="rounded-full"
         />
         
         {/* Overlay gradient */}
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80 pointer-events-none rounded-full"></div>
+        <div
+          className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-slate-950/80 pointer-events-none"
+          style={{ borderRadius: '50%' }}
+        ></div>
         
         {/* Instructions */}
-        <div className="absolute bottom-2 left-0 right-0 text-center text-xs text-blue-300/60 pointer-events-none">
+        <div className="absolute bottom-4 left-0 right-0 text-center text-xs text-blue-300/60 pointer-events-none">
           <span>Drag to rotate • Scroll to zoom</span>
         </div>
       </div>
