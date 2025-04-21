@@ -1,7 +1,10 @@
 // src/components/map/markers/EventMarker.tsx
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, Music, Heart, Calendar, MapPin, Star } from 'lucide-react';
+import {
+  Sparkles, Music, Heart, Calendar, MapPin, Star,
+  Ticket, Utensils, Users, PartyPopper, Theater, Trophy
+} from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { Event } from '../../../types';
 import {
@@ -9,25 +12,61 @@ import {
   TooltipTrigger,
   TooltipContent,
 } from '../../ui/tooltip';
+import { format } from 'date-fns';
 
-// Helper to get icon and color by category
+// Enhanced category icons with more specific options
 const categoryIcon = {
   music: Music,
-  arts: Sparkles,
-  sports: Star,
+  arts: Theater,
+  sports: Trophy,
   family: Heart,
-  food: Calendar,
-  party: MapPin,
-  default: MapPin,
+  food: Utensils,
+  party: PartyPopper,
+  concert: Music,
+  festival: Sparkles,
+  conference: Users,
+  exhibition: Sparkles,
+  theatre: Theater,
+  theater: Theater,
+  default: Ticket,
 };
+
+// Enhanced category colors with gradients for better visual appeal
 const categoryColor = {
-  music: 'bg-blue-500',
-  arts: 'bg-pink-500',
-  sports: 'bg-green-500',
-  family: 'bg-yellow-400',
-  food: 'bg-orange-500',
-  party: 'bg-purple-500',
-  default: 'bg-gray-500',
+  music: 'bg-gradient-to-br from-indigo-500 to-blue-600',
+  arts: 'bg-gradient-to-br from-pink-500 to-rose-600',
+  sports: 'bg-gradient-to-br from-emerald-500 to-green-600',
+  family: 'bg-gradient-to-br from-amber-400 to-yellow-500',
+  food: 'bg-gradient-to-br from-orange-400 to-orange-600',
+  party: 'bg-gradient-to-br from-violet-500 to-purple-600',
+  concert: 'bg-gradient-to-br from-blue-500 to-indigo-600',
+  festival: 'bg-gradient-to-br from-fuchsia-500 to-purple-600',
+  conference: 'bg-gradient-to-br from-sky-500 to-blue-600',
+  exhibition: 'bg-gradient-to-br from-rose-500 to-pink-600',
+  theatre: 'bg-gradient-to-br from-pink-500 to-rose-600',
+  theater: 'bg-gradient-to-br from-pink-500 to-rose-600',
+  default: 'bg-gradient-to-br from-slate-500 to-gray-600',
+};
+
+// Helper function to format date and time
+const formatDateTime = (dateStr?: string, timeStr?: string) => {
+  if (!dateStr) return '';
+
+  try {
+    // Check if dateStr is in ISO format (YYYY-MM-DD)
+    if (/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      const date = new Date(dateStr);
+      if (isNaN(date.getTime())) return dateStr;
+
+      // Format the date in a more readable format
+      return format(date, 'EEE, MMM d') + (timeStr ? ` at ${timeStr}` : '');
+    }
+
+    // If not ISO format, return as is with time if available
+    return dateStr + (timeStr ? ` at ${timeStr}` : '');
+  } catch (e) {
+    return dateStr + (timeStr ? ` at ${timeStr}` : '');
+  }
 };
 
 interface EventMarkerProps {
@@ -39,18 +78,48 @@ interface EventMarkerProps {
 const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerProps) => {
   const title = event.title || 'Unknown Event';
   const category = (event.category || 'default').toLowerCase();
+  const formattedDate = formatDateTime(event.date, event.time);
 
+  // Enhanced tooltip with more event details
   const tooltipContent = useMemo(() => (
-    <div>
-      <div className="font-semibold">{title}</div>
-      {event.date && (
-        <div className="text-xs">{event.date}</div>
+    <div className="max-w-[250px]">
+      <div className="font-semibold text-sm">{title}</div>
+
+      {formattedDate && (
+        <div className="text-xs flex items-center mt-1 text-muted-foreground">
+          <Calendar className="h-3 w-3 mr-1 inline" />
+          {formattedDate}
+        </div>
       )}
+
       {event.venue && (
-        <div className="text-xs">{event.venue}</div>
+        <div className="text-xs flex items-center mt-1 text-muted-foreground">
+          <MapPin className="h-3 w-3 mr-1 inline" />
+          {event.venue}
+        </div>
+      )}
+
+      {event.price && (
+        <div className="text-xs flex items-center mt-1 text-muted-foreground">
+          <Ticket className="h-3 w-3 mr-1 inline" />
+          {event.price}
+        </div>
+      )}
+
+      {category && (
+        <div className="mt-1 flex items-center">
+          <div className="text-xs px-1.5 py-0.5 rounded-full font-medium"
+               style={{
+                 background: `linear-gradient(to right, var(--${getCategoryColor(category)}), var(--${getCategoryColor(category)}-foreground))`,
+                 color: 'white',
+                 opacity: 0.9
+               }}>
+            {category.charAt(0).toUpperCase() + category.slice(1)}
+          </div>
+        </div>
       )}
     </div>
-  ), [title, event.date, event.venue]);
+  ), [title, formattedDate, event.venue, event.price, category]);
 
   const handleClick = () => {
     if (onClick) {
@@ -58,38 +127,73 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
     }
   };
 
+  // Helper function to get CSS variable names for category colors
+  function getCategoryColor(cat: string): string {
+    switch(cat) {
+      case 'music': return 'color-indigo';
+      case 'arts': return 'color-pink';
+      case 'sports': return 'color-emerald';
+      case 'family': return 'color-amber';
+      case 'food': return 'color-orange';
+      case 'party': return 'color-violet';
+      default: return 'color-slate';
+    }
+  }
+
   return (
-    <Tooltip delayDuration={0}>
+    <Tooltip delayDuration={isSelected ? 0 : 200}>
       <TooltipTrigger asChild>
         <motion.button
           type="button"
           onClick={handleClick}
           className={cn(
-            'cursor-pointer transition-all duration-200 ease-in-out focus:outline-none p-1 rounded-full flex items-center justify-center border border-border/50 shadow-md backdrop-blur-sm',
+            'cursor-pointer transition-all duration-300 ease-out focus:outline-none rounded-full flex items-center justify-center',
+            'border shadow-lg backdrop-blur-sm',
             categoryColor[category] || categoryColor.default,
-            isSelected ? 'scale-125 ring-4 ring-primary z-30' : 'hover:scale-110 z-10',
-            'w-7 h-7 sm:w-8 sm:h-8'
+            isSelected ?
+              'scale-125 border-white z-30 shadow-lg' :
+              'border-white/30 hover:scale-110 hover:border-white/70 z-10 shadow-md',
+            'w-8 h-8 sm:w-9 sm:h-9'
           )}
           aria-label={`Event: ${event.title}`}
-          animate={isSelected ? { scale: 1.25 } : { scale: 1 }}
-          whileHover={{ scale: 1.15 }}
+          animate={isSelected ? {
+            scale: 1.25,
+            boxShadow: '0 0 15px 2px rgba(255,255,255,0.3)'
+          } : {
+            scale: 1,
+            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+          }}
+          whileHover={{
+            scale: isSelected ? 1.25 : 1.15,
+            boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)'
+          }}
           whileTap={{ scale: 0.95 }}
         >
           {(() => {
             const Icon = categoryIcon[category] || categoryIcon.default;
-            return <Icon className="h-5 w-5 text-white drop-shadow" strokeWidth={2.5} />;
+            return <Icon className="h-4 w-4 text-white drop-shadow-md" strokeWidth={2.5} />;
           })()}
+
+          {/* Pulse animation for selected markers */}
           {isSelected && (
-            <motion.span
-              className="absolute animate-ping bg-primary/20 rounded-full w-10 h-10 -z-10"
-              initial={{ opacity: 0.6, scale: 1 }}
-              animate={{ opacity: 0, scale: 1.7 }}
-              transition={{ duration: 1.2, repeat: Infinity }}
-            />
+            <>
+              <motion.span
+                className="absolute rounded-full bg-white/30"
+                initial={{ opacity: 0.7, scale: 1, width: '100%', height: '100%' }}
+                animate={{ opacity: 0, scale: 1.8 }}
+                transition={{ duration: 1.5, repeat: Infinity }}
+              />
+              <motion.span
+                className="absolute rounded-full bg-white/20"
+                initial={{ opacity: 0.7, scale: 1, width: '100%', height: '100%' }}
+                animate={{ opacity: 0, scale: 1.5 }}
+                transition={{ duration: 1.5, repeat: Infinity, delay: 0.2 }}
+              />
+            </>
           )}
         </motion.button>
       </TooltipTrigger>
-      <TooltipContent side="top" align="center">
+      <TooltipContent side="top" align="center" className="p-3 rounded-xl shadow-xl border border-border/50">
         {tooltipContent}
       </TooltipContent>
     </Tooltip>
