@@ -47,9 +47,14 @@ export async function searchEvents(params: SearchParams): Promise<{
     // This must NOT interfere with other APIs that use 'location' differently.
     // So, add a new field for PredictHQ-specific location if needed.
     let predictHQLocation = params.location;
-    if (!predictHQLocation && params.latitude && params.longitude) {
-      // PredictHQ expects location as 'lat,lng' string or a geo parameter
-      predictHQLocation = `${params.latitude},${params.longitude}`;
+    if (params.latitude && params.longitude) {
+      // PredictHQ expects coordinates in a specific format for the 'within' parameter
+      // Format: {radius}km@{lat},{lng}
+      const radiusKm = Math.round((params.radius || 30) * 1.60934); // Convert miles to km
+      predictHQLocation = `${radiusKm}km@${params.latitude},${params.longitude}`;
+      console.log('[DEBUG] Created PredictHQ location string:', predictHQLocation);
+    } else if (predictHQLocation) {
+      console.log('[DEBUG] Using provided location for PredictHQ:', predictHQLocation);
     }
     // Add a dedicated field so only the backend PredictHQ handler uses it
     searchParams['predicthqLocation'] = predictHQLocation;
@@ -88,6 +93,17 @@ export async function searchEvents(params: SearchParams): Promise<{
       // Check if we have events before returning
       if (!data?.events || data.events.length === 0) {
         console.log('[DEBUG] No events returned from API');
+
+        // Check for specific errors in the source stats
+        if (data?.sourceStats?.predicthq?.error) {
+          console.error('[ERROR] PredictHQ API error:', data.sourceStats.predicthq.error);
+
+          // If there's a specific error with PredictHQ, show it in the console
+          if (data.sourceStats.predicthq.error.includes('within')) {
+            console.error('[ERROR] PredictHQ location format error. Check the format of predicthqLocation.');
+          }
+        }
+
         // Return empty array instead of mock data
         return {
           events: [],

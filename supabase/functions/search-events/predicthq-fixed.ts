@@ -17,6 +17,7 @@ export async function fetchPredictHQEvents(params: {
   endDate?: string;
   categories?: string[];
   location?: string;
+  withinParam?: string; // Pre-formatted within parameter
   keyword?: string;
   limit?: number;
 }): Promise<{ events: Event[], error: string | null }> {
@@ -29,6 +30,7 @@ export async function fetchPredictHQEvents(params: {
     endDate,
     categories = [],
     location,
+    withinParam,
     keyword,
     limit = 100
   } = params;
@@ -42,6 +44,7 @@ export async function fetchPredictHQEvents(params: {
       location,
       locationProvided: !!location,
       locationLength: location ? location.length : 0,
+      withinParam,
       keyword,
       limit
     });
@@ -53,7 +56,11 @@ export async function fetchPredictHQEvents(params: {
     const queryParams = new URLSearchParams();
 
     // Add location parameters (either coordinates or place name)
-    if (latitude && longitude) {
+    if (withinParam) {
+      // Use the pre-formatted within parameter directly
+      queryParams.append('within', withinParam);
+      console.log(`[PREDICTHQ] Using pre-formatted within parameter: ${withinParam}`);
+    } else if (latitude && longitude) {
       // Convert radius from miles to km (PredictHQ uses km)
       const radiusKm = Math.round(radius * 1.60934);
       queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
@@ -155,6 +162,18 @@ export async function fetchPredictHQEvents(params: {
         console.error('[PREDICTHQ] Authentication error - check API key');
       } else if (response.status === 429) {
         console.error('[PREDICTHQ] Rate limit exceeded');
+      } else if (response.status === 400) {
+        // Bad request - likely an issue with the parameters
+        console.error('[PREDICTHQ] Bad request - check parameters');
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.error) {
+            console.error('[PREDICTHQ] Error details:', errorJson.error);
+          }
+        } catch (e) {
+          // If it's not valid JSON, just log the raw text
+          console.error('[PREDICTHQ] Error details (raw):', errorText);
+        }
       }
 
       return {
@@ -167,8 +186,24 @@ export async function fetchPredictHQEvents(params: {
     const data = await response.json();
     console.log('[PREDICTHQ] API response:', {
       count: data.count,
-      resultsCount: data.results?.length || 0
+      resultsCount: data.results?.length || 0,
+      next: !!data.next,
+      previous: !!data.previous
     });
+
+    // Log the first result for debugging if available
+    if (data.results && data.results.length > 0) {
+      const firstResult = data.results[0];
+      console.log('[PREDICTHQ] First result sample:', {
+        id: firstResult.id,
+        title: firstResult.title,
+        start: firstResult.start,
+        location: firstResult.location,
+        hasCoordinates: Array.isArray(firstResult.location) && firstResult.location.length === 2
+      });
+    } else {
+      console.log('[PREDICTHQ] No results returned');
+    }
 
     // Transform PredictHQ events to our format
     const events = data.results?.map(normalizePredictHQEvent) || [];
