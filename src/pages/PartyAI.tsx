@@ -78,8 +78,9 @@ const PartyAI = () => {
       ...searchParams,
       categories: ['party'],
       keyword: searchParams.keyword
-        ? `${searchParams.keyword} party OR club OR social OR celebration OR dance`
-        : 'party OR club OR social OR celebration OR dance OR dj OR nightlife'
+        ? `${searchParams.keyword} party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music`
+        : 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
+      limit: 500 // Increase limit to get more party events
     };
 
     if (mapCenter) {
@@ -105,7 +106,8 @@ const PartyAI = () => {
       const filtersWithPartyCategory = {
         ...filters,
         categories: ['party'],
-        keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival'
+        keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
+        limit: 500 // Increase limit to get more party events
       };
 
       toast({
@@ -132,10 +134,11 @@ const PartyAI = () => {
         {
           ...filters,
           categories: ['party'],
-          keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"'
+          keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"',
+          limit: 500 // Increase limit to get more party events
         },
         mapCenter,
-        filters.distance
+        Math.max(filters.distance || 0, 50) // Use at least 50 miles radius for parties
       );
 
       // Show a toast message to indicate we're finding the best parties

@@ -367,7 +367,7 @@ serve(async (req: Request) => {
     if (params.categories && params.categories.includes('party')) {
       // Add Ticketmaster-specific filters for party events
       if (!params.keyword) {
-        params.keyword = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave';
+        params.keyword = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR concert OR music OR lounge OR bar OR venue OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event";
       }
       // Add Ticketmaster-specific segment and classification parameters for party events
       params.segmentName = 'Music';
@@ -378,17 +378,17 @@ serve(async (req: Request) => {
 
     // Fetch from Ticketmaster API
     try {
-      // Fetch up to 400 events from Ticketmaster (increased for party events)
+      // Fetch up to 600 events from Ticketmaster (significantly increased for party events)
       let ticketmasterEvents: any[] = [];
       let ticketmasterPage = 0;
       let ticketmasterTotalPages = 1;
-      const ticketmasterMaxPages = 2; // Increased to 2 pages (400 events) for more party events
+      const ticketmasterMaxPages = 3; // Increased to 3 pages (600 events) for more party events
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
-        // Use a wider radius for party events (default 50 miles)
+        // Use a much wider radius for party events (default 75 miles)
         const effectiveRadius = Math.max(1, Math.min(Number(radius) || 50, 100));
-        // For party events, we want a wider radius to find more events
+        // For party events, we want a much wider radius to find more events
         const partyRadius = params.categories && params.categories.includes('party') ?
-          Math.max(effectiveRadius, 50) : effectiveRadius;
+          Math.max(effectiveRadius, 75) : effectiveRadius; // Increased to 75 miles for party events
         let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
 
         // Add location parameters
@@ -595,7 +595,7 @@ serve(async (req: Request) => {
           if (!enhancedKeyword || enhancedKeyword.toLowerCase().indexOf('party') === -1) {
             enhancedKeyword = enhancedKeyword ?
               `${enhancedKeyword} OR party OR club OR nightlife OR dj OR dance OR festival` :
-              'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music';
+              'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"';
           }
 
           // Increase limit for party searches

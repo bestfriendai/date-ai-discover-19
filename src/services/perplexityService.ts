@@ -1,5 +1,19 @@
 import { Event } from '@/types';
 
+/**
+ * Perplexity API Service
+ *
+ * Available models as of November 2024:
+ * - sonar: Lightweight, cost-effective search model with grounding
+ * - sonar-pro: Advanced search offering with grounding, supporting complex queries
+ * - sonar-reasoning: Fast, real-time reasoning model with search capabilities
+ * - sonar-reasoning-pro: Premier reasoning offering powered by DeepSeek R1 with Chain of Thought
+ * - sonar-deep-research: Expert-level research model for comprehensive reports
+ * - r1-1776: Offline model that does not use search subsystem
+ *
+ * Documentation: https://docs.perplexity.ai/models/model-cards
+ */
+
 // Define the Perplexity API message types
 interface PerplexityMessage {
   role: 'system' | 'user' | 'assistant';
@@ -44,7 +58,7 @@ export async function callPerplexityAPI(
         'Authorization': `Bearer ${apiKey}`
       },
       body: JSON.stringify({
-        model: 'llama-3-sonar-small-32k-online',
+        model: 'sonar', // Using the standard Sonar model for event search queries
         messages,
         max_tokens: 1000,
         temperature: 0.7,
@@ -70,21 +84,21 @@ export function extractEventsFromResponse(response: string): Event[] {
   try {
     // Look for event data in JSON format
     const jsonMatch = response.match(/```json([\s\S]*?)```/);
-    
+
     if (jsonMatch && jsonMatch[1]) {
       try {
         const jsonData = JSON.parse(jsonMatch[1].trim());
-        
+
         // Handle array of events
         if (Array.isArray(jsonData)) {
           return jsonData.map(normalizeExtractedEvent);
         }
-        
+
         // Handle single event object
         if (jsonData.title) {
           return [normalizeExtractedEvent(jsonData)];
         }
-        
+
         // Handle object with events property
         if (jsonData.events && Array.isArray(jsonData.events)) {
           return jsonData.events.map(normalizeExtractedEvent);
@@ -93,7 +107,7 @@ export function extractEventsFromResponse(response: string): Event[] {
         console.error('Error parsing JSON from response:', e);
       }
     }
-    
+
     // If no JSON found, try to extract event information from text
     return extractEventsFromText(response);
   } catch (error) {
@@ -106,11 +120,11 @@ export function extractEventsFromResponse(response: string): Event[] {
 function normalizeExtractedEvent(eventData: any): Event {
   // Generate a unique ID for the event
   const id = `perplexity-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-  
+
   // Extract date and time
   let date = eventData.date || new Date().toISOString().split('T')[0];
   let time = eventData.time || '19:00';
-  
+
   // If date is in a different format, try to parse it
   if (date && typeof date === 'string' && !date.match(/^\d{4}-\d{2}-\d{2}$/)) {
     try {
@@ -120,7 +134,7 @@ function normalizeExtractedEvent(eventData: any): Event {
       date = new Date().toISOString().split('T')[0];
     }
   }
-  
+
   // Extract coordinates
   let coordinates: [number, number] | undefined = undefined;
   if (eventData.coordinates && Array.isArray(eventData.coordinates) && eventData.coordinates.length === 2) {
@@ -128,7 +142,7 @@ function normalizeExtractedEvent(eventData: any): Event {
   } else if (eventData.longitude !== undefined && eventData.latitude !== undefined) {
     coordinates = [eventData.longitude, eventData.latitude];
   }
-  
+
   return {
     id,
     source: 'perplexity',
@@ -149,24 +163,24 @@ function normalizeExtractedEvent(eventData: any): Event {
 // Function to extract events from text response
 function extractEventsFromText(text: string): Event[] {
   const events: Event[] = [];
-  
+
   // Look for event patterns in the text
   const eventSections = text.split(/Event \d+:|Event:|Here are some events:|Here's an event:/i);
-  
+
   for (let i = 1; i < eventSections.length; i++) {
     const section = eventSections[i].trim();
     if (!section) continue;
-    
+
     // Extract event details
     const titleMatch = section.match(/Title:?\s*([^\n]+)/i) || section.match(/Name:?\s*([^\n]+)/i);
     const dateMatch = section.match(/Date:?\s*([^\n]+)/i);
     const timeMatch = section.match(/Time:?\s*([^\n]+)/i);
     const locationMatch = section.match(/Location:?\s*([^\n]+)/i) || section.match(/Venue:?\s*([^\n]+)/i);
     const descriptionMatch = section.match(/Description:?\s*([^\n]+)/i);
-    
+
     if (titleMatch) {
       const title = titleMatch[1].trim();
-      
+
       // Create event object
       const event: Event = {
         id: `perplexity-text-${Date.now()}-${i}`,
@@ -180,11 +194,11 @@ function extractEventsFromText(text: string): Event[] {
         category: 'event',
         image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop'
       };
-      
+
       events.push(event);
     }
   }
-  
+
   return events;
 }
 
@@ -205,19 +219,19 @@ function formatTime(timeStr: string): string {
   if (timeMatch) {
     return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
   }
-  
+
   // Try to parse AM/PM format
   const ampmMatch = timeStr.match(/(\d{1,2})(?::(\d{2}))?\s*(am|pm)/i);
   if (ampmMatch) {
     let hours = parseInt(ampmMatch[1]);
     const minutes = ampmMatch[2] ? parseInt(ampmMatch[2]) : 0;
     const isPM = ampmMatch[3].toLowerCase() === 'pm';
-    
+
     if (isPM && hours < 12) hours += 12;
     if (!isPM && hours === 12) hours = 0;
-    
+
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`;
   }
-  
+
   return '19:00'; // Default time
 }
