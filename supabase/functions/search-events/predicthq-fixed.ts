@@ -199,9 +199,9 @@ export async function fetchPredictHQEvents(params: {
       }
 
       // Increase the limit for party events
-      if (limit < 500) {
-        limit = 500;
-        console.log('[PREDICTHQ] Increased limit for party events to 500');
+      const effectiveLimit = limit < 500 ? 500 : limit;
+      if (effectiveLimit > limit) {
+        console.log(`[PREDICTHQ] Increased limit for party events from ${limit} to ${effectiveLimit}`);
       }
 
       console.log('[PARTY_DEBUG] Enhanced PredictHQ filters for party events');
@@ -258,7 +258,12 @@ export async function fetchPredictHQEvents(params: {
     }
 
     // Add limit parameter
-    queryParams.append('limit', limit.toString());
+    // For party events, use a higher limit to get more results
+    let limitToUse = limit;
+    if (categoriesForQuery?.includes('party')) {
+      limitToUse = Math.max(limit, 500); // At least 500 for party events
+    }
+    queryParams.append('limit', limitToUse.toString());
 
     // Add include parameters for additional data - request all available fields for rich event data
     queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images');
@@ -416,7 +421,7 @@ function normalizePredictHQEvent(event: any): Event {
     // Build final location string, removing duplicates and filtering empty strings
     if (locationParts.length > 0) {
       // Filter out empty strings and remove duplicates while preserving order
-      const uniqueParts = [];
+      const uniqueParts: string[] = [];
       for (const part of locationParts) {
         if (part && typeof part === 'string' && part.trim() !== '' && !uniqueParts.includes(part)) {
           uniqueParts.push(part);
@@ -518,7 +523,7 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Also check if the event has party-related labels
     // Check if the event has party-related labels - expanded list for better detection
-    const hasPartyLabels = event.labels && Array.isArray(event.labels) && event.labels.some(label => {
+    const hasPartyLabels = event.labels && Array.isArray(event.labels) && event.labels.some((label: string) => {
       const partyLabels = [
         'nightlife', 'party', 'club', 'nightclub', 'dance-club', 'disco', 'lounge',
         'dance-party', 'dj-set', 'dj-night', 'dj-party', 'social-gathering', 'celebration',
@@ -538,7 +543,7 @@ function normalizePredictHQEvent(event: any): Event {
     });
 
     // Check if the event is in a venue that suggests it's a party - expanded venue types
-    const hasPartyVenue = event.entities && Array.isArray(event.entities) && event.entities.some(entity => {
+    const hasPartyVenue = event.entities && Array.isArray(event.entities) && event.entities.some((entity: any) => {
       if (entity.type === 'venue' && entity.name) {
         const partyVenueTerms = [
           'club', 'lounge', 'bar', 'nightclub', 'disco', 'party', 'dance', 'dj',

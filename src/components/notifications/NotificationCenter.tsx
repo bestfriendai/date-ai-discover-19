@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Bell, X, Calendar, MapPin, Clock } from 'lucide-react';
+import { Bell, X, Calendar, MapPin, Clock, AlertCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAuth } from '@/contexts/AuthContext';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseAvailable } from '@/integrations/supabase/client';
 import notificationService, { Notification } from '@/services/notificationService';
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { RealtimeChannel } from '@supabase/supabase-js';
 
 const NotificationCenter: React.FC = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -19,38 +20,96 @@ const NotificationCenter: React.FC = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // Fetch notifications on mount and when user changes
+  // Reference to the realtime channel
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'error'>('disconnected');
+
+  // Set up realtime subscription
   useEffect(() => {
+    const setupRealtimeSubscription = async () => {
+      if (!user) return;
+
+      // Check if Supabase is available
+      const available = await isSupabaseAvailable();
+      if (!available) {
+        console.error('Supabase connection is not available for notifications');
+        setConnectionStatus('error');
+        return;
+      }
+
+      try {
+        // Clean up any existing subscription
+        if (channelRef.current) {
+          await supabase.removeChannel(channelRef.current);
+          channelRef.current = null;
+        }
+
+        // Create a new channel with a unique name
+        const channelName = `notifications-${user.id}-${Date.now()}`;
+        const channel = supabase
+          .channel(channelName)
+          .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'notifications',
+            filter: `user_id=eq.${user.id}`
+          }, (payload) => {
+            const newNotification = payload.new as Notification;
+            setNotifications(prev => [newNotification, ...prev]);
+            setUnreadCount(count => count + 1);
+
+            // Show toast for new notification
+            toast({
+              title: newNotification.title,
+              description: newNotification.message,
+            });
+          })
+          .on('system', { event: 'connected' }, () => {
+            console.log('Notifications realtime connected');
+            setConnectionStatus('connected');
+          })
+          .on('system', { event: 'disconnected' }, () => {
+            console.log('Notifications realtime disconnected');
+            setConnectionStatus('disconnected');
+          })
+          .on('system', { event: 'error' }, (error) => {
+            console.error('Notifications realtime error:', error);
+            setConnectionStatus('error');
+          });
+
+        // Subscribe to the channel
+        const { error } = await channel.subscribe((status) => {
+          console.log(`Notification subscription status: ${status}`);
+        });
+
+        if (error) {
+          console.error('Error subscribing to notifications:', error);
+          setConnectionStatus('error');
+        } else {
+          channelRef.current = channel;
+        }
+      } catch (error) {
+        console.error('Error setting up notification subscription:', error);
+        setConnectionStatus('error');
+      }
+    };
+
+    // Fetch notifications and set up subscription
     if (user) {
       fetchNotifications();
-
-      // Subscribe to new notifications
-      const channel = supabase
-        .channel('notifications')
-        .on('postgres_changes', {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${user.id}`
-        }, (payload) => {
-          const newNotification = payload.new as Notification;
-          setNotifications(prev => [newNotification, ...prev]);
-          setUnreadCount(count => count + 1);
-
-          // Show toast for new notification
-          toast({
-            title: newNotification.title,
-            description: newNotification.message,
-          });
-        })
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
+      setupRealtimeSubscription();
     }
+
+    // Cleanup function
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
   }, [user]);
 
+  // Fetch notifications with improved error handling
   const fetchNotifications = async () => {
     if (!user) return;
 
@@ -60,8 +119,30 @@ const NotificationCenter: React.FC = () => {
       setUnreadCount(notifications.filter(n => !n.read).length);
     } catch (error) {
       console.error('Error fetching notifications:', error);
+      toast({
+        title: 'Notification Error',
+        description: 'Unable to load notifications. Please try again later.',
+        variant: 'destructive'
+      });
     }
   };
+
+  // Retry connection if it fails
+  useEffect(() => {
+    if (connectionStatus === 'error' && user) {
+      const retryTimeout = setTimeout(() => {
+        console.log('Retrying notification subscription...');
+        if (channelRef.current) {
+          supabase.removeChannel(channelRef.current);
+          channelRef.current = null;
+        }
+        // This will trigger the main useEffect to run again
+        setConnectionStatus('disconnected');
+      }, 10000); // Retry after 10 seconds
+
+      return () => clearTimeout(retryTimeout);
+    }
+  }, [connectionStatus, user]);
 
   const markAsRead = async (id: string) => {
     try {
@@ -118,9 +199,28 @@ const NotificationCenter: React.FC = () => {
         return <Bell className="h-4 w-4 text-purple-500" />;
       case 'social':
         return <MapPin className="h-4 w-4 text-green-500" />;
+      case 'error':
+        return <AlertCircle className="h-4 w-4 text-red-500" />;
       default:
         return <Bell className="h-4 w-4" />;
     }
+  };
+
+  // Format notification date
+  const formatNotificationDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMins / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMins < 1) return 'Just now';
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    if (diffDays < 7) return `${diffDays}d ago`;
+
+    return date.toLocaleDateString();
   };
 
   return (
@@ -187,7 +287,7 @@ const NotificationCenter: React.FC = () => {
                             <div className="font-medium text-sm">{notification.title}</div>
                             <p className="text-xs text-muted-foreground">{notification.message}</p>
                             <div className="text-xs text-muted-foreground mt-1">
-                              {new Date(notification.created_at).toLocaleString()}
+                              {formatNotificationDate(notification.created_at)}
                             </div>
                           </div>
                           {!notification.read && (

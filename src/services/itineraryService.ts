@@ -1,74 +1,173 @@
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, isSupabaseAvailable } from '@/integrations/supabase/client';
 import errorReporter from '../utils/errorReporter';
 import type { Itinerary, ItineraryItem } from '@/types';
+import { toast } from '@/hooks/use-toast';
+
+// Error class for itinerary service errors
+class ItineraryServiceError extends Error {
+  code?: string;
+  status?: number;
+  source?: string;
+
+  constructor(message: string, options?: { code?: string; status?: number; source?: string }) {
+    super(message);
+    this.name = 'ItineraryServiceError';
+    this.code = options?.code;
+    this.status = options?.status;
+    this.source = options?.source;
+
+    // Log all errors
+    console.error('[ItineraryServiceError]', {
+      message: this.message,
+      code: this.code,
+      status: this.status,
+      source: this.source,
+      timestamp: new Date().toISOString()
+    });
+  }
+}
 
 /**
- * Get all itineraries for the current user
+ * Get all itineraries for the current user with improved error handling
  */
 export async function getItineraries(): Promise<Itinerary[]> {
   console.log('[itineraryService] Getting all itineraries');
-  try {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) return [];
 
-    const { data, error } = await supabase
+  // Check if Supabase is available
+  const supabaseAvailable = await isSupabaseAvailable();
+  if (!supabaseAvailable) {
+    toast({
+      title: 'Connection Issue',
+      description: 'Unable to connect to the database. Please try again later.',
+      variant: 'destructive'
+    });
+    throw new ItineraryServiceError('Supabase connection is not available', {
+      code: 'connection_error',
+      status: 503,
+      source: 'supabase'
+    });
+  }
+
+  try {
+    // Get current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      console.log('[itineraryService] No authenticated user, returning empty itineraries');
+      return [];
+    }
+
+    // Set timeout for the function call
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 10000); // 10 second timeout
+    });
+
+    // Fetch itineraries
+    const fetchPromise = supabase
       .from('itineraries')
       .select('*')
       .eq('user_id', user.id)
       .order('date', { ascending: true });
 
+    // Race the fetch against the timeout
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    const { data, error } = result as Awaited<typeof fetchPromise>;
+
     if (error) {
       errorReporter('[itineraryService] Error fetching itineraries:', error);
-      throw error;
+      throw new ItineraryServiceError(`Database error: ${error.message}`, {
+        code: error.code,
+        status: 500,
+        source: 'database'
+      });
     }
-    if (!data) return [];
+    if (!data || data.length === 0) return [];
 
-    // Get items for each itinerary
+    // Get items for each itinerary with improved error handling
     const itinerariesWithItems: Itinerary[] = [];
-
-    for (const itinerary of data) {
-      const { data: items, error: itemsError } = await supabase
+    const fetchPromises = data.map(itinerary => {
+      return supabase
         .from('itinerary_items')
         .select('*')
         .eq('itinerary_id', itinerary.id)
         .order('order', { ascending: true });
+    });
 
-      if (itemsError) {
-        errorReporter('[itineraryService] Error fetching itinerary items:', itemsError);
-        continue;
+    // Fetch all items in parallel
+    const itemsResults = await Promise.allSettled(fetchPromises);
+
+    // Process results
+    for (let i = 0; i < data.length; i++) {
+      const itinerary = data[i];
+      const itemsResult = itemsResults[i];
+
+      let formattedItems: ItineraryItem[] = [];
+
+      if (itemsResult.status === 'fulfilled') {
+        const { data: items, error: itemsError } = itemsResult.value;
+
+        if (itemsError) {
+          console.error(`[itineraryService] Error fetching items for itinerary ${itinerary.id}:`, itemsError);
+          errorReporter('[itineraryService] Error fetching itinerary items:', itemsError);
+          // Continue with empty items rather than skipping the itinerary
+        } else if (items) {
+          formattedItems = items.map(item => ({
+            id: item.id,
+            eventId: item.event_id,
+            title: item.title || 'Untitled Item',
+            description: item.description || '',
+            startTime: item.start_time,
+            endTime: item.end_time,
+            location: item.location_name || '',
+            coordinates: item.location_coordinates,
+            notes: item.notes || '',
+            type: item.type as "EVENT" | "CUSTOM",
+            order: item.order !== undefined ? item.order : 0
+          }));
+        }
+      } else {
+        console.error(`[itineraryService] Failed to fetch items for itinerary ${itinerary.id}:`, itemsResult.reason);
       }
-
-      const formattedItems: ItineraryItem[] = (items || []).map(item => ({
-        id: item.id,
-        eventId: item.event_id,
-        title: item.title,
-        description: item.description,
-        startTime: item.start_time,
-        endTime: item.end_time,
-        location: item.location_name,
-        coordinates: item.location_coordinates,
-        notes: item.notes,
-        type: item.type as "EVENT" | "CUSTOM",
-        order: item.order
-      }));
 
       itinerariesWithItems.push({
         id: itinerary.id,
-        name: itinerary.name,
-        description: itinerary.description,
+        name: itinerary.name || 'Untitled Itinerary',
+        description: itinerary.description || '',
         date: itinerary.date,
         items: formattedItems,
-        isPublic: itinerary.is_public,
+        isPublic: itinerary.is_public || false,
         createdAt: itinerary.created_at,
         updatedAt: itinerary.updated_at
       });
     }
 
     return itinerariesWithItems;
-  } catch (error) {
+  } catch (error: any) {
+    // Check for timeout error
+    if (error.message === 'Request timeout') {
+      toast({
+        title: 'Request Timeout',
+        description: 'The request is taking too long. Please try again later.',
+        variant: 'destructive'
+      });
+    }
+
     console.error('Error getting itineraries:', error);
     errorReporter('Error getting itineraries:', error);
-    return [];
+
+    // If it's already an ItineraryServiceError, rethrow it
+    if (error instanceof ItineraryServiceError) {
+      throw error;
+    }
+
+    // Otherwise, wrap it in an ItineraryServiceError
+    throw new ItineraryServiceError(
+      error.message || 'An unexpected error occurred while fetching itineraries',
+      {
+        code: 'unexpected_error',
+        status: error.status || 500,
+        source: 'getItineraries'
+      }
+    );
   }
 }
 
@@ -464,23 +563,134 @@ export async function reorderItineraryItems(
 export const getItineraryById = getItinerary;
 
 /**
- * Generate an itinerary using AI
+ * Generate an itinerary using AI with improved error handling
  */
 export async function generateAIItinerary(prompt: string, date: string, location?: string): Promise<{ id: string } | null> {
+  // Validate input
+  if (!prompt) {
+    toast({
+      title: 'Missing Information',
+      description: 'Please provide a description for your itinerary.',
+      variant: 'destructive'
+    });
+    throw new ItineraryServiceError('Prompt is required', {
+      code: 'invalid_input',
+      status: 400,
+      source: 'generateAIItinerary'
+    });
+  }
+
+  if (!date) {
+    toast({
+      title: 'Missing Information',
+      description: 'Please provide a date for your itinerary.',
+      variant: 'destructive'
+    });
+    throw new ItineraryServiceError('Date is required', {
+      code: 'invalid_input',
+      status: 400,
+      source: 'generateAIItinerary'
+    });
+  }
+
+  // Check if Supabase is available
+  const supabaseAvailable = await isSupabaseAvailable();
+  if (!supabaseAvailable) {
+    toast({
+      title: 'Connection Issue',
+      description: 'Unable to connect to the AI service. Please try again later.',
+      variant: 'destructive'
+    });
+    throw new ItineraryServiceError('Supabase connection is not available', {
+      code: 'connection_error',
+      status: 503,
+      source: 'supabase'
+    });
+  }
+
   try {
-    const { data, error } = await supabase.functions.invoke('generate-itinerary', {
+    // Show loading toast
+    toast({
+      title: 'Generating Itinerary',
+      description: 'Our AI is creating your personalized itinerary. This may take a moment...',
+    });
+
+    // Set timeout for the function call
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Request timeout')), 60000); // 60 second timeout for AI generation
+    });
+
+    // Call the Supabase function
+    const fetchPromise = supabase.functions.invoke('generate-itinerary', {
       body: { prompt, date, location }
     });
 
+    // Race the fetch against the timeout
+    const result = await Promise.race([fetchPromise, timeoutPromise]);
+    const { data, error } = result as Awaited<typeof fetchPromise>;
+
     if (error) {
       errorReporter('[itineraryService] Error generating AI itinerary:', error);
+      throw new ItineraryServiceError(`AI generation error: ${error.message}`, {
+        code: 'function_error',
+        status: error.status || 500,
+        source: 'generate-itinerary'
+      });
+    }
+
+    if (!data || !data.id) {
+      throw new ItineraryServiceError('No itinerary ID returned from AI service', {
+        code: 'invalid_response',
+        status: 500,
+        source: 'generate-itinerary'
+      });
+    }
+
+    // Show success toast
+    toast({
+      title: 'Itinerary Created',
+      description: 'Your personalized itinerary has been generated successfully!',
+    });
+
+    return { id: data.id };
+  } catch (error: any) {
+    // Check for timeout error
+    if (error.message === 'Request timeout') {
+      toast({
+        title: 'AI Generation Timeout',
+        description: 'The AI is taking too long to generate your itinerary. Please try again with a simpler request.',
+        variant: 'destructive'
+      });
+      throw new ItineraryServiceError('AI generation timed out', {
+        code: 'timeout',
+        status: 408,
+        source: 'generate-itinerary'
+      });
+    }
+
+    console.error('Error generating AI itinerary:', error);
+    errorReporter('Error generating AI itinerary:', error);
+
+    // Show error toast
+    toast({
+      title: 'Generation Failed',
+      description: 'Failed to generate your itinerary. Please try again later.',
+      variant: 'destructive'
+    });
+
+    // If it's already an ItineraryServiceError, rethrow it
+    if (error instanceof ItineraryServiceError) {
       throw error;
     }
 
-    return { id: data.id };
-  } catch (error) {
-    console.error('Error generating AI itinerary:', error);
-    errorReporter('Error generating AI itinerary:', error);
-    return null;
+    // Otherwise, wrap it in an ItineraryServiceError
+    throw new ItineraryServiceError(
+      error.message || 'An unexpected error occurred while generating the itinerary',
+      {
+        code: 'unexpected_error',
+        status: error.status || 500,
+        source: 'generateAIItinerary'
+      }
+    );
   }
 }
