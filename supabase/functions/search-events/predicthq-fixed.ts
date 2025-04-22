@@ -136,7 +136,7 @@ export async function fetchPredictHQEvents(params: {
     // If categories includes 'party', always add party-related PredictHQ categories and labels/keywords
     let categoriesForQuery = categories || [];
     let keywordForQuery = keyword;
-    let labelsForQuery = [];
+    let labelsForQuery: string[] = [];
     if (categoriesForQuery.includes('party')) {
       // Add all party-related PredictHQ categories - only using valid PredictHQ categories
       // Prioritize categories that are most likely to contain party events
@@ -239,8 +239,18 @@ export async function fetchPredictHQEvents(params: {
       }
     }
     // Add labels if present
+    // Add labels or phq_labels based on category
     if (labelsForQuery.length > 0) {
-      queryParams.append('labels', labelsForQuery.join(','));
+      if (categoriesForQuery.includes('party')) {
+        // Use phq_labels and scope for party category
+        queryParams.append('phq_labels', labelsForQuery.join(','));
+        queryParams.append('phq_labels_scope', 'any');
+        console.log('[PREDICTHQ] Using phq_labels and scope for party category');
+      } else {
+        // Use legacy labels for other categories
+        queryParams.append('labels', labelsForQuery.join(','));
+        console.log('[PREDICTHQ] Using legacy labels for non-party categories');
+      }
     }
     // Add keyword search
     if (keywordForQuery) {
@@ -367,7 +377,7 @@ function normalizePredictHQEvent(event: any): Event {
     let location = 'Location not specified';
 
     // Try to build a detailed location string
-    const locationParts = [];
+    const locationParts: string[] = [];
 
     // Add venue name if available from entities
     const venueEntity = event.entities?.find((e: any) => e.type === 'venue');
@@ -421,7 +431,7 @@ function normalizePredictHQEvent(event: any): Event {
 
         if (hasVenue && hasCity) {
           // Create a simplified location with just venue, city, state/country
-          const simpleParts = [];
+          const simpleParts: string[] = [];
 
           // Add venue
           simpleParts.push(venueName);

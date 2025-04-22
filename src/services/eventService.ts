@@ -15,6 +15,15 @@ interface SearchParams {
   page?: number;
   excludeIds?: string[];
   fields?: string[];
+  // Advanced filtering options
+  priceRange?: [number, number];
+  sortBy?: 'distance' | 'date' | 'price' | 'popularity';
+  sortDirection?: 'asc' | 'desc';
+  showFavoritesOnly?: boolean;
+  // Personalization options
+  userId?: string;
+  preferredCategories?: string[];
+  favoriteEventIds?: string[];
 }
 
 // Fetch events from multiple sources
@@ -39,7 +48,16 @@ export async function searchEvents(params: SearchParams): Promise<{
       limit: params.limit || 200, // Fetch up to 200 events
       page: params.page || 1,
       excludeIds: params.excludeIds || [],
-      fields: params.fields || []
+      fields: params.fields || [],
+      // Advanced filtering options
+      priceRange: params.priceRange,
+      sortBy: params.sortBy || 'distance',
+      sortDirection: params.sortDirection || 'asc',
+      showFavoritesOnly: params.showFavoritesOnly || false,
+      // Personalization options
+      userId: params.userId,
+      preferredCategories: params.preferredCategories || [],
+      favoriteEventIds: params.favoriteEventIds || []
     };
 
     // --- Patch: Ensure PredictHQ always gets a valid location ---

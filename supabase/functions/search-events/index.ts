@@ -5,6 +5,8 @@ import { Event, SearchParams, SourceStats, SearchEventsResponse } from "./types.
 import { fetchPredictHQEvents } from "./predicthq-fixed.ts"
 // Import party detection utilities
 import { detectPartyEvent, detectPartySubcategory } from "./partyUtils.ts"
+// Import helper functions
+import { calculateDistance, extractNumericPrice, parseEventDate } from "./helpers.ts"
 
 /**
  * Normalize a Ticketmaster event to our standard format
@@ -322,8 +324,24 @@ serve(async (req: Request) => {
       limit = 50,
       page = 1,
       excludeIds = [],
-      predicthqLocation
+      predicthqLocation,
+      // Advanced filtering options
+      priceRange,
+      sortBy = 'distance',
+      sortDirection = 'asc',
+      showFavoritesOnly = false,
+      // Personalization options
+      userId,
+      preferredCategories = [],
+      favoriteEventIds = []
     } = params;
+
+    // Log personalization parameters
+    console.log('[SEARCH-EVENTS] Personalization parameters:', {
+      userId: userId ? 'provided' : 'not provided',
+      preferredCategoriesCount: preferredCategories.length,
+      favoriteEventIdsCount: favoriteEventIds.length
+    });
 
     // Allow location to be reassigned if reverse geocoding is needed
     let location = params.location;
@@ -362,6 +380,32 @@ serve(async (req: Request) => {
     let eventbriteCount = 0, eventbriteError: string | null = null
     let serpapiCount = 0, serpapiError: string | null = null
     let predicthqCount = 0, predicthqError: string | null = null
+
+    // --- Personalization: Enhance search parameters based on user preferences ---
+    let enhancedCategories = [...categories];
+    let enhancedKeyword = keyword;
+
+    // If user has preferred categories, include them in the search
+    if (preferredCategories && preferredCategories.length > 0) {
+      console.log('[PERSONALIZATION] Adding preferred categories:', preferredCategories);
+      // Add preferred categories if they're not already included
+      preferredCategories.forEach(cat => {
+        if (!enhancedCategories.includes(cat)) {
+          enhancedCategories.push(cat);
+        }
+      });
+
+      // Optionally enhance keyword with preferred categories
+      if (!enhancedKeyword) {
+        enhancedKeyword = preferredCategories.join(' OR ');
+      }
+    }
+
+    // Update the params object with enhanced values
+    params.categories = enhancedCategories;
+    if (enhancedKeyword !== keyword) {
+      params.keyword = enhancedKeyword;
+    }
 
     // --- Always include party-related filters for Ticketmaster queries if 'party' is requested ---
     if (params.categories && params.categories.includes('party')) {
@@ -828,15 +872,171 @@ serve(async (req: Request) => {
       filteredEvents = uniqueEvents.filter(event => !excludeIdSet.has(event.id));
     }
 
-    // Sort events by date (soonest first)
-    filteredEvents.sort((a, b) => {
-      // Parse dates
-      const dateA = parseEventDate(a.date, a.time);
-      const dateB = parseEventDate(b.date, b.time);
+    // --- Personalization: Apply post-processing based on user preferences and favorites ---
+    if ((preferredCategories && preferredCategories.length > 0) || (favoriteEventIds && favoriteEventIds.length > 0)) {
+      console.log('[PERSONALIZATION] Applying post-processing for personalization');
 
-      // Sort by date (ascending)
-      return dateA.getTime() - dateB.getTime();
-    });
+      // Create a set of favorite event IDs for faster lookup
+      const favoriteIdSet = new Set(favoriteEventIds);
+
+      // Add personalization score to each event
+      filteredEvents.forEach(event => {
+        let score = 0;
+
+        // Boost events that are user favorites
+        if (favoriteIdSet.has(event.id)) {
+          score += 100; // High boost for favorites
+          // Add a flag to indicate this is a favorite
+          (event as any)._isFavorite = true;
+        }
+
+        // Boost events in preferred categories
+        if (preferredCategories.includes(event.category)) {
+          score += 50; // Medium boost for preferred categories
+        }
+
+        // Store the score on the event object
+        (event as any)._personalizationScore = score;
+      });
+    }
+
+    // --- Advanced Filtering ---
+    console.log('[ADVANCED_FILTERING] Applying advanced filters');
+
+    // Filter by price range if specified
+    if (priceRange && priceRange.length === 2) {
+      const [minPrice, maxPrice] = priceRange;
+      console.log(`[ADVANCED_FILTERING] Filtering by price range: $${minPrice} - $${maxPrice}`);
+
+      filteredEvents = filteredEvents.filter(event => {
+        if (!event.price) return true; // Keep events with no price info
+
+        // Extract numeric price from string (e.g., "$25" -> 25, "$10 - $50" -> [10, 50])
+        const priceStr = event.price;
+        const priceMatch = priceStr.match(/\$([\d.]+)(?:\s*-\s*\$([\d.]+))?/);
+
+        if (!priceMatch) return true; // Keep events with unparseable price
+
+        const eventMinPrice = parseFloat(priceMatch[1]);
+        const eventMaxPrice = priceMatch[2] ? parseFloat(priceMatch[2]) : eventMinPrice;
+
+        // Keep event if its price range overlaps with the filter range
+        return (eventMinPrice <= maxPrice && eventMaxPrice >= minPrice);
+      });
+
+      console.log(`[ADVANCED_FILTERING] ${filteredEvents.length} events after price filtering`);
+    }
+
+    // Filter favorites only if requested
+    if (showFavoritesOnly && favoriteEventIds && favoriteEventIds.length > 0) {
+      console.log('[ADVANCED_FILTERING] Filtering to show favorites only');
+      filteredEvents = filteredEvents.filter(event => (event as any)._isFavorite === true);
+      console.log(`[ADVANCED_FILTERING] ${filteredEvents.length} events after favorites filtering`);
+    }
+
+    // --- Sorting ---
+    if (sortBy) {
+      console.log(`[ADVANCED_FILTERING] Sorting by ${sortBy} in ${sortDirection} order`);
+
+      filteredEvents.sort((a, b) => {
+        let comparison = 0;
+
+        switch (sortBy) {
+          case 'distance':
+            // Distance sorting requires coordinates and user location
+            if (userLat && userLng && a.coordinates && b.coordinates) {
+              const distA = calculateDistance(
+                userLat, userLng, a.coordinates[1], a.coordinates[0]
+              );
+              const distB = calculateDistance(
+                userLat, userLng, b.coordinates[1], b.coordinates[0]
+              );
+              comparison = distA - distB;
+            }
+            break;
+
+          case 'date':
+            // Sort by date and then by time
+            const dateA = parseEventDate(a.date, a.time);
+            const dateB = parseEventDate(b.date, b.time);
+            comparison = dateA.getTime() - dateB.getTime();
+            break;
+
+          case 'price':
+            // Extract numeric prices for comparison
+            const priceA = extractNumericPrice(a.price);
+            const priceB = extractNumericPrice(b.price);
+            comparison = priceA - priceB;
+            break;
+
+          case 'popularity':
+            // For popularity, we'll use a combination of factors:
+            // 1. Is it a favorite? (favorites first)
+            // 2. Is it in a preferred category? (preferred categories next)
+            // 3. Default to date sorting
+            const aIsFav = (a as any)._isFavorite === true ? 1 : 0;
+            const bIsFav = (b as any)._isFavorite === true ? 1 : 0;
+
+            if (aIsFav !== bIsFav) {
+              comparison = bIsFav - aIsFav; // Favorites first (reverse order)
+            } else {
+              // Check if in preferred categories
+              const aInPreferred = preferredCategories.includes(a.category) ? 1 : 0;
+              const bInPreferred = preferredCategories.includes(b.category) ? 1 : 0;
+
+              if (aInPreferred !== bInPreferred) {
+                comparison = bInPreferred - aInPreferred; // Preferred categories first (reverse order)
+              } else {
+                // Fall back to date sorting
+                const dateA = parseEventDate(a.date, a.time);
+                const dateB = parseEventDate(b.date, b.time);
+                comparison = dateA.getTime() - dateB.getTime();
+              }
+            }
+            break;
+
+          default:
+            // Default to date sorting
+            const defaultDateA = parseEventDate(a.date, a.time);
+            const defaultDateB = parseEventDate(b.date, b.time);
+            comparison = defaultDateA.getTime() - defaultDateB.getTime();
+        }
+
+        // Apply sort direction
+        return sortDirection === 'asc' ? comparison : -comparison;
+      });
+
+      console.log(`[ADVANCED_FILTERING] Sorting complete`);
+    } else {
+      // No specific sorting requested, use personalization score if available, otherwise date
+      if ((preferredCategories && preferredCategories.length > 0) || (favoriteEventIds && favoriteEventIds.length > 0)) {
+        // Sort by personalization score (highest first), then by date
+        filteredEvents.sort((a, b) => {
+          const scoreA = (a as any)._personalizationScore || 0;
+          const scoreB = (b as any)._personalizationScore || 0;
+
+          // If scores differ, sort by score
+          if (scoreB !== scoreA) {
+            return scoreB - scoreA;
+          }
+
+          // Otherwise, sort by date (soonest first)
+          const dateA = parseEventDate(a.date, a.time);
+          const dateB = parseEventDate(b.date, b.time);
+          return dateA.getTime() - dateB.getTime();
+        });
+      } else {
+        // No personalization, just sort by date (soonest first)
+        filteredEvents.sort((a, b) => {
+          // Parse dates
+          const dateA = parseEventDate(a.date, a.time);
+          const dateB = parseEventDate(b.date, b.time);
+
+          // Sort by date (ascending)
+          return dateA.getTime() - dateB.getTime();
+        });
+      }
+    }
 
     // Calculate total events before pagination
     const totalEvents = filteredEvents.length;
@@ -932,67 +1132,4 @@ serve(async (req: Request) => {
   }
 })
 
-// Helper function to parse event dates in various formats
-function parseEventDate(dateStr: string, timeStr: string): Date {
-  try {
-    // Try to parse ISO date format (YYYY-MM-DD)
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateStr.split('-').map(Number);
 
-      // Parse time (HH:MM format)
-      let hours = 0, minutes = 0;
-      if (timeStr) {
-        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-        if (timeParts) {
-          hours = parseInt(timeParts[1], 10);
-          minutes = parseInt(timeParts[2], 10);
-
-          // Handle AM/PM
-          if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
-            hours += 12;
-          } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
-            hours = 0;
-          }
-        }
-      }
-
-      return new Date(year, month - 1, day, hours, minutes);
-    }
-
-    // Try to parse date strings like "Mon, May 19"
-    const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
-    if (monthMatch) {
-      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-      const month = monthNames.indexOf(monthMatch[1].toLowerCase());
-      const day = parseInt(monthMatch[2], 10);
-
-      // Use current year as default
-      const year = new Date().getFullYear();
-
-      // Parse time (HH:MM AM/PM format)
-      let hours = 0, minutes = 0;
-      if (timeStr) {
-        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
-        if (timeParts) {
-          hours = parseInt(timeParts[1], 10);
-          minutes = parseInt(timeParts[2], 10);
-
-          // Handle AM/PM
-          if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
-            hours += 12;
-          } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
-            hours = 0;
-          }
-        }
-      }
-
-      return new Date(year, month, day, hours, minutes);
-    }
-
-    // Fallback: return current date (events with unparseable dates will be sorted last)
-    return new Date();
-  } catch (error) {
-    console.error('Error parsing event date:', error, { dateStr, timeStr });
-    return new Date(); // Fallback to current date
-  }
-}

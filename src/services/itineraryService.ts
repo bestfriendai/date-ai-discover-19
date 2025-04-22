@@ -462,3 +462,25 @@ export async function reorderItineraryItems(
 
 // Add an alias for backward compatibility
 export const getItineraryById = getItinerary;
+
+/**
+ * Generate an itinerary using AI
+ */
+export async function generateAIItinerary(prompt: string, date: string, location?: string): Promise<{ id: string } | null> {
+  try {
+    const { data, error } = await supabase.functions.invoke('generate-itinerary', {
+      body: { prompt, date, location }
+    });
+
+    if (error) {
+      errorReporter('[itineraryService] Error generating AI itinerary:', error);
+      throw error;
+    }
+
+    return { id: data.id };
+  } catch (error) {
+    console.error('Error generating AI itinerary:', error);
+    errorReporter('Error generating AI itinerary:', error);
+    return null;
+  }
+}

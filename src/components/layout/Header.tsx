@@ -3,9 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Heart, Calendar } from 'lucide-react';
+import { User, LogOut, Heart, Calendar, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
+import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 const Header = () => {
   const location = useLocation();
@@ -94,6 +95,10 @@ const Header = () => {
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </Button>
 
+          {!loading && user && (
+            <NotificationCenter />
+          )}
+
           {!loading && (
             user ? (
               <DropdownMenu>
@@ -128,6 +133,10 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => navigate('/plan')} className="cursor-pointer">
                     <Calendar className="mr-2 h-4 w-4" />
                     <span>My Itineraries</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => navigate('/plan/ai-generator')} className="cursor-pointer">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    <span>AI Itinerary Generator</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

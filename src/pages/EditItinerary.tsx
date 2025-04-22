@@ -27,7 +27,7 @@ import {
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Loader2, Trash2 } from 'lucide-react'; // Import Loader2 and Trash2
+import { GripVertical, Loader2, Trash2, Calendar } from 'lucide-react'; // Import Loader2, Trash2, and Calendar
 
 const EditItinerary: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -41,6 +41,7 @@ const EditItinerary: React.FC = () => {
   const [editingDescription, setEditingDescription] = useState('');
   const [items, setItems] = useState<ItineraryItem[]>([]);
   const [newItemTitle, setNewItemTitle] = useState('');
+  const [isPublic, setIsPublic] = useState(false);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -61,6 +62,7 @@ const EditItinerary: React.FC = () => {
         setEditingName(data.name || '');
         setEditingDate(data.date || '');
         setEditingDescription(data.description || '');
+        setIsPublic(data.is_public || false);
         setItems(normalizedItems);
       }
     } catch (error) {
@@ -93,6 +95,7 @@ const EditItinerary: React.FC = () => {
         name: editingName,
         description: editingDescription,
         date: editingDate,
+        is_public: isPublic,
         items: normalizedItems,
         preserveItems: false // Replace all items in the DB
       });
@@ -225,6 +228,73 @@ const EditItinerary: React.FC = () => {
           <div className="space-y-2">
             <Label htmlFor="itinerary-description">Description</Label>
             <Textarea id="itinerary-description" value={editingDescription} onChange={e => setEditingDescription(e.target.value)} />
+          </div>
+
+          <div className="space-y-4 pt-4 border-t">
+            <h3 className="text-lg font-semibold">Sharing Options</h3>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="font-medium">Public Itinerary</div>
+                <div className="text-sm text-muted-foreground">
+                  Make this itinerary public and shareable via a link.
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <input
+                  type="checkbox"
+                  id="is-public"
+                  checked={isPublic}
+                  onChange={(e) => setIsPublic(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                />
+                <label htmlFor="is-public" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                  {isPublic ? 'Public' : 'Private'}
+                </label>
+              </div>
+            </div>
+
+            {isPublic && (
+              <div className="flex flex-col space-y-2">
+                <Label htmlFor="share-link">Shareable Link:</Label>
+                <div className="flex items-center gap-2">
+                  <Input
+                    id="share-link"
+                    value={`${window.location.origin}/shared-plan/${itinerary.id}`}
+                    readOnly
+                    className="flex-grow text-sm"
+                  />
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/shared-plan/${itinerary.id}`);
+                      toast({ title: 'Link copied!', description: 'The shareable link has been copied to your clipboard.' });
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <div className="font-medium">Export to Calendar</div>
+                <div className="text-sm text-muted-foreground">
+                  Download this itinerary as an .ics file to import into your calendar app.
+                </div>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  window.location.href = `/functions/v1/export-itinerary-ics?id=${itinerary.id}`;
+                }}
+              >
+                <Calendar className="mr-2 h-4 w-4" />
+                Export
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-4 pt-4 border-t">

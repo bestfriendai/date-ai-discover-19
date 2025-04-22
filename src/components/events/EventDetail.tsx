@@ -2,14 +2,19 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Card, CardContent } from '@/components/ui/card';
+import { Textarea } from '@/components/ui/textarea';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useState, useEffect } from 'react';
 import { searchEvents } from '@/services/eventService';
-import { addFavorite, removeFavorite, isFavorite } from '@/services/favoriteService';
+import { addFavorite, removeFavorite, isFavorite, getFavorite, toggleReminders } from '@/services/favoriteService';
+import reviewService, { Review } from '@/services/reviewService';
+import RouteDirections from '@/components/map/components/RouteDirections';
+import ShareEventCard from '@/components/events/ShareEventCard';
 import { useAuth } from '@/contexts/AuthContext';
 import AddToPlanModal from './AddToPlanModal';
 import { toast } from '@/hooks/use-toast';
 import { Event } from '@/types';
-import { ExternalLink, MapPin, Calendar, Clock, Heart, Plus, Share2, Ticket } from 'lucide-react';
+import { ExternalLink, MapPin, Calendar, Clock, Heart, Plus, Share2, Ticket, Star, Bell, Navigation } from 'lucide-react';
 
 // Helper function to format party subcategory for display
 const formatPartySubcategory = (subcategory: string): string => {
@@ -32,18 +37,40 @@ interface EventDetailProps {
 const EventDetail = ({ event, onClose }: EventDetailProps) => {
   const [favorited, setFavorited] = useState(false);
   const [favoriteLoading, setFavoriteLoading] = useState(false);
+  const [favoriteId, setFavoriteId] = useState<string | null>(null);
+  const [remindersEnabled, setRemindersEnabled] = useState(false);
+  const [reminderLoading, setReminderLoading] = useState(false);
   const [showItineraryModal, setShowItineraryModal] = useState(false);
   const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
   const [loadingRelated, setLoadingRelated] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [averageRating, setAverageRating] = useState<number | null>(null);
+  const [userRating, setUserRating] = useState(0);
+  const [userReviewText, setUserReviewText] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [loadingReviews, setLoadingReviews] = useState(false);
+  const [showDirections, setShowDirections] = useState(false);
+  const [showShareCard, setShowShareCard] = useState(false);
+  const [userLocation, setUserLocation] = useState<[number, number] | undefined>(undefined);
   const { user } = useAuth();
 
-  // Check if event is favorited on component mount
+  // Check if event is favorited on component mount and get reminder status
   useEffect(() => {
     const checkFavoriteStatus = async () => {
       if (user) {
         try {
+          // First check if it's a favorite
           const result = await isFavorite(event.id);
           setFavorited(result);
+
+          if (result) {
+            // If it's a favorite, get the full favorite object to check reminder status
+            const favorite = await getFavorite(event.id);
+            if (favorite) {
+              setFavoriteId(favorite.id);
+              setRemindersEnabled(favorite.reminders_enabled || false);
+            }
+          }
         } catch (error) {
           console.error('Error checking favorite status:', error);
         }
@@ -69,13 +96,25 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
       if (favorited) {
         await removeFavorite(event.id);
         setFavorited(false);
+        setFavoriteId(null);
+        setRemindersEnabled(false);
         toast({
           title: 'Removed from Favorites',
           description: 'Event removed from your favorites.'
         });
       } else {
-        await addFavorite(event);
+        const success = await addFavorite(event);
         setFavorited(true);
+
+        // Get the favorite ID for the newly added favorite
+        if (success) {
+          const favorite = await getFavorite(event.id);
+          if (favorite) {
+            setFavoriteId(favorite.id);
+            setRemindersEnabled(favorite.reminders_enabled || false);
+          }
+        }
+
         toast({
           title: 'Added to Favorites',
           description: 'Event added to your favorites.'
@@ -95,6 +134,150 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
 
   const handleAddToPlan = () => {
     setShowItineraryModal(true);
+  };
+
+  // Get user's current location for directions
+  const handleGetDirections = () => {
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // Mapbox expects [longitude, latitude] format
+          setUserLocation([position.coords.longitude, position.coords.latitude]);
+          setShowDirections(true);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          toast({
+            title: 'Location Error',
+            description: 'Could not get your current location. Please allow location access.',
+            variant: 'destructive'
+          });
+        }
+      );
+    } else {
+      toast({
+        title: 'Location Not Supported',
+        description: 'Your browser does not support geolocation.',
+        variant: 'destructive'
+      });
+    }
+  };
+
+  // Toggle reminders for this event
+  const handleToggleReminders = async () => {
+    if (!user) {
+      toast({
+        title: 'Authentication Required',
+        description: 'Please sign in to set reminders.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    if (!favorited || !favoriteId) {
+      toast({
+        title: 'Favorite First',
+        description: 'Please add this event to your favorites before setting reminders.',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    setReminderLoading(true);
+    try {
+      const newReminderState = !remindersEnabled;
+      const success = await toggleReminders(favoriteId, newReminderState);
+
+      if (success) {
+        setRemindersEnabled(newReminderState);
+        toast({
+          title: newReminderState ? 'Reminders Enabled' : 'Reminders Disabled',
+          description: newReminderState
+            ? 'You will receive a reminder before this event.'
+            : 'You will no longer receive reminders for this event.'
+        });
+      } else {
+        throw new Error('Failed to update reminder settings');
+      }
+    } catch (error) {
+      console.error('Error toggling reminders:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to update reminder settings. Please try again.',
+        variant: 'destructive'
+      });
+    } finally {
+      setReminderLoading(false);
+    }
+  };
+
+  // Fetch reviews and average rating
+  useEffect(() => {
+    const fetchReviews = async () => {
+      try {
+        setLoadingReviews(true);
+        const fetchedReviews = await reviewService.getReviewsForEvent(event.id);
+        setReviews(fetchedReviews);
+
+        const avgRating = await reviewService.getAverageRatingForEvent(event.id);
+        setAverageRating(avgRating);
+
+        // Check if the current user has already reviewed this event
+        if (user) {
+          const currentUserReview = await reviewService.getUserReviewForEvent(event.id);
+          if (currentUserReview) {
+            setUserRating(currentUserReview.rating);
+            setUserReviewText(currentUserReview.review_text || '');
+          } else {
+            setUserRating(0);
+            setUserReviewText('');
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch reviews:', error);
+        toast({ title: 'Error loading reviews', variant: 'destructive' });
+      } finally {
+        setLoadingReviews(false);
+      }
+    };
+
+    fetchReviews();
+  }, [event.id, user, toast]);
+
+  // Handle submitting a review
+  const handleSubmitReview = async () => {
+    if (!user) {
+      toast({ title: 'Sign in required', description: 'Please sign in to leave a review.', variant: 'destructive' });
+      return;
+    }
+    if (userRating === 0) {
+      toast({ title: 'Rating required', description: 'Please select a star rating.', variant: 'destructive' });
+      return;
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const submitted = await reviewService.submitReview({
+        event_id: event.id,
+        rating: userRating,
+        review_text: userReviewText.trim() || undefined,
+      });
+
+      if (submitted) {
+        toast({ title: 'Review submitted!', description: 'Thank you for your feedback.' });
+        // Re-fetch reviews to update the list and average
+        const fetchedReviews = await reviewService.getReviewsForEvent(event.id);
+        setReviews(fetchedReviews);
+
+        const avgRating = await reviewService.getAverageRatingForEvent(event.id);
+        setAverageRating(avgRating);
+      }
+    } catch (error) {
+      console.error('Failed to submit review:', error);
+      toast({ title: 'Error submitting review', description: error.message, variant: 'destructive' });
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   // Fetch related events
@@ -186,6 +369,19 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               <Heart className="h-4 w-4" fill={favorited ? "currentColor" : "none"} />
             </Button>
 
+            {favorited && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleToggleReminders}
+                disabled={reminderLoading || !favoriteId}
+                aria-label={remindersEnabled ? 'Disable reminders' : 'Enable reminders'}
+              >
+                <Bell className="h-4 w-4" fill={remindersEnabled ? "currentColor" : "none"} />
+              </Button>
+            )}
+
             <Button
               variant="outline"
               size="icon"
@@ -195,6 +391,18 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
             >
               <Plus className="h-4 w-4" />
             </Button>
+
+            {event.coordinates && (
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={handleGetDirections}
+                aria-label="Get directions"
+              >
+                <Navigation className="h-4 w-4" />
+              </Button>
+            )}
 
             {event.url && (
               <Button
@@ -212,18 +420,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               variant="outline"
               size="icon"
               className="h-8 w-8"
-              onClick={() => {
-                if (navigator.share) {
-                  navigator.share({
-                    title: event.title,
-                    text: `Check out this event: ${event.title}`,
-                    url: window.location.href,
-                  }).catch(err => console.error('Error sharing:', err));
-                } else {
-                  navigator.clipboard.writeText(window.location.href);
-                  toast({ title: "Link copied", description: "Event link copied to clipboard" });
-                }
-              }}
+              onClick={() => setShowShareCard(true)}
               aria-label="Share event"
             >
               <Share2 className="h-4 w-4" />
@@ -307,6 +504,101 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
             </Button>
           </div>
 
+          {/* Reviews & Ratings Section */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-[hsl(var(--sidebar-primary))]">Reviews & Ratings</h3>
+
+            {/* Display Average Rating */}
+            {averageRating !== null && (
+              <div className="flex items-center gap-2">
+                <Star className="h-5 w-5 text-yellow-400" fill="currentColor" />
+                <span className="text-xl font-bold">{averageRating.toFixed(1)}</span>
+                <span className="text-sm text-muted-foreground">({reviews.length} reviews)</span>
+              </div>
+            )}
+            {averageRating === null && reviews.length === 0 && (
+              <p className="text-sm text-muted-foreground">No ratings yet.</p>
+            )}
+
+            {/* Review Submission Form */}
+            {user && (
+              <Card className="bg-[hsl(var(--sidebar-accent))]/30 border-[hsl(var(--sidebar-border))]">
+                <CardContent className="p-4 space-y-3">
+                  <div className="font-medium">Leave a Review</div>
+                  <div className="flex items-center gap-1">
+                    {/* Simple Star Rating Input */}
+                    {[1, 2, 3, 4, 5].map(star => (
+                      <Star
+                        key={star}
+                        className={`h-5 w-5 cursor-pointer transition-colors ${
+                          userRating >= star ? 'text-yellow-400 fill-current' : 'text-muted-foreground'
+                        }`}
+                        onClick={() => setUserRating(star)}
+                      />
+                    ))}
+                  </div>
+                  <Textarea
+                    placeholder="Share your experience..."
+                    value={userReviewText}
+                    onChange={(e) => setUserReviewText(e.target.value)}
+                    rows={2}
+                    disabled={isSubmittingReview}
+                  />
+                  <Button onClick={handleSubmitReview} size="sm" disabled={isSubmittingReview || userRating === 0}>
+                    {isSubmittingReview ? 'Submitting...' : 'Submit Review'}
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+            {!user && (
+              <p className="text-sm text-muted-foreground">Sign in to leave a review.</p>
+            )}
+
+            {/* Display Reviews */}
+            <div className="space-y-4">
+              {loadingReviews ? (
+                <div className="space-y-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="flex gap-3">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-40" />
+                        <Skeleton className="h-3 w-full" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : reviews.length > 0 ? (
+                reviews.map(review => (
+                  <div key={review.id} className="border-b border-[hsl(var(--sidebar-border))] pb-4 last:border-b-0">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Avatar className="h-7 w-7">
+                        <AvatarImage src={review.user?.avatar_url} />
+                        <AvatarFallback>{review.user?.full_name?.charAt(0).toUpperCase() || '?'}</AvatarFallback>
+                      </Avatar>
+                      <span className="font-medium text-sm">{review.user?.full_name || 'Anonymous'}</span>
+                      {/* Display review rating */}
+                      <div className="flex items-center gap-0.5 ml-auto">
+                        {[1, 2, 3, 4, 5].map(star => (
+                          <Star
+                            key={star}
+                            className={`h-4 w-4 ${
+                              review.rating >= star ? 'text-yellow-400 fill-current' : 'text-muted-foreground'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                    {review.review_text && <p className="text-sm text-[hsl(var(--sidebar-foreground))]/80">{review.review_text}</p>}
+                    <div className="text-xs text-muted-foreground mt-1">
+                      {new Date(review.created_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                ))
+              ) : null}
+            </div>
+          </div>
+
           {/* Related Events Section */}
           <div className="mt-8">
             <h3 className="text-lg font-semibold mb-4 text-[hsl(var(--sidebar-primary))]">Related Events</h3>
@@ -372,6 +664,34 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           open={showItineraryModal}
           onClose={() => setShowItineraryModal(false)}
         />
+      )}
+
+      {/* Directions Modal */}
+      {showDirections && userLocation && event.coordinates && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <RouteDirections
+              origin={userLocation}
+              originName="Your Location"
+              destination={event.coordinates}
+              destinationName={event.venue || event.location}
+              mapboxToken={process.env.NEXT_PUBLIC_MAPBOX_TOKEN}
+              onClose={() => setShowDirections(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Share Event Modal */}
+      {showShareCard && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="max-w-md w-full">
+            <ShareEventCard
+              event={event}
+              onClose={() => setShowShareCard(false)}
+            />
+          </div>
+        </div>
       )}
     </section>
   );

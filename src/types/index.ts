@@ -17,6 +17,11 @@ export interface Event {
   coordinates?: [number, number]; // [longitude, latitude]
   url?: string;
   price?: string;
+  favorited?: boolean;
+  // Internal fields for favorite/reminder functionality
+  _favoriteId?: string;
+  _remindersEnabled?: boolean;
+  _isFavorite?: boolean;
 }
 
 // Itinerary types
@@ -32,6 +37,9 @@ export interface ItineraryItem {
   notes?: string;
   type: 'EVENT' | 'CUSTOM';
   order: number;
+  remindersEnabled?: boolean;
+  reminderSentAt?: string | null;
+  event?: Event; // Reference to the full event object if this is an EVENT type
 }
 
 export interface Itinerary {
