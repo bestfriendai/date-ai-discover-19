@@ -2,27 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { Itinerary } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
-import { Loader2, PlusCircle, Edit, Trash2, SparklesIcon, Calendar } from 'lucide-react';
-import { getItineraries, getItinerary, createItinerary, updateItinerary, deleteItinerary, generateAIItinerary } from '@/services/itineraryService';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'; // Import Card components
+import { Loader2, PlusCircle, Edit, Trash2 } from 'lucide-react'; // Import icons
+import { getItineraries, getItinerary, createItinerary, updateItinerary, deleteItinerary } from '@/services/itineraryService';
 import { useAuth } from '@/contexts/AuthContext';
-import { useToast } from '@/hooks/use-toast';
 
 const DatePlan: React.FC = () => {
   const [itineraries, setItineraries] = useState<Itinerary[]>([]);
   const [selectedItinerary, setSelectedItinerary] = useState<Itinerary | null>(null); // Keep for display if needed, but navigation handles editing
   const [loading, setLoading] = useState(false);
   const [creating, setCreating] = useState(false);
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [aiDate, setAiDate] = useState(new Date().toISOString().split('T')[0]); // Initialize with today's date
-  const [aiLocation, setAiLocation] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
   const navigate = useNavigate(); // Initialize useNavigate
   const { user } = useAuth();
-  const { toast } = useToast();
 
   if (!user) {
     return (
@@ -93,84 +84,17 @@ const DatePlan: React.FC = () => {
     }
   };
 
-  const handleGeneratePlan = async () => {
-    if (!aiPrompt.trim() || !aiDate) {
-      toast({ title: 'Please provide a prompt and date.', variant: 'destructive' });
-      return;
-    }
-    setIsGenerating(true);
-    try {
-      // Call the AI itinerary generation service
-      const newItinerary = await generateAIItinerary(aiPrompt, aiDate, aiLocation);
-
-      if (newItinerary?.id) {
-        toast({ title: 'Itinerary generated!', description: 'Review and edit your new plan.' });
-        navigate(`/plan/edit/${newItinerary.id}`); // Navigate to the edit page
-      } else {
-        toast({ title: 'Generation failed', description: 'Could not generate an itinerary. Try a different prompt.', variant: 'destructive' });
-      }
-    } catch (error) {
-      console.error('Error generating AI itinerary:', error);
-      toast({ title: 'Error', description: 'An error occurred during generation.', variant: 'destructive' });
-    } finally {
-      setIsGenerating(false);
-    }
-  };
-
   return (
     <div className="container mx-auto p-4 md:p-8">
-      <div className="space-y-6 max-w-4xl mx-auto">
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle className="text-2xl font-bold">Generate Plan with AI</CardTitle>
-                <CardDescription>Describe the date you want to plan, and AI will suggest events.</CardDescription>
-              </div>
-              <Button variant="outline" size="sm" onClick={() => navigate('/plan/ai-generator')}>
-                <SparklesIcon className="mr-2 h-4 w-4" />
-                Advanced Generator
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="ai-prompt">Tell me about your ideal date...</Label>
-              <Textarea
-                id="ai-prompt"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                placeholder="e.g., Find me a cozy restaurant and a comedy show for Friday evening"
-                rows={3}
-                disabled={isGenerating}
-              />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="ai-date">Date</Label>
-                <Input id="ai-date" type="date" value={aiDate} onChange={(e) => setAiDate(e.target.value)} disabled={isGenerating} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="ai-location">Location (Optional)</Label>
-                <Input id="ai-location" type="text" value={aiLocation} onChange={(e) => setAiLocation(e.target.value)} placeholder="e.g., Downtown NYC" disabled={isGenerating} />
-              </div>
-            </div>
-            <Button onClick={handleGeneratePlan} disabled={isGenerating} className="w-full">
-              {isGenerating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <SparklesIcon className="mr-2 h-4 w-4" />}
-              Generate Itinerary
-            </Button>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-2xl font-bold">My Date Plans</CardTitle>
-            <Button onClick={handleCreateItinerary} disabled={creating || loading} size="sm">
-              {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-              New Itinerary
-            </Button>
-          </CardHeader>
-          <CardContent>
+      <Card className="max-w-4xl mx-auto">
+        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+          <CardTitle className="text-2xl font-bold">My Date Plans</CardTitle>
+          <Button onClick={handleCreateItinerary} disabled={creating || loading} size="sm">
+            {creating ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+            New Itinerary
+          </Button>
+        </CardHeader>
+        <CardContent>
           {loading ? (
             <div className="flex justify-center items-center py-10">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -206,7 +130,6 @@ const DatePlan: React.FC = () => {
           )}
         </CardContent>
       </Card>
-      </div>
     </div>
   );
 };

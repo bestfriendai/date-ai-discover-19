@@ -4,8 +4,6 @@ import { searchEvents } from '@/services/eventService';
 import { formatISO } from 'date-fns';
 import { toast } from '@/hooks/use-toast';
 import { EventFilters } from '../components/MapControls';
-import { useAuth } from '@/contexts/AuthContext';
-import { getFavorites } from '@/services/favoriteService';
 
 // Define the source stats type
 interface SourceStats {
@@ -133,39 +131,11 @@ export const useEventSearch = () => {
     }
   }, [lastSearchParams, page, hasMore, isEventsLoading]);
 
-  // Get user and profile from auth context
-  const { user, profile } = useAuth();
-
-  // State to store user favorites
-  const [favorites, setFavorites] = useState<any[]>([]);
-
-  // Fetch favorites when user changes
-  useEffect(() => {
-    const loadFavorites = async () => {
-      if (user) {
-        try {
-          const favoritesData = await getFavorites();
-          setFavorites(favoritesData);
-        } catch (error) {
-          console.error('Error loading favorites for personalization:', error);
-        }
-      } else {
-        setFavorites([]); // Clear favorites if user logs out
-      }
-    };
-    loadFavorites();
-  }, [user]);
-
   const fetchEvents = useCallback(async (
     filters: EventFilters,
     centerCoords?: { latitude: number; longitude: number },
     radiusOverride?: number,
-    useCache: boolean = true,
-    personalizationOptions?: {
-      userId?: string;
-      preferredCategories?: string[];
-      favoriteEventIds?: string[];
-    }
+    useCache: boolean = true
   ) => {
     if (isEventsLoading) {
       console.log('[EVENTS] Already loading events, skipping fetch request');
@@ -191,12 +161,6 @@ export const useEventSearch = () => {
       console.log('[EVENTS] Fetching events for:', centerCoords,
         'radius:', radiusOverride || filters.distance);
 
-      // Prepare personalization data
-      const userPreferredCategories = personalizationOptions?.preferredCategories ||
-                                     (profile?.preferred_categories as string[]) || [];
-      const userFavoriteEventIds = personalizationOptions?.favoriteEventIds ||
-                                  favorites.map(fav => fav.event_id);
-
       const searchParams = {
         latitude: centerCoords.latitude,
         longitude: centerCoords.longitude,
@@ -206,12 +170,6 @@ export const useEventSearch = () => {
         categories: filters.categories,
         keyword: filters.keyword,
         location: filters.location,
-        // Add personalization parameters if user is logged in
-        ...(user ? {
-          userId: personalizationOptions?.userId || user.id,
-          preferredCategories: userPreferredCategories,
-          favoriteEventIds: userFavoriteEventIds
-        } : {})
       };
 
       console.log('[EVENTS] Search params:', searchParams);
@@ -360,7 +318,7 @@ export const useEventSearch = () => {
     } finally {
       setIsEventsLoading(false);
     }
-  }, [isEventsLoading, user, profile, favorites]);
+  }, [isEventsLoading]);
 
   // --- FILTER EVENTS LOCALLY BASED ON UI FILTERS (category, date, etc.) ---
   const applyLocalFilters = useCallback((events: Event[], filters: EventFilters) => {

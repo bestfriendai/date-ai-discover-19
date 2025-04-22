@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Event } from '@/types';
 import { Button } from "@/components/ui/button";
-import { PartyPopper, Music, Palette, Trophy, Users, Utensils, Calendar, Heart } from 'lucide-react';
+import { PartyPopper, Music, Palette, Trophy, Users, Utensils, Calendar } from 'lucide-react';
 
 // Mock data removed as it's passed via props
 
@@ -294,9 +294,6 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                 className={`group cursor-pointer transition ${view === 'grid'
                   ? 'bg-[hsl(var(--sidebar-accent))]/50 hover:bg-[hsl(var(--sidebar-accent))]/80 rounded-lg p-3 border border-[hsl(var(--sidebar-border))]/80'
                   : 'hover:bg-[hsl(var(--sidebar-accent))]/50 rounded-lg p-3'
-                } ${
-                  // Add a visual indicator for favorites
-                  (event as any)._isFavorite ? 'border-l-4 border-yellow-500' : ''
                 }`}
               >
                 {view === 'grid' ? (
@@ -353,10 +350,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                       </div>
                     </div>
                     <div className="flex-1">
-                      <div className="flex items-center gap-1 mb-0.5">
-                        <h3 className="font-semibold text-base line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
-                        {(event as any)._isFavorite && <Heart className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />}
-                      </div>
+                      <h3 className="font-semibold text-base mb-0.5 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
                       {/* Description snippet */}
                       {event.description && (
                         <div className="text-xs text-[hsl(var(--sidebar-foreground))]/80 mb-1 line-clamp-2">

@@ -14,11 +14,6 @@ import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import EditItinerary from "./pages/EditItinerary";
 import PartyAI from "./pages/PartyAI"; // Import PartyAI page
-import ChatMapView from "./pages/ChatMapView"; // Import ChatMapView page
-import SharedItineraryView from "./pages/SharedItineraryView"; // Import SharedItineraryView page
-import UserProfile from "./pages/UserProfile"; // Import UserProfile page
-import AIItineraryGenerator from "./pages/AIItineraryGenerator"; // Import AIItineraryGenerator page
-import TestNotifications from "./pages/TestNotifications"; // Import TestNotifications page
 
 const App = () => {
   const location = useLocation();
@@ -59,31 +54,6 @@ const App = () => {
             <EditItinerary />
           </PageTransition>
         } />
-        <Route path="/shared-plan/:id" element={
-          <PageTransition>
-            <SharedItineraryView />
-          </PageTransition>
-        } />
-        <Route path="/profile" element={
-          <PageTransition>
-            <UserProfile />
-          </PageTransition>
-        } />
-        <Route path="/profile/:id" element={
-          <PageTransition>
-            <UserProfile />
-          </PageTransition>
-        } />
-        <Route path="/plan/ai-generator" element={
-          <PageTransition>
-            <AIItineraryGenerator />
-          </PageTransition>
-        } />
-        <Route path="/test-notifications" element={
-          <PageTransition>
-            <TestNotifications />
-          </PageTransition>
-        } />
         <Route path="/favorites" element={
           <PageTransition>
             <Favorites />
@@ -91,10 +61,14 @@ const App = () => {
         } />
         <Route path="/chat" element={
           <PageTransition>
-            <ChatMapView />
+            <Chat />
           </PageTransition>
         } />
-        {/* Old Profile route removed to avoid duplication */}
+        <Route path="/profile" element={
+          <PageTransition>
+            <Profile />
+          </PageTransition>
+        } />
         <Route path="*" element={
           <PageTransition>
             <NotFound />

@@ -3,10 +3,9 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Heart, Calendar, Sparkles } from 'lucide-react';
+import { User, LogOut, Heart, Calendar } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
-import NotificationCenter from '@/components/notifications/NotificationCenter';
 
 const Header = () => {
   const location = useLocation();
@@ -64,7 +63,7 @@ const Header = () => {
                 className={`gap-2 rounded-full px-4 transition-all duration-300 ${location.pathname === '/chat' ? 'bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-md shadow-blue-500/20 hover:shadow-lg hover:shadow-blue-500/30' : 'hover:bg-slate-800/70 text-slate-300 hover:text-white'}`}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 9a2 2 0 0 1-2 2H6l-4 4V4c0-1.1.9-2 2-2h8a2 2 0 0 1 2 2v5Z"/><path d="M18 9h2a2 2 0 0 1 2 2v11l-4-4h-6a2 2 0 0 1-2-2v-1"/></svg>
-                Event Chat
+                AI Chat
               </Button>
             </Link>
             <Link to="/plan">
@@ -94,10 +93,6 @@ const Header = () => {
           <Button variant="ghost" size="icon" className="hidden md:flex hover:bg-slate-800/70 transition-all duration-300 text-slate-300 hover:text-white">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </Button>
-
-          {!loading && user && (
-            <NotificationCenter />
-          )}
 
           {!loading && (
             user ? (
@@ -133,10 +128,6 @@ const Header = () => {
                   <DropdownMenuItem onClick={() => navigate('/plan')} className="cursor-pointer">
                     <Calendar className="mr-2 h-4 w-4" />
                     <span>My Itineraries</span>
-                  </DropdownMenuItem>
-                  <DropdownMenuItem onClick={() => navigate('/plan/ai-generator')} className="cursor-pointer">
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    <span>AI Itinerary Generator</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem

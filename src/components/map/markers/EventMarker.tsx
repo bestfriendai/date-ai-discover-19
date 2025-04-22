@@ -73,7 +73,6 @@ interface EventMarkerProps {
   event: Event;
   isSelected?: boolean;
   onClick?: (event: Event) => void;
-  // Add isFavorite prop with optional type
 }
 
 const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerProps) => {
@@ -81,16 +80,10 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
   const category = (event.category || 'default').toLowerCase();
   const formattedDate = formatDateTime(event.date, event.time);
 
-  // Check if the event has the _isFavorite flag set by the backend
-  const isFavorite = (event as any)._isFavorite === true;
-
   // Enhanced tooltip with more event details
   const tooltipContent = useMemo(() => (
     <div className="max-w-[250px]">
-      <div className="font-semibold text-sm flex items-center gap-1">
-        {title}
-        {isFavorite && <Heart className="h-3 w-3 text-yellow-400 fill-yellow-400" />}
-      </div>
+      <div className="font-semibold text-sm">{title}</div>
 
       {formattedDate && (
         <div className="text-xs flex items-center mt-1 text-muted-foreground">
@@ -134,7 +127,7 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
         )}
       </div>
     </div>
-  ), [title, formattedDate, event.venue, event.price, category, event.partySubcategory, isFavorite]);
+  ), [title, formattedDate, event.venue, event.price, category, event.partySubcategory]);
 
   const handleClick = () => {
     if (onClick) {
@@ -181,9 +174,7 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
             isSelected ?
               'scale-125 border-white z-30 shadow-lg' :
               'border-white/30 hover:scale-110 hover:border-white/70 z-10 shadow-md',
-            'w-8 h-8 sm:w-9 sm:h-9',
-            // Add a visual indicator for favorites
-            isFavorite && 'ring-2 ring-yellow-400 ring-offset-1 ring-offset-transparent'
+            'w-8 h-8 sm:w-9 sm:h-9'
           )}
           aria-label={`Event: ${event.title}`}
           animate={isSelected ? {

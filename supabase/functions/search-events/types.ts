@@ -38,15 +38,6 @@ export interface SearchParams {
   location?: string;
   limit?: number;
   excludeIds?: string[];
-  // Advanced filtering options
-  priceRange?: [number, number];
-  sortBy?: 'distance' | 'date' | 'price' | 'popularity';
-  sortDirection?: 'asc' | 'desc';
-  showFavoritesOnly?: boolean;
-  // Personalization options
-  userId?: string;
-  preferredCategories?: string[];
-  favoriteEventIds?: string[];
 }
 
 /**

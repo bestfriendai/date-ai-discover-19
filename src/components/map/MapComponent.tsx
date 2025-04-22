@@ -5,7 +5,7 @@ import 'mapbox-gl/dist/mapbox-gl.css';
 import type { Event } from '../../types';
 import type { EventFilters } from './components/MapControls';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
-// import { MapDebugOverlay } from './components/MapDebugOverlay';
+import { MapDebugOverlay } from './components/MapDebugOverlay';
 import MapMarkers from './components/MapMarkers'; // Fixed import path
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
@@ -27,9 +27,6 @@ const MAP_STYLES = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
   streets: 'mapbox://styles/mapbox/streets-v12'
 };
-
-const EVENTS_SOURCE_ID = 'events-source';
-const EVENTS_LAYER_ID = 'events-layer';
 
 interface MapComponentProps {
   events: Event[];
@@ -171,167 +168,6 @@ const MapComponent = ({
           map.off('click', handleMapBackgroundClick);
       };
   }, [map, isMapInitialized, handleMapMoveEndFromHook, selectedEvent, onEventSelect, clusteringEnabled]); // Re-run if map, loaded state, handlers, selected event, or clustering state change
-
-  // Effect to handle switching between DOM markers and WebGL layers based on event count
-  useEffect(() => {
-    if (!map || !isMapInitialized) return;
-
-    const useWebGL = events.length >= 100;
-
-    if (useWebGL) {
-      // Create GeoJSON object
-      const geojsonObject: GeoJSON.FeatureCollection = {
-        type: 'FeatureCollection',
-        features: events.map(event => ({
-          type: 'Feature',
-          geometry: {
-            type: 'Point',
-            coordinates: event.coordinates as [number, number] // Assuming coordinates are [lng, lat]
-          },
-          properties: {
-            id: event.id,
-            title: event.title,
-            category: event.category
-          }
-        }))
-      };
-
-      // Add or update source
-      const source = map.getSource(EVENTS_SOURCE_ID);
-      if (!source) {
-        map.addSource(EVENTS_SOURCE_ID, {
-          type: 'geojson',
-          data: geojsonObject,
-          cluster: true, // Enable clustering
-          clusterMaxZoom: 16, // Max zoom to cluster points on
-          clusterRadius: 40 // Radius of each cluster when clustering points (defaults to 50)
-        });
-        console.log('[MapComponent] Added GeoJSON source with clustering for events');
-      } else {
-        (source as mapboxgl.GeoJSONSource).setData(geojsonObject);
-        console.log('[MapComponent] Updated GeoJSON source with clustering for events');
-      }
-
-      // Add layers for clusters and unclustered points
-      // Cluster layer
-      if (!map.getLayer('clusters')) {
-        map.addLayer({
-          id: 'clusters',
-          type: 'circle',
-          source: EVENTS_SOURCE_ID,
-          filter: ['has', 'point_count'],
-          paint: {
-            'circle-color': [
-              'step',
-              ['get', 'point_count'],
-              '#51bbd6', // Blue for small clusters
-              100, // If point_count is 100 or more...
-              '#f1f075', // Yellow
-              750, // If point_count is 750 or more...
-              '#f28cb1' // Pink
-            ],
-            'circle-radius': [
-              'step',
-              ['get', 'point_count'],
-              20, // Radius 20 for point_count < 100
-              100, // If point_count is 100 or more...
-              30, // Radius 30
-              750, // If point_count is 750 or more...
-              40 // Radius 40
-            ]
-          }
-        });
-        console.log('[MapComponent] Added clusters layer');
-      }
-
-      // Cluster count layer
-      if (!map.getLayer('cluster-count')) {
-        map.addLayer({
-          id: 'cluster-count',
-          type: 'symbol',
-          source: EVENTS_SOURCE_ID,
-          filter: ['has', 'point_count'],
-          layout: {
-            'text-field': '{point_count_abbreviated}',
-            'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
-            'text-size': 12
-          },
-          paint: {
-            'text-color': '#ffffff'
-          }
-        });
-        console.log('[MapComponent] Added cluster-count layer');
-      }
-
-      // Unclustered points layer
-      if (!map.getLayer('unclustered-point')) {
-        map.addLayer({
-          id: 'unclustered-point',
-          type: 'circle',
-          source: EVENTS_SOURCE_ID,
-          filter: ['!', ['has', 'point_count']],
-          paint: {
-            'circle-color': [
-              'match',
-              ['get', 'category'],
-              'music', '#FF5722',
-              'sports', '#2196F3',
-              'arts', '#9C27B0',
-              'food', '#4CAF50',
-              'party', '#FFC107',
-              '#607D8B' // default color
-            ],
-            'circle-radius': 6,
-            'circle-stroke-width': 1,
-            'circle-stroke-color': '#fff'
-          }
-        });
-        console.log('[MapComponent] Added unclustered-point layer');
-      }
-
-      // Ensure DOM markers are removed
-      // This is handled by the conditional rendering below, but good to note here.
-
-    } else {
-      // Use DOM markers
-      // Remove WebGL source and layer if they exist
-      if (map.getLayer(EVENTS_LAYER_ID)) {
-        map.removeLayer(EVENTS_LAYER_ID);
-        console.log('[MapComponent] Removed WebGL circle layer for events');
-      }
-      if (map.getSource(EVENTS_SOURCE_ID)) {
-        map.removeSource(EVENTS_SOURCE_ID);
-        console.log('[MapComponent] Removed GeoJSON source for events');
-      }
-      // Ensure DOM markers are rendered
-      // This is handled by the conditional rendering below.
-    }
-
-    // Cleanup function
-    return () => {
-      if (map) {
-        // Remove cluster and unclustered point layers
-        if (map.getLayer('clusters')) {
-          map.removeLayer('clusters');
-          console.log('[MapComponent] Cleaned up clusters layer');
-        }
-        if (map.getLayer('cluster-count')) {
-          map.removeLayer('cluster-count');
-          console.log('[MapComponent] Cleaned up cluster-count layer');
-        }
-        if (map.getLayer('unclustered-point')) {
-          map.removeLayer('unclustered-point');
-          console.log('[MapComponent] Cleaned up unclustered-point layer');
-        }
-        // Remove source last
-        if (map.getSource(EVENTS_SOURCE_ID)) {
-          map.removeSource(EVENTS_SOURCE_ID);
-          console.log('[MapComponent] Cleaned up GeoJSON source');
-        }
-      }
-    };
-  }, [map, isMapInitialized, events]); // Re-run when map, initialized state, or events change
-
 
 
    // Cluster handlers removed - we use custom React markers instead
@@ -502,8 +338,8 @@ const MapComponent = ({
          />
       )}
 
-      {/* Custom Map Markers (shown only for small datasets) */}
-      {isMapInitialized && map && events.length > 0 && events.length < 100 && (
+      {/* Custom Map Markers (always shown now that clustering is disabled) */}
+      {isMapInitialized && map && events.length > 0 && (
         <MapMarkers
           map={map} // Pass the Mapbox map instance
           features={events} // Pass the raw events to MapMarkers
