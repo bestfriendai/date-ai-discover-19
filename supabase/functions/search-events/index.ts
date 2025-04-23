@@ -513,7 +513,7 @@ serve(async (req: Request) => {
       let ticketmasterEvents: any[] = [];
       let ticketmasterPage = 0;
       let ticketmasterTotalPages = 1;
-      const ticketmasterMaxPages = 3; // Increased to 3 pages (600 events) for more party events
+      const ticketmasterMaxPages = 1; // Reduced to 1 page (200 events) to limit resource usage
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
         // Use a reasonable radius (default to user-specified radius)
         const effectiveRadius = Math.max(1, Math.min(Number(radius) || 15, 50));
@@ -779,8 +779,8 @@ serve(async (req: Request) => {
               'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
           }
 
-          // Use a higher limit for party searches
-          enhancedLimit = 500;
+          // Use a higher limit for party searches (Reduced from 500)
+          enhancedLimit = 150;
 
           console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
             enhancedKeyword,
@@ -955,7 +955,7 @@ serve(async (req: Request) => {
         let serpEvents: any[] = [];
         let serpStart = 0;
         const serpPageSize = 10;
-        const serpMaxPages = 3; // Increased to 3 pages for more party events
+        const serpMaxPages = 1; // Reduced to 1 page to limit resource usage
         let serpHasMore = true;
         let serpApiWorked = false;
         let serpApiLastError = null;
