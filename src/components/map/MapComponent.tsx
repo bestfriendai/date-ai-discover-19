@@ -1,3 +1,4 @@
+
 // src/components/map/MapComponent.tsx
 import { useRef, useState, useCallback, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -6,7 +7,7 @@ import type { Event } from '../../types';
 import type { EventFilters } from './components/MapControls';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
 import { MapDebugOverlay } from './components/MapDebugOverlay';
-import MapMarkers from './components/MapMarkers'; // Fixed import path
+import MapMarkers from './components/MapMarkers';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
@@ -31,14 +32,14 @@ interface MapComponentProps {
   selectedEvent: Event | null;
   isLoading: boolean;
   filters: EventFilters;
-  mapLoaded: boolean; // This comes from the parent MapView component
+  mapLoaded: boolean;
   onMapMoveEnd: (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => void;
-  onMapLoad: () => void; // This comes from the parent MapView component
+  onMapLoad: () => void;
   onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
   onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
   onAddToPlan?: (event: Event) => void;
-  onMapInstance?: (map: mapboxgl.Map) => void; // Add callback to provide map instance
+  onMapInstance?: (map: mapboxgl.Map) => void; // Correct typings for map instance callback
 }
 
 const MapComponent = ({

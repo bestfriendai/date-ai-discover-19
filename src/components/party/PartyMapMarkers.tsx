@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useCallback } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
@@ -65,6 +66,7 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
       newMarkers.set(id, { marker, root });
     });
 
+    // Remove markers that are no longer in the events list
     const currentIds = new Set(events.map(e => String(e.id)));
     activeMarkers.forEach((_, id) => {
       if (!currentIds.has(id)) {
@@ -89,7 +91,7 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
         root.unmount();
       });
     };
-  }, [map, events, selectedEventId, updateMarkers]);
+  }, [map, events, selectedEventId, updateMarkers, activeMarkers]);
 
   return null;
 };

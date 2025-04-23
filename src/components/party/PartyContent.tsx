@@ -4,9 +4,10 @@ import MapComponent from '@/components/map/MapComponent';
 import { PartySidebars } from './PartySidebars';
 import { MapControlsArea } from '@/components/map/components/MapControlsArea';
 import PartySearch from './PartySearch';
-import PartyMapMarkers from './PartyMapMarkers'; // Import the PartyMapMarkers
+import PartyMapMarkers from './PartyMapMarkers';
 import type { Event } from '@/types';
 import type { EventFilters } from '@/components/map/components/MapControls';
+import mapboxgl from 'mapbox-gl';
 
 interface PartyContentProps {
   leftSidebarOpen: boolean;
@@ -93,7 +94,7 @@ export const PartyContent = ({
           onMapLoad={onMapLoad}
           onFetchEvents={onFetchEvents}
           onAddToPlan={onAddToPlan}
-          onMapInstance={handleMapInstance} // Pass the callback to receive map instance
+          onMapInstance={handleMapInstance}
         />
 
         {/* Render the PartyMapMarkers component when we have a map and events */}
