@@ -114,6 +114,27 @@ export type Database = {
           },
         ]
       }
+      followers: {
+        Row: {
+          created_at: string
+          follower_id: string
+          following_id: string
+          id: string
+        }
+        Insert: {
+          created_at?: string
+          follower_id: string
+          following_id: string
+          id?: string
+        }
+        Update: {
+          created_at?: string
+          follower_id?: string
+          following_id?: string
+          id?: string
+        }
+        Relationships: []
+      }
       itineraries: {
         Row: {
           created_at: string
@@ -221,37 +242,90 @@ export type Database = {
           },
         ]
       }
+      notifications: {
+        Row: {
+          created_at: string
+          event_id: string | null
+          id: string
+          itinerary_id: string | null
+          message: string
+          read: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          itinerary_id?: string | null
+          message: string
+          read?: boolean
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string | null
+          id?: string
+          itinerary_id?: string | null
+          message?: string
+          read?: boolean
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notifications_itinerary_id_fkey"
+            columns: ["itinerary_id"]
+            isOneToOne: false
+            referencedRelation: "itineraries"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
+          bio: string | null
           created_at: string | null
           default_location: string | null
           email_notifications: boolean | null
           full_name: string | null
           id: string
           preferred_categories: string[] | null
+          profile_visibility: string | null
+          social_links: Json | null
           updated_at: string | null
           username: string | null
         }
         Insert: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           default_location?: string | null
           email_notifications?: boolean | null
           full_name?: string | null
           id: string
           preferred_categories?: string[] | null
+          profile_visibility?: string | null
+          social_links?: Json | null
           updated_at?: string | null
           username?: string | null
         }
         Update: {
           avatar_url?: string | null
+          bio?: string | null
           created_at?: string | null
           default_location?: string | null
           email_notifications?: boolean | null
           full_name?: string | null
           id?: string
           preferred_categories?: string[] | null
+          profile_visibility?: string | null
+          social_links?: Json | null
           updated_at?: string | null
           username?: string | null
         }
@@ -1019,6 +1093,14 @@ export type Database = {
       postgis_wagyu_version: {
         Args: Record<PropertyKey, never>
         Returns: string
+      }
+      send_event_reminders: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      send_itinerary_reminders: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
       }
       spheroid_in: {
         Args: { "": unknown }
