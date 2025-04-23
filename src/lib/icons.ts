@@ -50,5 +50,14 @@ export const {
   ChevronLeft: ChevronLeftIcon,
   ChevronRight: ChevronRightIcon,
   DollarSign: DollarSignIcon,
-  Settings: SettingsIcon
+  Settings: SettingsIcon,
+  Headphones: HeadphonesIcon,
+  Package: PackageIcon,
+  Coffee: CoffeeIcon,
+  Network: NetworkIcon,
+  Wine: WineIcon,
+  Building: BuildingIcon,
+  Layers: LayersIcon,
+  Globe: GlobeIcon,
+  Mountain: MountainIcon
 } = LucideIcons;

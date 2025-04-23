@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Map as MapIcon, Sunrise, Moon, Mountain, Globe, Building, Layers } from 'lucide-react';
+import { MapIcon, SunIcon, MoonIcon, MountainIcon, GlobeIcon, BuildingIcon, LayersIcon } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -53,7 +53,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.light)}
               className="h-8 w-8 rounded-md"
             >
-              <Sunrise className="h-4 w-4" />
+              <SunIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -69,7 +69,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.dark)}
               className="h-8 w-8 rounded-md"
             >
-              <Moon className="h-4 w-4" />
+              <MoonIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -85,7 +85,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.satellite)}
               className="h-8 w-8 rounded-md"
             >
-              <Globe className="h-4 w-4" />
+              <GlobeIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -101,7 +101,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.outdoor)}
               className="h-8 w-8 rounded-md"
             >
-              <Mountain className="h-4 w-4" />
+              <MountainIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -117,7 +117,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.navigation)}
               className="h-8 w-8 rounded-md"
             >
-              <Layers className="h-4 w-4" />
+              <LayersIcon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">

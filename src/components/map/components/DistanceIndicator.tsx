@@ -1,6 +1,5 @@
-
 import React from 'react';
-import { CarIcon, NavigationIcon } from 'lucide-react';
+import { CarIcon, NavigationIcon } from '@/lib/icons';
 
 export interface DistanceData {
   distance: number; // distance in kilometers

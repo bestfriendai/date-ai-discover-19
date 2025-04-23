@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { ChevronUpIcon, ChevronDownIcon } from 'lucide-react';
+import { ChevronUpIcon, ChevronDownIcon } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CollapsiblePanelProps {

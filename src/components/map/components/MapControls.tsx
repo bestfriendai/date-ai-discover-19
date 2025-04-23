@@ -99,7 +99,7 @@ export const MapControls = ({
                 onKeyDown={handleKeyDown}
               />
 
-              <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+              <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
 
               {searchTerm && (
                 <Button
@@ -108,7 +108,7 @@ export const MapControls = ({
                   className="absolute right-12 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent"
                   onClick={() => setSearchTerm('')}
                 >
-                  <X className="h-4 w-4" />
+                  <XIcon className="h-4 w-4" />
                 </Button>
               )}
 
@@ -118,7 +118,7 @@ export const MapControls = ({
                 className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-primary/10 hover:bg-primary/20 rounded-full"
                 onClick={handleSearch}
               >
-                <Search className="h-5 w-5 text-primary" />
+                <SearchIcon className="h-5 w-5 text-primary" />
               </Button>
             </div>
 
@@ -130,9 +130,9 @@ export const MapControls = ({
               disabled={locationRequested}
             >
               {locationRequested ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
+                <Loader2Icon className="h-5 w-5 animate-spin" />
               ) : (
-                <Locate className="h-5 w-5" />
+                <LocateIcon className="h-5 w-5" />
               )}
               Find My Location
             </Button>
@@ -151,7 +151,7 @@ export const MapControls = ({
               )}
               aria-label="Dark mode"
             >
-              <Moon className="h-5 w-5" />
+              <MoonIcon className="h-5 w-5" />
             </ToggleGroupItem>
             <ToggleGroupItem
               value="light"
@@ -162,7 +162,7 @@ export const MapControls = ({
               )}
               aria-label="Light mode"
             >
-              <Sun className="h-5 w-5" />
+              <SunIcon className="h-5 w-5" />
             </ToggleGroupItem>
             <ToggleGroupItem
               value="satellite"
@@ -173,7 +173,7 @@ export const MapControls = ({
               )}
               aria-label="Satellite view"
             >
-              <Satellite className="h-5 w-5" />
+              <SatelliteIcon className="h-5 w-5" />
             </ToggleGroupItem>
             <ToggleGroupItem
               value="streets"
@@ -184,7 +184,7 @@ export const MapControls = ({
               )}
               aria-label="Streets view"
             >
-              <Map className="h-5 w-5" />
+              <MapIcon className="h-5 w-5" />
             </ToggleGroupItem>
           </ToggleGroup>
         </div>

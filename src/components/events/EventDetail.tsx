@@ -9,7 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AddToPlanModal from './AddToPlanModal';
 import { toast } from '@/hooks/use-toast';
 import { Event } from '@/types';
-import { ExternalLink, MapPin, CalendarDays as Calendar, Clock, Heart, Plus, Share2, Ticket, Star, Users, TrendingUp } from 'lucide-react';
+import { ExternalLinkIcon, MapPinIcon, CalendarDaysIcon, ClockIcon, HeartIcon, PlusIcon, Share2Icon, TicketIcon, StarIcon, UsersIcon, TrendingUpIcon } from '@/lib/icons';
 
 // Helper function to format party subcategory for display
 const formatPartySubcategory = (subcategory: string): string => {
@@ -183,7 +183,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               disabled={favoriteLoading}
               aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
             >
-              <Heart className="h-4 w-4" fill={favorited ? "currentColor" : "none"} />
+              <HeartIcon className="h-4 w-4" fill={favorited ? "currentColor" : "none"} />
             </Button>
 
             <Button
@@ -193,7 +193,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               onClick={handleAddToPlan}
               aria-label="Add to plan"
             >
-              <Plus className="h-4 w-4" />
+              <PlusIcon className="h-4 w-4" />
             </Button>
 
             {event.url && (
@@ -204,7 +204,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 onClick={() => window.open(event.url, '_blank')}
                 aria-label="Visit website"
               >
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLinkIcon className="h-4 w-4" />
               </Button>
             )}
 
@@ -226,7 +226,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               }}
               aria-label="Share event"
             >
-              <Share2 className="h-4 w-4" />
+              <Share2Icon className="h-4 w-4" />
             </Button>
           </div>
 
@@ -236,7 +236,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 <div>
                   <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Event Rank</p>
                   <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
-                    <Star className="h-4 w-4 mr-2 fill-yellow-500" />
+                    <StarIcon className="h-4 w-4 mr-2 fill-yellow-500" />
                     <p>{Math.round(event.rank)}/100</p>
                   </div>
                 </div>
@@ -245,7 +245,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 <div>
                   <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Local Impact</p>
                   <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
-                    <TrendingUp className="h-4 w-4 mr-2" />
+                    <TrendingUpIcon className="h-4 w-4 mr-2" />
                     <p>{Math.round(event.localRelevance)}/100</p>
                   </div>
                 </div>
@@ -254,7 +254,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 <div>
                   <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Expected Attendance</p>
                   <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
-                    <Users className="h-4 w-4 mr-2" />
+                    <UsersIcon className="h-4 w-4 mr-2" />
                     <p>{event.attendance.forecast.toLocaleString()}</p>
                   </div>
                 </div>
@@ -262,7 +262,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Date</p>
                 <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
-                  <Calendar className="h-4 w-4 mr-2" />
+                  <CalendarDaysIcon className="h-4 w-4 mr-2" />
                   <p>{event.date}</p>
                 </div>
               </div>
@@ -270,7 +270,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Time</p>
                 <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
-                  <Clock className="h-4 w-4 mr-2" />
+                  <ClockIcon className="h-4 w-4 mr-2" />
                   <p>{event.time}</p>
                 </div>
               </div>
@@ -278,7 +278,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               <div className="col-span-2">
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Location</p>
                 <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
-                  <MapPin className="h-4 w-4 mr-2" />
+                  <MapPinIcon className="h-4 w-4 mr-2" />
                   <p>{event.location}</p>
                 </div>
               </div>
@@ -302,7 +302,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                       window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
                     }}
                   >
-                    <MapPin className="h-3 w-3 mr-1" /> View on Map
+                    <MapPinIcon className="h-3 w-3 mr-1" /> View on Map
                   </Button>
                 </div>
               )}
@@ -322,7 +322,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 className="flex-1 bg-[hsl(var(--sidebar-primary))] text-[hsl(var(--sidebar-primary-foreground))] hover:bg-[hsl(var(--sidebar-primary))]/90 transition"
                 onClick={() => window.open(event.url, '_blank')}
               >
-                <Ticket className="h-4 w-4 mr-2" /> Buy Tickets
+                <TicketIcon className="h-4 w-4 mr-2" /> Buy Tickets
               </Button>
             )}
             <Button
@@ -330,7 +330,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               className="flex-1 border-[hsl(var(--sidebar-border))] text-[hsl(var(--sidebar-primary))] hover:bg-[hsl(var(--sidebar-accent))]/60 transition"
               onClick={handleAddToPlan}
             >
-              <Plus className="h-4 w-4 mr-2" /> Add to Plan
+              <PlusIcon className="h-4 w-4 mr-2" /> Add to Plan
             </Button>
           </div>
 
@@ -370,10 +370,10 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                         <div className="flex-1">
                           <h4 className="font-medium text-sm line-clamp-2">{relatedEvent.title}</h4>
                           <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]"> {/* Adjusted text color */}
-                            <Calendar className="h-3 w-3" />
+                            <CalendarDaysIcon className="h-3 w-3" />
                             <span>{relatedEvent.date}</span>
                             {relatedEvent.location && (
-                                <><span className="mx-1">·</span><MapPin className="h-3 w-3 inline" /> {relatedEvent.location}</>
+                                <><span className="mx-1">·</span><MapPinIcon className="h-3 w-3 inline" /> {relatedEvent.location}</>
                             )}
                           </div>
                           {relatedEvent.price && (
