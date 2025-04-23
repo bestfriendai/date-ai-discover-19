@@ -50,11 +50,24 @@ export async function searchEvents(params: SearchParams): Promise<{
     if (params.latitude && params.longitude) {
       // PredictHQ expects coordinates in a specific format for the 'within' parameter
       // Format: {radius}km@{lat},{lng}
-      const radiusKm = Math.round((params.radius || 30) * 1.60934); // Convert miles to km
-      predictHQLocation = `${radiusKm}km@${params.latitude},${params.longitude}`;
-      console.log('[DEBUG] Created PredictHQ location string:', predictHQLocation);
+      const radius = params.radius || 30;
+      const isLatValid = typeof params.latitude === 'number' && params.latitude >= -90 && params.latitude <= 90;
+      const isLngValid = typeof params.longitude === 'number' && params.longitude >= -180 && params.longitude <= 180;
+      if (isLatValid && isLngValid) {
+        const radiusKm = Math.round(radius * 1.60934); // Convert miles to km
+        predictHQLocation = `${radiusKm}km@${params.latitude},${params.longitude}`;
+        console.log('[DEBUG] Created PredictHQ location string:', predictHQLocation);
+      } else {
+        console.warn('[WARNING] Invalid latitude or longitude provided for PredictHQ:', params.latitude, params.longitude);
+        predictHQLocation = params.location || '';
+      }
     } else if (predictHQLocation) {
+      // If a location string is provided, use it
       console.log('[DEBUG] Using provided location for PredictHQ:', predictHQLocation);
+    } else {
+      // No valid location, fallback to empty string
+      predictHQLocation = '';
+      console.warn('[WARNING] No valid location or coordinates for PredictHQ. Will fallback to default on backend.');
     }
     // Add a dedicated field so only the backend PredictHQ handler uses it
     searchParams['predicthqLocation'] = predictHQLocation;
