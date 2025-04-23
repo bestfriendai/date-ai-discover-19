@@ -23,6 +23,8 @@ export interface Event {
   partySubcategory?: PartySubcategory; // Added for party event subcategorization
   image: string;
   coordinates?: [number, number]; // [longitude, latitude]
+  latitude?: number; // Added for backward compatibility
+  longitude?: number; // Added for backward compatibility
   url?: string;
   price?: string;
 
@@ -43,10 +45,12 @@ export interface SearchParams {
   keyword?: string;
   lat?: number; // Added for lat/lng support
   lng?: number; // Added for lat/lng support
+  userLat?: number; // Added for backward compatibility
+  userLng?: number; // Added for backward compatibility
   latitude?: number;
   longitude?: number;
-  radius?: number;
-  startDate: string; // Made required
+  radius?: number | string;
+  startDate?: string; // Made optional with default handling in the function
   endDate?: string;
   categories?: string[];
   location?: string;

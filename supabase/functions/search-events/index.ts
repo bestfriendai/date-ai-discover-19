@@ -33,7 +33,7 @@ serve(async (req: Request) => {
   };
 
   const startTime: number = Date.now(); // Define startTime before the try block
-  
+
   // Create a safe response function to ensure consistent error handling
   const safeResponse = (data: any, status: number = 200) => {
     return new Response(JSON.stringify(data), {
@@ -41,14 +41,14 @@ serve(async (req: Request) => {
       status: status
     });
   };
-  
+
   try {
     console.log('[SEARCH-EVENTS] Received request');
 
     // Check for required API keys
     if (!TICKETMASTER_KEY) {
       console.error('[SEARCH-EVENTS] TICKETMASTER_KEY is not set');
-      return safeResponse({ 
+      return safeResponse({
         error: 'TICKETMASTER_KEY is not set',
         events: [],
         sourceStats: {
@@ -91,25 +91,10 @@ serve(async (req: Request) => {
       }, 400);
     }
 
-    // Validate required parameters
+    // If startDate is missing, use today's date
     if (!params.startDate) {
-      console.error('[SEARCH-EVENTS] Missing required parameter: startDate');
-      return safeResponse({ 
-        error: 'Missing required parameter: startDate',
-        events: [],
-        sourceStats: {
-          ticketmaster: { count: 0, error: 'Missing parameters' },
-          eventbrite: { count: 0, error: null },
-          serpapi: { count: 0, error: null },
-          predicthq: { count: 0, error: null }
-        },
-        meta: {
-          executionTime: Date.now() - startTime,
-          totalEvents: 0,
-          eventsWithCoordinates: 0,
-          timestamp: new Date().toISOString()
-        }
-      }, 400);
+      console.warn('[SEARCH-EVENTS] Missing startDate parameter, using today\'s date');
+      params.startDate = new Date().toISOString().split('T')[0];
     }
 
     // Extract parameters
@@ -141,7 +126,7 @@ serve(async (req: Request) => {
     let phqLatitude: number | undefined;
     let phqLongitude: number | undefined;
     let phqLocation: string | undefined;
-    let phqWithinParam: string;
+    let phqWithinParam: string = '';
 
     // PredictHQ API integration with improved error handling
     // Docs: https://docs.predicthq.com/
@@ -158,10 +143,7 @@ serve(async (req: Request) => {
         // Log the environment variables for debugging
         console.log('[PREDICTHQ_DEBUG] Environment variables:', {
           PREDICTHQ_API_KEY_SET: !!PREDICTHQ_API_KEY,
-          PREDICTHQ_API_KEY_LENGTH: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
-          SUPABASE_URL_SET: !!Deno.env.get('SUPABASE_URL'),
-          SUPABASE_ANON_KEY_SET: !!Deno.env.get('SUPABASE_ANON_KEY'),
-          SUPABASE_SERVICE_ROLE_KEY_SET: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+          PREDICTHQ_API_KEY_LENGTH: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0
         });
 
         // Validate API key
@@ -405,14 +387,14 @@ serve(async (req: Request) => {
     if (categories && categories.length > 0) {
       filteredEvents = filteredEvents.filter(event => {
         if (!event.category) return false;
-        return categories.some(category => 
+        return categories.some(category =>
           event.category.toLowerCase().includes(category.toLowerCase())
         );
       });
     }
 
     // Count events with coordinates
-    const eventsWithCoords = filteredEvents.filter(event => 
+    const eventsWithCoords = filteredEvents.filter(event =>
       event.latitude !== undefined && event.longitude !== undefined
     );
 
@@ -423,12 +405,12 @@ serve(async (req: Request) => {
         if (dateStr.includes('T') && dateStr.includes('Z')) {
           return new Date(dateStr);
         }
-        
+
         // Otherwise, combine date and time
         const dateOnly = dateStr.split('T')[0]; // Handle case where date might have a T
         const timeOnly = timeStr || '00:00';
         const dateTimeStr = `${dateOnly}T${timeOnly}`;
-        
+
         return new Date(dateTimeStr);
       } catch (e) {
         console.warn('Error parsing date:', dateStr, timeStr, e);
@@ -484,12 +466,12 @@ serve(async (req: Request) => {
   } catch (error) {
     // Improved error reporting: include stack trace if available
     console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
-    
+
     // Extract error details
     let errorMessage = 'Unknown error occurred';
     let errorStack = '';
     let errorType = 'UnknownError';
-    
+
     if (error instanceof Error) {
       errorMessage = error.message;
       errorStack = error.stack || '';
