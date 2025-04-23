@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Check, Info } from 'lucide-react';
+import { CheckIcon, InfoIcon } from '@/lib/icons';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface Feature {
@@ -46,7 +47,7 @@ export const FeaturesList: React.FC<FeaturesListProps> = ({ features, onClose })
                     ? 'bg-amber-500/20 text-amber-500' 
                     : 'bg-muted text-muted-foreground'
               }`}>
-                <Check className="h-4 w-4" />
+                <CheckIcon className="h-4 w-4" />
               </div>
               <div className="ml-3 flex-1">
                 <div className="flex items-center">
@@ -65,7 +66,7 @@ export const FeaturesList: React.FC<FeaturesListProps> = ({ features, onClose })
                       <Tooltip>
                         <TooltipTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-6 w-6 ml-1 p-0">
-                            <Info className="h-3.5 w-3.5 text-muted-foreground" />
+                            <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>

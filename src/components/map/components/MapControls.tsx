@@ -1,5 +1,18 @@
+
 import { useState, useRef, useEffect } from 'react';
-import { Filter, Locate, Search, X, Moon, Sun, Satellite, Loader2, Map, Compass, MapPin } from 'lucide-react';
+import { 
+  FilterIcon, 
+  LocateIcon, 
+  SearchIcon, 
+  XIcon, 
+  MoonIcon, 
+  SunIcon, 
+  SatelliteIcon, 
+  Loader2Icon, 
+  MapIcon, 
+  CompassIcon, 
+  MapPinIcon 
+} from '@/lib/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import { toast } from '@/hooks/use-toast';

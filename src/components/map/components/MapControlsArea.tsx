@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Search, X } from 'lucide-react';
+import { ChevronLeftIcon, ChevronRightIcon, SearchIcon, XIcon } from '@/lib/icons';
 import AdvancedSearch from '@/components/search/AdvancedSearch';
 import { LoadMoreButton } from './LoadMoreButton';
 import type { EventFilters } from './MapControls';
@@ -49,7 +50,7 @@ export const MapControlsArea = ({
           className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-800 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10 text-white transition-all hover:scale-105"
           aria-label={leftSidebarOpen ? "Close events sidebar" : "Open events sidebar"}
         >
-          {leftSidebarOpen ? <ChevronLeft className="h-6 w-6 sm:h-4 sm:w-4" /> : <ChevronRight className="h-6 w-6 sm:h-4 sm:w-4" />}
+          {leftSidebarOpen ? <ChevronLeftIcon className="h-6 w-6 sm:h-4 sm:w-4" /> : <ChevronRightIcon className="h-6 w-6 sm:h-4 sm:w-4" />}
         </Button>
         <Button
           variant="ghost"
@@ -58,7 +59,7 @@ export const MapControlsArea = ({
           className="bg-slate-900/80 backdrop-blur-sm border border-slate-700/50 shadow-lg hover:bg-slate-800 rounded-full w-12 h-12 flex items-center justify-center sm:w-10 sm:h-10 text-white transition-all hover:scale-105"
           aria-label={showSearch ? "Close search" : "Open search"}
         >
-          {showSearch ? <X className="h-6 w-6 sm:h-4 sm:w-4" /> : <Search className="h-6 w-6 sm:h-4 sm:w-4" />}
+          {showSearch ? <XIcon className="h-6 w-6 sm:h-4 sm:w-4" /> : <SearchIcon className="h-6 w-6 sm:h-4 sm:w-4" />}
         </Button>
       </div>
 
@@ -92,7 +93,7 @@ export const MapControlsArea = ({
             onClick={onSearchThisArea}
             className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg text-sm sm:text-base px-3 py-2 h-auto"
           >
-            <Search className="h-4 w-4 mr-2" />
+            <SearchIcon className="h-4 w-4 mr-2" />
             Search This Area
           </Button>
         </div>

@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, Mail, Lock, User } from 'lucide-react';
+import { Loader2Icon, MailIcon, LockIcon, UserIcon } from '@/lib/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 
@@ -76,7 +76,6 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
       const { error } = await signUp(email, password, { full_name: fullName });
 
       if (error) {
-        // Check if the error is because the account already exists
         if (error.message?.includes('already registered')) {
           toast({
             title: 'Account Exists',
@@ -126,7 +125,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
               <div className="space-y-2">
                 <Label htmlFor="signin-email">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <MailIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="signin-email"
                     type="email"
@@ -147,7 +146,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
                   </Button>
                 </div>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <LockIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="signin-password"
                     type="password"
@@ -165,7 +164,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
                     Signing In...
                   </>
                 ) : (
@@ -194,7 +193,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
               <div className="space-y-2">
                 <Label htmlFor="signup-name">Full Name (Optional)</Label>
                 <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <UserIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="signup-name"
                     type="text"
@@ -210,7 +209,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
               <div className="space-y-2">
                 <Label htmlFor="signup-email">Email</Label>
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <MailIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="signup-email"
                     type="email"
@@ -226,7 +225,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
               <div className="space-y-2">
                 <Label htmlFor="signup-password">Password</Label>
                 <div className="relative">
-                  <Lock className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <LockIcon className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
                   <Input
                     id="signup-password"
                     type="password"
@@ -247,7 +246,7 @@ const Auth: React.FC<AuthProps> = ({ onSuccess, onCancel }) => {
               <Button type="submit" className="w-full" disabled={loading}>
                 {loading ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
                     Creating Account...
                   </>
                 ) : (
