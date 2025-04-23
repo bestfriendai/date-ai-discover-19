@@ -24,26 +24,31 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   const partyKeywords = {
     // General party terms that strongly indicate a party event - massively expanded for comprehensive detection
     strong: [
-      // Modern party terms
-      'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
-      'reception', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
-      'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
+      // Core party terms - highest priority
+      'party', 'nightclub', 'club night', 'dance party', 'rave', 'dj set', 'nightlife',
+      'bottle service', 'vip table', 'dance floor', 'after party', 'afterparty',
+
+      // Social gathering terms - high priority
+      'celebration', 'social', 'mixer', 'gathering', 'gala', 'reception',
+      'meet-up', 'meetup', 'happy hour', 'happy-hour', 'mingle', 'networking',
+      'social event', 'cocktail', 'singles', 'speed dating', 'social gathering',
+
+      // Special events - high priority
       'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
-      'afterparty', 'after-party', 'singles', 'speed dating', 'social gathering',
+      'launch party', 'release party', 'opening party',
+
+      // Music & entertainment - medium priority
       'festival', 'fest', 'concert', 'live music', 'live dj', 'entertainment',
-      'vip', 'exclusive', 'launch', 'premiere', 'opening', 'event',
-      'night out', 'dance floor', 'dancing', 'electronic music', 'hip hop', 'edm',
-      'house music', 'techno', 'disco', 'bar crawl', 'pub crawl', 'social event',
-      'networking event', 'mixer event', 'celebration event', 'vip event',
-      'exclusive event', 'special event', 'dance event', 'music event', 'nightlife event',
-      'show', 'performance', 'dj', 'nightlife', 'bar', 'lounge', 'club',
-      
-      // New modern party terms
+      'electronic music', 'hip hop', 'edm', 'house music', 'techno', 'disco',
+      'bar crawl', 'pub crawl', 'show', 'performance', 'dj', 'bar', 'lounge',
+
+      // Venue & atmosphere terms - medium priority
+      'vip', 'exclusive', 'night out', 'dancing', 'club', 'venue',
+
+      // Modern party concepts - high priority
       'silent disco', 'pop-up party', 'immersive experience', 'secret party',
       'underground party', 'warehouse party', 'art party', 'creative social',
       'experiential event', 'interactive party', 'themed social',
-      'cultural celebration', 'community gathering', 'local event',
-      'micro festival', 'boutique festival', 'curated experience',
       'exclusive access', 'members only', 'private event',
       'speakeasy', 'hidden venue', 'secret location',
       'popup bar', 'popup club', 'popup venue',
@@ -53,13 +58,16 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
       'yacht party', 'boat party', 'cruise party',
       'pool social', 'beach social', 'outdoor social',
 
-      // Additional party terms
+      // Themed parties - high priority
       'themed party', 'costume party', 'masquerade', 'holiday party',
       'new years party', 'halloween party', 'summer party', 'winter party',
       'spring party', 'fall party', 'seasonal party', 'annual party',
-      'live dj', 'live band', 'live performance', 'music venue', 'dance venue',
+
+      // Venue types - medium priority
       'nightclub venue', 'lounge venue', 'bar venue', 'club night', 'dance night',
       'party night', 'night life', 'social mixer', 'networking event', 'singles event',
+
+      // Time & activity terms - lower priority
       'mingling', 'daytime event', 'pool event', 'rooftop event', 'outdoor event',
       'friday night', 'saturday night', 'weekend party', 'weekend event',
       'bottle service', 'vip tables', 'open bar', 'drink specials', 'ladies night',
@@ -68,17 +76,22 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
 
     // Day party specific terms - expanded for better detection
     dayParty: [
+      // Core day party terms
       'day party', 'day-party', 'pool party', 'daytime', 'day time',
       'outdoor party', 'garden party', 'patio party', 'beach party',
       'pool', 'day club', 'dayclub', 'afternoon party', 'rooftop party',
+
+      // Event types
       'daytime event', 'afternoon event', 'day event', 'pool event', 'beach event',
       'outdoor event', 'rooftop event', 'terrace party', 'terrace event',
       'day fest', 'day festival', 'outdoor festival', 'pool festival',
+
+      // Social gatherings
       'day celebration', 'afternoon celebration', 'daytime celebration',
       'day social', 'afternoon social', 'daytime social', 'day mixer',
       'bbq party', 'barbecue party', 'cookout', 'picnic', 'outdoor social',
-      
-      // New modern day party terms
+
+      // Modern day party concepts
       'day rave', 'sunshine social', 'sunset party', 'sunset social',
       'poolside social', 'poolside party', 'beach club', 'beach social',
       'yacht day', 'boat day', 'cruise day', 'harbor party',
@@ -93,12 +106,17 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
 
     // Brunch event terms - expanded for better detection
     brunch: [
+      // Core brunch terms
       'brunch', 'breakfast', 'morning', 'mimosa', 'bottomless',
       'champagne brunch', 'sunday brunch', 'brunch party',
       'brunch & bubbles', 'brunch and bubbles', 'brunch social',
+
+      // Event types
       'breakfast party', 'morning party', 'morning social',
       'brunch event', 'breakfast event', 'morning event',
       'brunch celebration', 'breakfast celebration',
+
+      // Venue & atmosphere
       'brunch club', 'breakfast club', 'morning mixer',
       'bloody mary', 'mimosas', 'bellini', 'breakfast cocktails',
       'brunch buffet', 'breakfast buffet', 'morning buffet',
@@ -107,35 +125,53 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
 
     // Club event terms - expanded for better detection
     club: [
+      // Core club terms
       'nightclub', 'night club', 'club night', 'dance club', 'disco',
       'DJ', 'dance night', 'nightlife', 'night life', 'clubbing',
       'dance floor', 'dancing', 'bottle service', 'vip table',
+
+      // Activities & atmosphere
       'vip section', 'bar crawl', 'pub crawl', 'open bar',
       'lounge', 'venue', 'live music', 'concert', 'performance',
+
+      // Music genres
       'electronic', 'hip hop', 'hip-hop', 'edm', 'house music',
       'techno', 'trance', 'dubstep', 'drum and bass', 'dnb',
       'rave', 'raving', 'club music', 'dance music', 'dj set',
+
+      // DJ & performance
       'dj night', 'dj party', 'dj event', 'live dj', 'resident dj',
       'guest dj', 'featured dj', 'headliner', 'main room',
+
+      // VIP & service
       'vip room', 'vip area', 'vip entrance', 'vip access',
       'bottle package', 'table service', 'table reservation',
+
+      // Time & event types
       'club event', 'night event', 'evening event', 'late night',
       'after hours', 'after party', 'late party', 'weekend party'
     ],
 
     // Social gathering terms - expanded for better detection
     social: [
+      // Core networking terms
       'networking', 'mixer', 'mingle', 'social gathering', 'business mixer',
       'professional', 'industry', 'entrepreneur', 'startup',
       'business social', 'career', 'professionals', 'business networking',
+
+      // Event types
       'social event', 'social mixer', 'social night', 'social club',
       'meetup', 'meet-up', 'meet and greet', 'networking event',
       'networking opportunity', 'professional mixer', 'industry mixer',
+
+      // Industry & business
       'industry night', 'industry event', 'business event',
       'business gathering', 'professional gathering', 'professional social',
       'career networking', 'career social', 'career mixer',
       'entrepreneur event', 'entrepreneur social', 'entrepreneur mixer',
       'startup event', 'startup social', 'startup mixer',
+
+      // Community
       'community gathering', 'community social', 'community mixer'
     ]
   };

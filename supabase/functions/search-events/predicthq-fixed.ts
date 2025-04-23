@@ -31,6 +31,19 @@ interface PredictHQResponse {
 }
 
 export async function fetchPredictHQEvents(params: PredictHQParams): Promise<PredictHQResponse> {
+  // Validate input parameters
+  if (!params) {
+    console.error('[PREDICTHQ] Missing parameters');
+    return {
+      events: [],
+      error: 'Missing parameters',
+      status: 400
+    };
+  }
+  console.log('[PREDICTHQ] fetchPredictHQEvents called with params:', JSON.stringify({
+    ...params,
+    apiKey: params.apiKey ? `${params.apiKey.substring(0, 4)}...${params.apiKey.substring(params.apiKey.length - 4)}` : 'NOT SET'
+  }, null, 2));
   const {
     apiKey,
     latitude,
@@ -47,14 +60,20 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
   try {
     // Validate API key with proper type checking
-    if (typeof apiKey !== 'string' || !apiKey.trim()) {
-      console.error('[PREDICTHQ] Invalid API key:', apiKey);
+    if (typeof apiKey !== 'string' || apiKey.length < 10) { // Basic length check
+      console.error('[PREDICTHQ_AUTH_ERROR] Invalid or missing API key.');
+      console.error('[PREDICTHQ_AUTH_ERROR] API Key details:', {
+        provided: !!apiKey,
+        length: apiKey?.length || 0,
+        type: typeof apiKey
+      });
       return {
         events: [],
-        error: 'Invalid PredictHQ API key',
+        error: 'PredictHQ API key is missing or invalid. Check server configuration.',
         status: 401
       };
     }
+    console.log(`[PREDICTHQ_AUTH_DEBUG] API Key looks valid (length ${apiKey.length}).`);
 
     // Log API key details for debugging
     console.log('[PREDICTHQ] API Key validation passed');
@@ -131,6 +150,9 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
     // Build the PredictHQ API URL
     let url = 'https://api.predicthq.com/v1/events/';
+
+    // Add a try-catch block around the entire API call process
+    try {
 
     // Build query parameters
     const queryParams = new URLSearchParams();
@@ -372,7 +394,15 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     try {
       // Create a controller for the timeout
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => {
+        controller.abort('PredictHQ API call timed out after 15 seconds'); // Increased timeout
+      }, 15000);
+
+      console.log('[PREDICTHQ] Making API request to:', url.substring(0, 100) + '...');
+      console.log('[PREDICTHQ] Request headers:', {
+        'Authorization': apiKey ? `Bearer ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NOT SET',
+        'Accept': 'application/json'
+      });
 
       response = await fetch(url, {
         method: 'GET',
@@ -380,58 +410,73 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
           'Authorization': `Bearer ${apiKey}`,
           'Accept': 'application/json'
         },
-        // Use the controller's signal instead of AbortSignal.timeout
         signal: controller.signal
       });
 
-      // Clear the timeout
       clearTimeout(timeoutId);
 
       console.log('[PREDICTHQ] API response status:', response.status);
     } catch (fetchError) {
-      console.error('[PREDICTHQ] Fetch error:', fetchError);
+      console.error('[PREDICTHQ_FETCH_ERROR] Fetch error:', fetchError);
+      let errorMsg = `PredictHQ API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        errorMsg = fetchError.message; // Use the AbortError message directly
+      }
+
       return {
         events: [],
-        error: `PredictHQ API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
-        status: 500
+        error: errorMsg,
+        status: 500,
+        warnings: ['API request failed or timed out']
       };
     }
 
     // Check for HTTP errors
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[PREDICTHQ] API error:', response.status, errorText);
+      console.error('[PREDICTHQ_API_ERROR] API error response:', response.status, errorText.substring(0, 200));
 
-      // More detailed error logging
-      if (response.status === 401) {
-        console.error('[PREDICTHQ] Authentication error - check API key');
-        console.error('[PREDICTHQ] API Key prefix:', apiKey ? apiKey.substring(0, 4) + '...' : 'NOT SET');
-        console.error('[PREDICTHQ] API Key length:', apiKey ? apiKey.length : 0);
-      } else if (response.status === 429) {
-        console.error('[PREDICTHQ] Rate limit exceeded');
-      } else if (response.status === 400) {
-        // Bad request - likely an issue with the parameters
-        console.error('[PREDICTHQ] Bad request - check parameters');
-        try {
-          const errorJson = JSON.parse(errorText);
-          if (errorJson.error) {
-            console.error('[PREDICTHQ] Error details:', errorJson.error);
-          }
-        } catch (e) {
-          // If it's not valid JSON, just log the raw text
-          console.error('[PREDICTHQ] Error details (raw):', errorText);
+      let errorDetails: any = { status: response.status };
+      let warnings: string[] = [];
+
+      try {
+        // Attempt to parse error response as JSON for more details
+        const errorJson = JSON.parse(errorText);
+        if (errorJson.error) {
+          console.error('[PREDICTHQ_API_ERROR] Error details:', errorJson.error);
+          errorDetails.apiError = errorJson.error;
+          warnings.push(String(errorJson.error));
         }
+        if (errorJson.warnings) {
+           console.warn('[PREDICTHQ_API_WARN] API warnings:', errorJson.warnings);
+           errorDetails.warnings = errorJson.warnings;
+           warnings = warnings.concat(errorJson.warnings);
+        }
+      } catch (e) {
+        // If not JSON, include the raw text
+        errorDetails.rawResponse = errorText.substring(0, 200) + '...';
       }
 
-      // Log all request headers for debugging
-      console.error('[PREDICTHQ] Request headers:', {
-        'Authorization': apiKey ? 'Bearer ' + apiKey.substring(0, 4) + '...' : 'NOT SET',
-        'Accept': 'application/json'
-      });
+      // More detailed error logging based on status code
+      if (response.status === 401) {
+        console.error('[PREDICTHQ_AUTH_ERROR] Authentication error - check API key');
+        console.error('[PREDICTHQ_AUTH_ERROR] API Key prefix:', apiKey ? apiKey.substring(0, 4) + '...' : 'NOT SET');
+        console.error('[PREDICTHQ_AUTH_ERROR] API Key length:', apiKey ? apiKey.length : 0);
+        warnings.push('Authentication failed - API key may be invalid');
+      } else if (response.status === 429) {
+        console.error('[PREDICTHQ_RATE_ERROR] Rate limit exceeded');
+        warnings.push('Rate limit exceeded');
+      } else if (response.status === 400) {
+        // Bad request - likely an issue with the parameters
+        console.error('[PREDICTHQ_PARAM_ERROR] Bad request - check parameters');
+        warnings.push('Invalid request parameters');
+      }
 
       return {
         events: [],
-        error: `PredictHQ API error: ${response.status} ${errorText}`
+        error: `PredictHQ API error: ${response.status}`,
+        status: response.status,
+        warnings
       };
     }
 
@@ -443,14 +488,23 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         throw new Error('Invalid API response format');
       }
     } catch (parseError) {
-      console.error('[PREDICTHQ] Failed to parse API response:', parseError);
-      return { events: [], error: 'Failed to parse PredictHQ API response' };
+      console.error('[PREDICTHQ_PARSE_ERROR] Failed to parse API response:', parseError);
+      // Include raw response text for debugging parse errors
+      const rawText = await response.text().catch(() => 'Could not read response text.');
+      console.error('[PREDICTHQ_PARSE_ERROR] Raw response text:', rawText.substring(0, 200) + '...');
+      return {
+        events: [],
+        error: 'Failed to parse PredictHQ API response',
+        status: 500,
+        warnings: ['Response parsing failed']
+      };
     }
-    console.log('[PREDICTHQ] API response:', {
+    console.log('[PREDICTHQ_DEBUG] API response parsed:', {
       count: data.count,
       resultsCount: data.results?.length || 0,
       next: !!data.next,
-      previous: !!data.previous
+      previous: !!data.previous,
+      warnings: data.warnings // Log warnings even on success
     });
 
     // Log the full response for debugging
@@ -475,9 +529,39 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     }
 
     // Transform PredictHQ events to our format
-    const events = data.results?.map(normalizePredictHQEvent) || [];
+    const events = data.results?.map((event: any) => {
+      try {
+        return normalizePredictHQEvent(event);
+      } catch (e) {
+        console.error('[PREDICTHQ_NORM_ERROR] Failed to normalize PredictHQ event:', event?.id, e);
+        // Return a minimal error event instead of null
+        return {
+          id: `predicthq-norm-error-${event?.id || Date.now()}`,
+          source: 'predicthq',
+          title: event?.title || 'Error Normalizing Event',
+          description: `Failed to process event data from PredictHQ (ID: ${event?.id}).`,
+          date: event?.start?.split('T')[0] || new Date().toISOString().split('T')[0],
+          time: event?.start?.split('T')[1]?.substring(0, 5) || '00:00',
+          location: event?.location_name || event?.place?.name || 'Unknown location',
+          category: 'error',
+          image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop',
+          rank: event?.rank || 0,
+          localRelevance: event?.local_rank || 0,
+          attendance: { forecast: event?.phq_attendance, actual: event?.actual_attendance },
+          demandSurge: event?.labels?.includes('demand_surge') ? 1 : 0,
+        };
+      }
+    }) || [];
 
-    return { events, error: null };
+    // Filter out any normalization error events if they exist
+    const successfullyNormalizedEvents = events.filter((event: any) => event.category !== 'error');
+
+    return {
+      events: successfullyNormalizedEvents,
+      error: null,
+      status: response.status,
+      warnings: data.warnings // Include warnings in the response
+    };
   } catch (error) {
     let errorMessage = 'Unknown error';
     if (error instanceof Error) {
@@ -666,47 +750,49 @@ function normalizePredictHQEvent(event: any): Event {
       }
     }
 
-    // Check for party events using party detection utilities
+    // ENHANCED PARTY DETECTION - Comprehensive approach
 
-    // Check if this is a party event based on title and description
+    // 1. Check if this is a party event based on title and description using our utility
     let partySubcategory: any = undefined;
     const isPartyByDetection = detectPartyEvent(event.title, event.description);
 
-    // Also check if the event has party-related labels
-    // Check if the event has party-related labels - expanded list for better detection
-    const hasPartyLabels = event.labels && Array.isArray(event.labels) && event.labels.some((label: string) => {
-      const partyLabels = [
-        'nightlife', 'party', 'club', 'nightclub', 'dance-club', 'disco', 'lounge',
-        'dance-party', 'dj-set', 'dj-night', 'dj-party', 'social-gathering', 'celebration',
-        'mixer', 'happy-hour', 'cocktail', 'rave', 'festival', 'gala', 'reception',
-        'day-party', 'pool-party', 'beach-party', 'brunch', 'day-club', 'rooftop-party',
-        'night-out', 'night-life', 'club-night', 'dance-night', 'party-night',
-        'social-mixer', 'networking-event', 'singles-event', 'mingling',
-        'live-dj', 'live-band', 'live-performance', 'music-event', 'concert-event',
-        'special-event', 'exclusive-event', 'vip-event', 'private-event',
-        'daytime-event', 'pool-event', 'rooftop-event', 'outdoor-event',
-        'lounge-venue', 'bar-venue', 'nightclub-venue', 'dance-venue',
-        'themed-party', 'costume-party', 'masquerade', 'holiday-party',
-        'new-years-party', 'halloween-party', 'summer-party', 'winter-party',
-        'spring-party', 'fall-party', 'seasonal-party', 'annual-party'
-      ];
-      return partyLabels.includes(label);
-    });
+    // 2. Check if the event has party-related labels
+    const partyLabels = [
+      'nightlife', 'party', 'club', 'nightclub', 'dance-club', 'disco', 'lounge',
+      'dance-party', 'dj-set', 'dj-night', 'dj-party', 'social-gathering', 'celebration',
+      'mixer', 'happy-hour', 'cocktail', 'rave', 'festival', 'gala', 'reception',
+      'day-party', 'pool-party', 'beach-party', 'brunch', 'day-club', 'rooftop-party',
+      'night-out', 'night-life', 'club-night', 'dance-night', 'party-night',
+      'social-mixer', 'networking-event', 'singles-event', 'mingling',
+      'live-dj', 'live-band', 'live-performance', 'music-event', 'concert-event',
+      'special-event', 'exclusive-event', 'vip-event', 'private-event',
+      'daytime-event', 'pool-event', 'rooftop-event', 'outdoor-event',
+      'lounge-venue', 'bar-venue', 'nightclub-venue', 'dance-venue',
+      'themed-party', 'costume-party', 'masquerade', 'holiday-party',
+      'new-years-party', 'halloween-party', 'summer-party', 'winter-party',
+      'spring-party', 'fall-party', 'seasonal-party', 'annual-party'
+    ];
 
-    // Check if the event is in a venue that suggests it's a party - expanded venue types
-    const hasPartyVenue = event.entities && Array.isArray(event.entities) && event.entities.some((entity: any) => {
-      if (entity.type === 'venue' && entity.name) {
-        const partyVenueTerms = [
-          'club', 'lounge', 'bar', 'nightclub', 'disco', 'party', 'dance', 'dj',
-          'venue', 'hall', 'ballroom', 'terrace', 'rooftop', 'warehouse', 'underground',
-          'event space', 'event-space', 'social', 'mixer', 'gathering', 'celebration'
-        ];
-        return partyVenueTerms.some(term => entity.name.toLowerCase().includes(term));
-      }
-      return false;
-    });
+    const hasPartyLabels = event.labels && Array.isArray(event.labels) &&
+      event.labels.some((label: string) => partyLabels.includes(label));
 
-    // Check if the event title or description contains party-related terms - massively expanded list
+    // 3. Check if the event is in a venue that suggests it's a party
+    const partyVenueTerms = [
+      'club', 'lounge', 'bar', 'nightclub', 'disco', 'party', 'dance', 'dj',
+      'venue', 'hall', 'ballroom', 'terrace', 'rooftop', 'warehouse', 'underground',
+      'event space', 'event-space', 'social', 'mixer', 'gathering', 'celebration'
+    ];
+
+    const hasPartyVenue = event.entities && Array.isArray(event.entities) &&
+      event.entities.some((entity: any) => {
+        if (entity.type === 'venue' && entity.name) {
+          return partyVenueTerms.some(term =>
+            entity.name.toLowerCase().includes(term));
+        }
+        return false;
+      });
+
+    // 4. Check if the event title or description contains party-related terms
     const partyTerms = [
       // Basic party terms
       'party', 'club', 'nightclub', 'dance', 'dj', 'nightlife', 'festival', 'mixer',
@@ -736,51 +822,51 @@ function normalizePredictHQEvent(event: any): Event {
       'dance music', 'dance floor', 'dancing'
     ];
 
-    const hasPartyTerms = partyTerms.some(term => {
-      const lowerTitle = (event.title || '').toLowerCase();
-      const lowerDesc = (event.description || '').toLowerCase();
-      return lowerTitle.includes(term) || lowerDesc.includes(term);
-    });
+    const lowerTitle = (event.title || '').toLowerCase();
+    const lowerDesc = (event.description || '').toLowerCase();
+    const combinedText = `${lowerTitle} ${lowerDesc}`;
 
-    // Check if the event is in a party-related category - expanded categories
+    const hasPartyTerms = partyTerms.some(term => combinedText.includes(term));
+
+    // 5. Check if the event is in a party-related category
     const partyCategories = ['concerts', 'festivals', 'community', 'performing-arts', 'expos'];
     const hasPartyCategory = event.category && partyCategories.includes(event.category);
 
-    // Check event rank (PredictHQ specific) - higher rank events are more significant
+    // 6. Check event rank (PredictHQ specific) - higher rank events are more significant
     const eventRank = event.rank || 0;
     const isHighRankEvent = eventRank >= 60; // High rank threshold
     const isMediumRankEvent = eventRank >= 40; // Medium rank threshold
 
-    // Log party detection for debugging
-    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, Rank: ${eventRank}, IsPartyByDetection: ${isPartyByDetection}, HasPartyLabels: ${hasPartyLabels}, HasPartyVenue: ${hasPartyVenue}, HasPartyTerms: ${hasPartyTerms}, HasPartyCategory: ${hasPartyCategory}`);
+    // 7. Check for party-related phq_labels
+    const partyPhqLabels = [
+      'nightlife', 'entertainment', 'music', 'performing-arts', 'food-and-beverage',
+      'community-and-culture', 'lifestyle', 'fashion-and-style'
+    ];
 
-    // Check for party-related phq_labels
-    const hasPartyPhqLabels = event.phq_labels && Array.isArray(event.phq_labels) && event.phq_labels.some((labelObj: any) => {
-      const partyPhqLabels = [
-        'nightlife', 'entertainment', 'music', 'performing-arts', 'food-and-beverage',
-        'community-and-culture', 'lifestyle', 'fashion-and-style', 'sports-and-fitness',
-        'business-and-professional', 'education', 'politics-and-activism', 'science-and-technology',
-        'arts-and-crafts', 'hobbies-and-special-interest', 'family-and-kids', 'holiday-and-seasonal'
-      ];
-      return labelObj && labelObj.label && partyPhqLabels.includes(labelObj.label);
-    });
+    const hasPartyPhqLabels = event.phq_labels && Array.isArray(event.phq_labels) &&
+      event.phq_labels.some((labelObj: any) =>
+        labelObj && labelObj.label && partyPhqLabels.includes(labelObj.label));
 
-    // Check if the event is in a party-related category
+    // 8. Check if the event is in a party-related category
     const partyRelatedCategories = ['concerts', 'festivals', 'community', 'performing-arts', 'expos', 'conferences'];
     const isPartyRelatedCategory = event.category && partyRelatedCategories.includes(event.category);
 
-    // If any of our party detection methods return true, categorize as a party
+    // Log party detection for debugging
+    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, Rank: ${eventRank}`);
+    console.log(`[PARTY_DEBUG] Detection results: IsPartyByDetection=${isPartyByDetection}, HasPartyLabels=${hasPartyLabels}, HasPartyVenue=${hasPartyVenue}, HasPartyTerms=${hasPartyTerms}, HasPartyCategory=${hasPartyCategory}, HasPartyPhqLabels=${hasPartyPhqLabels}`);
+
+    // DECISION LOGIC: If any of our party detection methods return true, categorize as a party
     // We're being more aggressive with party detection to compensate for category limitations
-    if (isPartyByDetection || hasPartyLabels || hasPartyVenue || hasPartyTerms || hasPartyCategory || hasPartyPhqLabels || isPartyRelatedCategory) {
+    if (isPartyByDetection || hasPartyLabels || hasPartyVenue || hasPartyTerms ||
+        (hasPartyCategory && (isHighRankEvent || hasPartyPhqLabels)) ||
+        (isPartyRelatedCategory && isHighRankEvent)) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.title, event.description, time);
-      console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
+      console.log(`[PARTY_DEBUG] ✅ PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
     }
 
-    // For events from PredictHQ with certain categories, use a more sophisticated approach
-    // This ensures we get more high-quality party events from PredictHQ
-    if (event.category === 'concerts' || event.category === 'festivals' || event.category === 'performing-arts') {
-      // Check if the title or description contains music-related terms that suggest a party
+    // SPECIAL CASE: For music events, use a more sophisticated approach
+    if (category === 'music' || event.category === 'concerts' || event.category === 'festivals' || event.category === 'performing-arts') {
       // Weighted approach - some terms are stronger indicators than others
       const strongPartyTerms = [
         'dj', 'dance', 'club', 'nightclub', 'party', 'nightlife', 'electronic',
@@ -792,28 +878,18 @@ function normalizePredictHQEvent(event: any): Event {
         'venue', 'lounge', 'bar', 'vip', 'exclusive'
       ];
 
-      const weakPartyTerms = [
-        'evening', 'weekend', 'friday', 'saturday', 'sunday', 'entertainment'
-      ];
-
-      const lowerTitle = (event.title || '').toLowerCase();
-      const lowerDesc = (event.description || '').toLowerCase();
-      const combinedText = `${lowerTitle} ${lowerDesc}`;
-
       // Check for term presence with different weights
       const hasStrongTerms = strongPartyTerms.some(term => combinedText.includes(term));
       const hasMediumTerms = mediumPartyTerms.some(term => combinedText.includes(term));
-      const hasWeakTerms = weakPartyTerms.some(term => combinedText.includes(term));
 
       // Determine if it's a party based on term presence and event rank
       const isPartyByStrongTerms = hasStrongTerms;
-      const isPartyByMediumTerms = hasMediumTerms && (isMediumRankEvent || hasWeakTerms);
-      const isPartyByWeakTerms = hasWeakTerms && isHighRankEvent;
+      const isPartyByMediumTerms = hasMediumTerms && isMediumRankEvent;
 
-      if (isPartyByStrongTerms || isPartyByMediumTerms || isPartyByWeakTerms) {
+      if (isPartyByStrongTerms || isPartyByMediumTerms) {
         category = 'party';
 
-        // Determine subcategory based on terms
+        // Determine subcategory based on terms if not already set
         if (!partySubcategory) {
           if (combinedText.includes('club') || combinedText.includes('nightclub') ||
               combinedText.includes('dj') || combinedText.includes('dance')) {
@@ -826,18 +902,15 @@ function normalizePredictHQEvent(event: any): Event {
           }
         }
 
-        console.log(`[PARTY_DEBUG] PredictHQ music event categorized as party: ${event.title} (Subcategory: ${partySubcategory})`);
+        console.log(`[PARTY_DEBUG] ✅ PredictHQ music event categorized as party: ${event.title} (Subcategory: ${partySubcategory})`);
       }
 
-      // For concerts and festivals, even without specific terms, there's a good chance it's party-like
-      // This helps us catch more potential party events
-      if (event.category === 'concerts' || event.category === 'festivals') {
-        // Check if it has a high rank, which suggests it's a significant event
-        if (event.rank && event.rank > 50) {
-          category = 'party';
-          partySubcategory = partySubcategory || 'general';
-          console.log(`[PARTY_DEBUG] PredictHQ high-ranked music event categorized as party: ${event.title}`);
-        }
+      // For concerts and festivals with high rank, they're likely party-like events
+      if ((event.category === 'concerts' || event.category === 'festivals') &&
+          event.rank && event.rank > 50 && category !== 'party') {
+        category = 'party';
+        partySubcategory = partySubcategory || 'general';
+        console.log(`[PARTY_DEBUG] ✅ PredictHQ high-ranked music event categorized as party: ${event.title}`);
       }
     }
 

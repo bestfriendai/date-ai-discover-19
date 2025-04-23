@@ -17,27 +17,24 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 // Import icons from lucide-react
-import { Music, MapPin } from 'lucide-react';
-
-// Custom icon components to replace missing Lucide icons
-interface IconProps {
-  className?: string;
-}
-
-const Palette: React.FC<IconProps> = ({ className }) => <span className={className}>🎨</span>;
-const Trophy: React.FC<IconProps> = ({ className }) => <span className={className}>🏆</span>;
-const Users: React.FC<IconProps> = ({ className }) => <span className={className}>👥</span>;
-const Utensils: React.FC<IconProps> = ({ className }) => <span className={className}>🍽️</span>;
-const PartyPopper: React.FC<IconProps> = ({ className }) => <span className={className}>🎉</span>;
-const Sparkle: React.FC<IconProps> = ({ className }) => <span className={className}>✨</span>;
-const Headphones: React.FC<IconProps> = ({ className }) => <span className={className}>🎧</span>;
-const Package: React.FC<IconProps> = ({ className }) => <span className={className}>📦</span>;
-const Sun: React.FC<IconProps> = ({ className }) => <span className={className}>☀️</span>;
-const Coffee: React.FC<IconProps> = ({ className }) => <span className={className}>☕</span>;
-const Network: React.FC<IconProps> = ({ className }) => <span className={className}>🔄</span>;
-const Wine: React.FC<IconProps> = ({ className }) => <span className={className}>🍷</span>;
-const Building: React.FC<IconProps> = ({ className }) => <span className={className}>🏢</span>;
-const CalendarDays: React.FC<IconProps> = ({ className }) => <span className={className}>📅</span>;
+import { 
+  Music, 
+  MapPin, 
+  Palette, 
+  Trophy, 
+  Users, 
+  Utensils, 
+  PartyPopper, 
+  Sparkles as Sparkle, 
+  Headphones, 
+  Package, 
+  Sun, 
+  Coffee, 
+  Network, 
+  Wine, 
+  Building, 
+  CalendarDays 
+} from 'lucide-react';
 
 // Re-export PartySubcategory type here since we can't import from partyUtils
 type PartySubcategory =

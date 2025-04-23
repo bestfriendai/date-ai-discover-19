@@ -1054,6 +1054,14 @@ serve(async (req: Request) => {
 // Helper function to parse event dates in various formats
 function parseEventDate(dateStr: string, timeStr: string): Date {
   try {
+    console.log(`[DATE_PARSE] Parsing date: ${dateStr}, time: ${timeStr}`);
+
+    // Handle null or undefined inputs
+    if (!dateStr) {
+      console.log('[DATE_PARSE] No date string provided, using current date');
+      return new Date();
+    }
+
     // Try to parse ISO date format (YYYY-MM-DD)
     if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
       const [year, month, day] = dateStr.split('-').map(Number);
@@ -1061,21 +1069,24 @@ function parseEventDate(dateStr: string, timeStr: string): Date {
       // Parse time (HH:MM format)
       let hours = 0, minutes = 0;
       if (timeStr) {
-        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+        // Handle various time formats
+        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
         if (timeParts) {
           hours = parseInt(timeParts[1], 10);
           minutes = parseInt(timeParts[2], 10);
 
           // Handle AM/PM
-          if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
+          if (timeParts[4] && timeParts[4].toUpperCase() === 'PM' && hours < 12) {
             hours += 12;
-          } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
+          } else if (timeParts[4] && timeParts[4].toUpperCase() === 'AM' && hours === 12) {
             hours = 0;
           }
         }
       }
 
-      return new Date(year, month - 1, day, hours, minutes);
+      const result = new Date(year, month - 1, day, hours, minutes);
+      console.log(`[DATE_PARSE] Parsed ISO date: ${result.toISOString()}`);
+      return result;
     }
 
     // Try to parse date strings like "Mon, May 19"
@@ -1091,27 +1102,37 @@ function parseEventDate(dateStr: string, timeStr: string): Date {
       // Parse time (HH:MM AM/PM format)
       let hours = 0, minutes = 0;
       if (timeStr) {
-        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i);
+        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
         if (timeParts) {
           hours = parseInt(timeParts[1], 10);
           minutes = parseInt(timeParts[2], 10);
 
           // Handle AM/PM
-          if (timeParts[3] && timeParts[3].toUpperCase() === 'PM' && hours < 12) {
+          if (timeParts[4] && timeParts[4].toUpperCase() === 'PM' && hours < 12) {
             hours += 12;
-          } else if (timeParts[3] && timeParts[3].toUpperCase() === 'AM' && hours === 12) {
+          } else if (timeParts[4] && timeParts[4].toUpperCase() === 'AM' && hours === 12) {
             hours = 0;
           }
         }
       }
 
-      return new Date(year, month, day, hours, minutes);
+      const result = new Date(year, month, day, hours, minutes);
+      console.log(`[DATE_PARSE] Parsed month name date: ${result.toISOString()}`);
+      return result;
+    }
+
+    // Try to parse full date string directly
+    const directParse = new Date(dateStr);
+    if (!isNaN(directParse.getTime())) {
+      console.log(`[DATE_PARSE] Direct parse successful: ${directParse.toISOString()}`);
+      return directParse;
     }
 
     // Fallback: return current date (events with unparseable dates will be sorted last)
+    console.log(`[DATE_PARSE] Could not parse date: ${dateStr}, using current date`);
     return new Date();
   } catch (error) {
-    console.error('Error parsing event date:', error, { dateStr, timeStr });
+    console.error('[DATE_PARSE] Error parsing event date:', error, { dateStr, timeStr });
     return new Date(); // Fallback to current date
   }
 }
