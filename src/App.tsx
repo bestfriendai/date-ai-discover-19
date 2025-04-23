@@ -14,6 +14,7 @@ import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import EditItinerary from "./pages/EditItinerary";
 import PartyAI from "./pages/PartyAI"; // Import PartyAI page
+import ChatMapView from "./pages/ChatMapView"; // Import ChatMapView page
 
 const App = () => {
   const location = useLocation();
@@ -61,7 +62,7 @@ const App = () => {
         } />
         <Route path="/chat" element={
           <PageTransition>
-            <Chat />
+            <ChatMapView />
           </PageTransition>
         } />
         <Route path="/profile" element={

@@ -11,8 +11,9 @@ export type PartySubcategory = 'day-party' | 'social' | 'brunch' | 'club' | 'net
 export function detectPartyEvent(title: string = '', description: string = ''): boolean {
   // Define specific party-related keywords for different types of party events
   const partyKeywords = {
-    // General party terms that strongly indicate a party event - expanded for more aggressive detection
+    // General party terms that strongly indicate a party event - massively expanded for comprehensive detection
     strong: [
+      // Basic party terms
       'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
       'reception', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
       'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
@@ -24,38 +25,80 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
       'house music', 'techno', 'disco', 'bar crawl', 'pub crawl', 'social event',
       'networking event', 'mixer event', 'celebration event', 'vip event',
       'exclusive event', 'special event', 'dance event', 'music event', 'nightlife event',
-      'show', 'performance', 'dj', 'nightlife', 'bar', 'lounge', 'club'
+      'show', 'performance', 'dj', 'nightlife', 'bar', 'lounge', 'club',
+
+      // Additional party terms
+      'themed party', 'costume party', 'masquerade', 'holiday party',
+      'new years party', 'halloween party', 'summer party', 'winter party',
+      'spring party', 'fall party', 'seasonal party', 'annual party',
+      'live dj', 'live band', 'live performance', 'music venue', 'dance venue',
+      'nightclub venue', 'lounge venue', 'bar venue', 'club night', 'dance night',
+      'party night', 'night life', 'social mixer', 'networking event', 'singles event',
+      'mingling', 'daytime event', 'pool event', 'rooftop event', 'outdoor event',
+      'friday night', 'saturday night', 'weekend party', 'weekend event',
+      'bottle service', 'vip tables', 'open bar', 'drink specials', 'ladies night',
+      'industry night', 'college night', 'theme night', 'dance music', 'live entertainment'
     ],
 
-    // Day party specific terms
+    // Day party specific terms - expanded for better detection
     dayParty: [
       'day party', 'day-party', 'pool party', 'daytime', 'day time',
       'outdoor party', 'garden party', 'patio party', 'beach party',
-      'pool', 'day club', 'dayclub', 'afternoon party', 'rooftop party'
+      'pool', 'day club', 'dayclub', 'afternoon party', 'rooftop party',
+      'daytime event', 'afternoon event', 'day event', 'pool event', 'beach event',
+      'outdoor event', 'rooftop event', 'terrace party', 'terrace event',
+      'day fest', 'day festival', 'outdoor festival', 'pool festival',
+      'day celebration', 'afternoon celebration', 'daytime celebration',
+      'day social', 'afternoon social', 'daytime social', 'day mixer',
+      'bbq party', 'barbecue party', 'cookout', 'picnic', 'outdoor social'
     ],
 
-    // Brunch event terms
+    // Brunch event terms - expanded for better detection
     brunch: [
       'brunch', 'breakfast', 'morning', 'mimosa', 'bottomless',
       'champagne brunch', 'sunday brunch', 'brunch party',
-      'brunch & bubbles', 'brunch and bubbles'
+      'brunch & bubbles', 'brunch and bubbles', 'brunch social',
+      'breakfast party', 'morning party', 'morning social',
+      'brunch event', 'breakfast event', 'morning event',
+      'brunch celebration', 'breakfast celebration',
+      'brunch club', 'breakfast club', 'morning mixer',
+      'bloody mary', 'mimosas', 'bellini', 'breakfast cocktails',
+      'brunch buffet', 'breakfast buffet', 'morning buffet',
+      'weekend brunch', 'saturday brunch', 'sunday breakfast'
     ],
 
-    // Club event terms
+    // Club event terms - expanded for better detection
     club: [
       'nightclub', 'night club', 'club night', 'dance club', 'disco',
       'DJ', 'dance night', 'nightlife', 'night life', 'clubbing',
       'dance floor', 'dancing', 'bottle service', 'vip table',
       'vip section', 'bar crawl', 'pub crawl', 'open bar',
       'lounge', 'venue', 'live music', 'concert', 'performance',
-      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music'
+      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music',
+      'techno', 'trance', 'dubstep', 'drum and bass', 'dnb',
+      'rave', 'raving', 'club music', 'dance music', 'dj set',
+      'dj night', 'dj party', 'dj event', 'live dj', 'resident dj',
+      'guest dj', 'featured dj', 'headliner', 'main room',
+      'vip room', 'vip area', 'vip entrance', 'vip access',
+      'bottle package', 'table service', 'table reservation',
+      'club event', 'night event', 'evening event', 'late night',
+      'after hours', 'after party', 'late party', 'weekend party'
     ],
 
-    // Social gathering terms
+    // Social gathering terms - expanded for better detection
     social: [
       'networking', 'mixer', 'mingle', 'social gathering', 'business mixer',
       'professional', 'industry', 'entrepreneur', 'startup',
-      'business social', 'career', 'professionals', 'business networking'
+      'business social', 'career', 'professionals', 'business networking',
+      'social event', 'social mixer', 'social night', 'social club',
+      'meetup', 'meet-up', 'meet and greet', 'networking event',
+      'networking opportunity', 'professional mixer', 'industry mixer',
+      'industry night', 'industry event', 'business event',
+      'business gathering', 'professional gathering', 'professional social',
+      'career networking', 'career social', 'career mixer',
+      'entrepreneur event', 'entrepreneur social', 'entrepreneur mixer',
+      'startup event', 'startup social', 'startup mixer',
+      'community gathering', 'community social', 'community mixer'
     ]
   };
 
@@ -80,8 +123,22 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   const musicGenres = ['dj', 'electronic', 'hip hop', 'hip-hop', 'edm', 'house', 'techno', 'dance', 'disco'];
   const hasPartyMusic = musicGenres.some(genre => combinedText.includes(genre));
 
-  // More aggressive detection - return true if any match is found
-  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch || hasPartyVenue || hasPartyMusic);
+  // Check for time-based indicators that suggest a party
+  let isPartyTime = false;
+  if (combinedText.includes('night') || combinedText.includes('evening') ||
+      combinedText.includes('pm') || combinedText.includes('tonight') ||
+      combinedText.includes('weekend')) {
+    isPartyTime = true;
+  }
+
+  // Check for event types that are often parties
+  const eventTypes = ['concert', 'show', 'performance', 'festival', 'fest', 'event'];
+  const isEventType = eventTypes.some(type => combinedText.includes(type));
+
+  // Super aggressive detection - return true if any match is found
+  // This ensures we catch as many party events as possible
+  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch ||
+           hasPartyVenue || hasPartyMusic || isPartyTime || isEventType);
 }
 
 /**
