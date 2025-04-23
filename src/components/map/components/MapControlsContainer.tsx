@@ -2,10 +2,7 @@ import React, { useState } from 'react';
 import { MapControls, EventFilters } from './MapControls';
 import { MapStyleControls } from './MapStyleControls';
 import { CoordinatesDisplay } from './CoordinatesDisplay';
-import { Clock } from 'lucide-react/dist/esm/icons/clock';
-import { DollarSign } from 'lucide-react/dist/esm/icons/dollar-sign';
-import { Filter } from 'lucide-react/dist/esm/icons/filter';
-import { Settings } from 'lucide-react/dist/esm/icons/settings';
+import { Clock, DollarSign, Filter, Settings } from 'lucide-react';
 import { CollapsiblePanel } from './CollapsiblePanel';
 import { TimeSlider } from './TimeSlider';
 import { PriceRangeFilter } from './PriceRangeFilter';
@@ -46,7 +43,7 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
   const [showSettings, setShowSettings] = useState(false);
 
   if (!mapLoaded) return null;
-  
+
   return (
     <>
       {/* Bottom center: Map Style Controls */}
@@ -56,34 +53,34 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
           onMapStyleChange={onMapStyleChange}
         />
       </div>
-      
+
       {/* Bottom right: Time Filter Panel */}
-      <CollapsiblePanel 
-        title="Time Filter" 
+      <CollapsiblePanel
+        title="Time Filter"
         icon={<Clock className="h-4 w-4" />}
         position="right"
         className="bottom-4"
       >
-        <TimeSlider 
-          onTimeRangeChange={(range) => onTimeRangeChange?.(range)} 
+        <TimeSlider
+          onTimeRangeChange={(range) => onTimeRangeChange?.(range)}
           defaultValue={[8, 23]} // Default 8am to 11pm
         />
       </CollapsiblePanel>
 
       {/* Bottom left: Price Filter Panel */}
-      <CollapsiblePanel 
-        title="Price Filter" 
+      <CollapsiblePanel
+        title="Price Filter"
         icon={<DollarSign className="h-4 w-4" />}
         position="left"
         className="bottom-4"
       >
-        <PriceRangeFilter 
+        <PriceRangeFilter
           onPriceRangeChange={(range) => onPriceRangeChange?.(range)}
           onFreeEventsChange={(showFreeOnly) => onFreeEventsChange?.(showFreeOnly)}
           defaultValue={[0, 200]}
         />
       </CollapsiblePanel>
-      
+
       {/* Debug coordinates (hidden in production) */}
       {process.env.NODE_ENV === 'development' && (
         <CoordinatesDisplay
@@ -92,7 +89,7 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
           zoom={viewState.zoom}
         />
       )}
-      
+
       {/* Main Map Controls (search, etc) */}
       <MapControls
         filters={filters}

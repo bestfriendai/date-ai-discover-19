@@ -1,15 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Filter } from 'lucide-react/dist/esm/icons/filter';
-import { Locate } from 'lucide-react/dist/esm/icons/locate';
-import { Search } from 'lucide-react/dist/esm/icons/search';
-import { X } from 'lucide-react/dist/esm/icons/x';
-import { Moon } from 'lucide-react/dist/esm/icons/moon';
-import { Sun } from 'lucide-react/dist/esm/icons/sun';
-import { Satellite } from 'lucide-react/dist/esm/icons/satellite';
-import { Loader2 } from 'lucide-react/dist/esm/icons/loader-2';
-import { Map } from 'lucide-react/dist/esm/icons/map';
-import { Compass } from 'lucide-react/dist/esm/icons/compass';
-import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
+import { Filter, Locate, Search, X, Moon, Sun, Satellite, Loader2, Map, Compass, MapPin } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import { toast } from '@/hooks/use-toast';
@@ -76,7 +66,7 @@ export const MapControls = ({
   return (
     <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-4 pb-6">
       {/* Main search controls */}
-      <motion.div 
+      <motion.div
         className="w-full max-w-2xl px-4 flex flex-col items-center gap-3"
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
@@ -95,9 +85,9 @@ export const MapControls = ({
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={handleKeyDown}
               />
-              
+
               <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
-              
+
               {searchTerm && (
                 <Button
                   variant="ghost"
@@ -108,7 +98,7 @@ export const MapControls = ({
                   <X className="h-4 w-4" />
                 </Button>
               )}
-              
+
               <Button
                 variant="ghost"
                 size="icon"
@@ -139,44 +129,44 @@ export const MapControls = ({
         {/* Map style controls */}
         <div className="flex justify-center">
           <ToggleGroup type="single" className="bg-background/80 backdrop-blur-xl rounded-full border border-border/50 p-1 shadow-lg">
-            <ToggleGroupItem 
-              value="dark" 
+            <ToggleGroupItem
+              value="dark"
               onClick={() => onMapStyleChange('mapbox://styles/mapbox/dark-v11')}
               className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
                 currentMapStyle.includes('dark-v11') && "bg-primary text-primary-foreground"
               )}
               aria-label="Dark mode"
             >
               <Moon className="h-5 w-5" />
             </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="light" 
+            <ToggleGroupItem
+              value="light"
               onClick={() => onMapStyleChange('mapbox://styles/mapbox/light-v11')}
               className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
                 currentMapStyle.includes('light-v11') && "bg-primary text-primary-foreground"
               )}
               aria-label="Light mode"
             >
               <Sun className="h-5 w-5" />
             </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="satellite" 
+            <ToggleGroupItem
+              value="satellite"
               onClick={() => onMapStyleChange('mapbox://styles/mapbox/satellite-streets-v12')}
               className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
                 currentMapStyle.includes('satellite-streets-v12') && "bg-primary text-primary-foreground"
               )}
               aria-label="Satellite view"
             >
               <Satellite className="h-5 w-5" />
             </ToggleGroupItem>
-            <ToggleGroupItem 
-              value="streets" 
+            <ToggleGroupItem
+              value="streets"
               onClick={() => onMapStyleChange('mapbox://styles/mapbox/streets-v12')}
               className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground", 
+                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
                 currentMapStyle.includes('streets-v12') && "bg-primary text-primary-foreground"
               )}
               aria-label="Streets view"

@@ -1,12 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Map as MapIcon } from 'lucide-react/dist/esm/icons/map';
-import { Sunrise } from 'lucide-react/dist/esm/icons/sunrise';
-import { Moon } from 'lucide-react/dist/esm/icons/moon';
-import { Mountain } from 'lucide-react/dist/esm/icons/mountain';
-import { Globe } from 'lucide-react/dist/esm/icons/globe';
-import { Building } from 'lucide-react/dist/esm/icons/building';
-import { Layers } from 'lucide-react/dist/esm/icons/layers';
+import { Map as MapIcon, Sunrise, Moon, Mountain, Globe, Building, Layers } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -37,7 +31,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
       <div className="flex gap-2 bg-background/80 backdrop-blur p-1.5 rounded-lg shadow-lg border border-border/50">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               size="icon"
               variant={currentMapStyle === MAP_STYLES.streets ? "default" : "ghost"}
               onClick={() => onMapStyleChange(MAP_STYLES.streets)}
@@ -53,7 +47,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               size="icon"
               variant={currentMapStyle === MAP_STYLES.light ? "default" : "ghost"}
               onClick={() => onMapStyleChange(MAP_STYLES.light)}
@@ -69,7 +63,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               size="icon"
               variant={currentMapStyle === MAP_STYLES.dark ? "default" : "ghost"}
               onClick={() => onMapStyleChange(MAP_STYLES.dark)}
@@ -85,7 +79,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               size="icon"
               variant={currentMapStyle === MAP_STYLES.satellite ? "default" : "ghost"}
               onClick={() => onMapStyleChange(MAP_STYLES.satellite)}
@@ -101,7 +95,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               size="icon"
               variant={currentMapStyle === MAP_STYLES.outdoor ? "default" : "ghost"}
               onClick={() => onMapStyleChange(MAP_STYLES.outdoor)}
@@ -117,7 +111,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button 
+            <Button
               size="icon"
               variant={currentMapStyle === MAP_STYLES.navigation ? "default" : "ghost"}
               onClick={() => onMapStyleChange(MAP_STYLES.navigation)}

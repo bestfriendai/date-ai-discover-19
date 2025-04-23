@@ -9,17 +9,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import AddToPlanModal from './AddToPlanModal';
 import { toast } from '@/hooks/use-toast';
 import { Event } from '@/types';
-import { ExternalLink } from 'lucide-react/dist/esm/icons/external-link';
-import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
-import { CalendarDays as Calendar } from 'lucide-react/dist/esm/icons/calendar-days';
-import { Clock } from 'lucide-react/dist/esm/icons/clock';
-import { Heart } from 'lucide-react/dist/esm/icons/heart';
-import { Plus } from 'lucide-react/dist/esm/icons/plus';
-import { Share2 } from 'lucide-react/dist/esm/icons/share-2';
-import { Ticket } from 'lucide-react/dist/esm/icons/ticket';
-import { Star } from 'lucide-react/dist/esm/icons/star';
-import { Users } from 'lucide-react/dist/esm/icons/users';
-import { TrendingUp } from 'lucide-react/dist/esm/icons/trending-up';
+import { ExternalLink, MapPin, CalendarDays as Calendar, Clock, Heart, Plus, Share2, Ticket, Star, Users, TrendingUp } from 'lucide-react';
 
 // Helper function to format party subcategory for display
 const formatPartySubcategory = (subcategory: string): string => {

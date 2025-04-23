@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { Clock } from 'lucide-react/dist/esm/icons/clock';
-import { Calendar } from 'lucide-react/dist/esm/icons/calendar';
+import { Clock, Calendar } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -16,7 +15,7 @@ interface TimeSliderProps {
 
 export function TimeSlider({ onTimeRangeChange, defaultValue = [0, 24] }: TimeSliderProps) {
   const [value, setValue] = useState<[number, number]>(defaultValue);
-  
+
   // Format time for display (convert 0-24 to readable time)
   const formatTime = (hour: number) => {
     if (hour === 0 || hour === 24) return '12 AM';
@@ -47,18 +46,18 @@ export function TimeSlider({ onTimeRangeChange, defaultValue = [0, 24] }: TimeSl
             </TooltipContent>
           </Tooltip>
         </div>
-        
+
         <div className="mb-6">
-          <Slider 
+          <Slider
             defaultValue={defaultValue}
-            max={24} 
-            step={1} 
+            max={24}
+            step={1}
             value={value}
             onValueChange={(values) => setValue(values as [number, number])}
             className="w-full"
           />
         </div>
-        
+
         <div className="flex justify-between items-center text-xs font-medium">
           <div>
             <div className="text-primary">{formatTime(value[0])}</div>

@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { DollarSign } from 'lucide-react/dist/esm/icons/dollar-sign';
-import { PlusCircle } from 'lucide-react/dist/esm/icons/plus-circle';
-import { MinusCircle } from 'lucide-react/dist/esm/icons/minus-circle';
+import { DollarSign, PlusCircle, MinusCircle } from 'lucide-react';
 import {
   Tooltip,
   TooltipContent,
@@ -19,15 +17,15 @@ interface PriceRangeFilterProps {
   defaultShowFreeOnly?: boolean;
 }
 
-export function PriceRangeFilter({ 
-  onPriceRangeChange, 
+export function PriceRangeFilter({
+  onPriceRangeChange,
   onFreeEventsChange,
   defaultValue = [0, 200],
-  defaultShowFreeOnly = false 
+  defaultShowFreeOnly = false
 }: PriceRangeFilterProps) {
   const [value, setValue] = useState<[number, number]>(defaultValue);
   const [showFreeOnly, setShowFreeOnly] = useState(defaultShowFreeOnly);
-  
+
   // Format price for display
   const formatPrice = (price: number) => {
     return price === 0 ? 'Free' : `$${price}`;
@@ -60,24 +58,24 @@ export function PriceRangeFilter({
             <Label htmlFor="free-events-mode">Free events only</Label>
           </div>
         </div>
-        
+
         <div className="mb-6">
-          <Slider 
+          <Slider
             defaultValue={defaultValue}
             min={0}
-            max={500} 
-            step={10} 
+            max={500}
+            step={10}
             value={value}
             disabled={showFreeOnly}
             onValueChange={(values) => setValue(values as [number, number])}
             className={`w-full ${showFreeOnly ? 'opacity-50' : ''}`}
           />
         </div>
-        
+
         <div className="flex justify-between items-center text-xs font-medium">
           <Tooltip>
             <TooltipTrigger asChild>
-              <button 
+              <button
                 className={`flex items-center gap-1 ${showFreeOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 onClick={() => {
                   if (!showFreeOnly && value[0] > 0) {
@@ -94,10 +92,10 @@ export function PriceRangeFilter({
               <p className="text-xs">Minimum price</p>
             </TooltipContent>
           </Tooltip>
-          
+
           <Tooltip>
             <TooltipTrigger asChild>
-              <button 
+              <button
                 className={`flex items-center gap-1 ${showFreeOnly ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
                 onClick={() => {
                   if (!showFreeOnly && value[1] < 500) {

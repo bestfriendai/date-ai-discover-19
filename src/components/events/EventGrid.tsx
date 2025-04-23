@@ -1,8 +1,5 @@
 import { AnimatedCard } from '../animations/AnimatedCard';
-import { CalendarDays } from 'lucide-react/dist/esm/icons/calendar-days';
-import { Clock } from 'lucide-react/dist/esm/icons/clock';
-import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
-import { Star } from 'lucide-react/dist/esm/icons/star';
+import { CalendarDays, Clock, MapPin, Star } from 'lucide-react';
 import type { Event } from '@/types';
 
 interface EventGridProps {
