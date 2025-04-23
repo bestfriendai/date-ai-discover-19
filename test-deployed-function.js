@@ -8,26 +8,28 @@ async function testDeployedFunction() {
     const url = `https://${projectRef}.supabase.co/functions/v1/${functionName}`;
     
     // Test parameters - specifically for party events
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
     const params = {
       location: "New York",
       radius: 25,
       categories: ['party'],
       limit: 20,
-      page: 1
+      page: 1,
+      startDate: today // Add the required startDate
     };
     
     console.log(`Testing deployed function at: ${url}`);
     console.log(`With parameters: ${JSON.stringify(params, null, 2)}`);
     
     // Get the service role key from Supabase project settings
-    // Note: Using service role key for testing purposes only
-    const SUPABASE_SERVICE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTY5OTQ3MDQ3NywiZXhwIjoyMDE1MDQ2NDc3fQ.Zt5AxiIPXwfIjcSBQDO9zDGpOY7yIZNwkOI2y5Dl1Ks';
+    // Use the public anonymous key for invoking deployed functions
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
     
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${SUPABASE_SERVICE_KEY}`
+        'Authorization': `Bearer ${SUPABASE_ANON_KEY}` // Use Anon Key
       },
       body: JSON.stringify(params)
     });
