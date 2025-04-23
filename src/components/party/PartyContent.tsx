@@ -1,8 +1,10 @@
+
 import React from 'react';
 import MapComponent from '@/components/map/MapComponent';
 import { PartySidebars } from './PartySidebars';
 import { MapControlsArea } from '@/components/map/components/MapControlsArea';
 import PartySearch from './PartySearch';
+import PartyMapMarkers from './PartyMapMarkers'; // Import the PartyMapMarkers
 import type { Event } from '@/types';
 import type { EventFilters } from '@/components/map/components/MapControls';
 
@@ -57,6 +59,14 @@ export const PartyContent = ({
   onLoadMore,
   onAddToPlan,
 }: PartyContentProps) => {
+  // Reference to store the map object
+  const [mapInstance, setMapInstance] = React.useState<mapboxgl.Map | null>(null);
+
+  // Function to receive the map instance from MapComponent
+  const handleMapInstance = (map: mapboxgl.Map) => {
+    setMapInstance(map);
+  };
+
   return (
     <>
       <PartySidebars
@@ -83,7 +93,18 @@ export const PartyContent = ({
           onMapLoad={onMapLoad}
           onFetchEvents={onFetchEvents}
           onAddToPlan={onAddToPlan}
+          onMapInstance={handleMapInstance} // Pass the callback to receive map instance
         />
+
+        {/* Render the PartyMapMarkers component when we have a map and events */}
+        {mapInstance && events.length > 0 && (
+          <PartyMapMarkers
+            map={mapInstance}
+            events={events}
+            selectedEventId={selectedEvent?.id || null}
+            onMarkerClick={onEventSelect}
+          />
+        )}
 
         {showSearch && (
           <div className="absolute top-20 left-1/2 transform -translate-x-1/2 z-10 w-full max-w-2xl px-4">

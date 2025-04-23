@@ -17,9 +17,7 @@ import { useMapControls } from './hooks/useMapControls';
 import { useMapState } from './hooks/useMapState';
 import { useMapEvents } from './hooks/useMapEvents';
 import { useKeyboardNavigation } from './hooks/useKeyboardNavigation';
-// import EventMarkerLegend from './markers/EventMarkerLegend'; // Removed as requested
-// import { MapEventHandlers } from './components/MapEventHandlers'; // Logic moved into MapComponent or hooks
-import { toast } from '@/hooks/use-toast'; // Import toast
+import { toast } from '@/hooks/use-toast';
 
 const MAP_STYLES = {
   dark: 'mapbox://styles/mapbox/dark-v11',
@@ -40,6 +38,7 @@ interface MapComponentProps {
   onLoadingChange?: (isLoading: boolean) => void;
   onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
   onAddToPlan?: (event: Event) => void;
+  onMapInstance?: (map: mapboxgl.Map) => void; // Add callback to provide map instance
 }
 
 const MapComponent = ({
@@ -53,6 +52,7 @@ const MapComponent = ({
   onLoadingChange,
   onFetchEvents,
   onAddToPlan,
+  onMapInstance,
 }: MapComponentProps) => {
   const mapContainer = useRef<HTMLDivElement>(null);
   const [initialViewState] = useState({
@@ -72,6 +72,13 @@ const MapComponent = ({
     mapStyle,
     onMapLoadProp // Pass the prop function
   );
+
+  // Provide map instance to parent component when available
+  useEffect(() => {
+    if (map && isMapInitialized && onMapInstance) {
+      onMapInstance(map);
+    }
+  }, [map, isMapInitialized, onMapInstance]);
 
   const {
     locationRequested,
