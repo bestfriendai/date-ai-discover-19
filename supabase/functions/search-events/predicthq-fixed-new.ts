@@ -66,7 +66,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
   try {
     // Validate API key
-    if (typeof apiKey !== 'string' || apiKey.length < 10) {
+    if (!apiKey || typeof apiKey !== 'string' || apiKey.length < 10) {
       console.error('[PREDICTHQ_AUTH_ERROR] Invalid or missing API key.');
       return {
         events: [],
@@ -75,7 +75,9 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         warnings: []
       };
     }
-    console.log(`[PREDICTHQ_AUTH_DEBUG] API Key looks valid (length ${apiKey.length}).`);
+    
+    // Log API key details for debugging (safely)
+    console.log(`[PREDICTHQ_AUTH_DEBUG] API Key provided (length ${apiKey.length}, starts with ${apiKey.substring(0, 4)}...).`);
 
     // Build the PredictHQ API URL
     let url = 'https://api.predicthq.com/v1/events/';
