@@ -132,81 +132,80 @@ export async function fetchPredictHQEvents(params: {
       queryParams.append('active.lte', endDate);
     }
 
-    // --- Ensure party events are prioritized in PredictHQ queries ---
-    // If categories includes 'party', always add party-related PredictHQ categories and labels/keywords
+    // --- Enhanced party events prioritization in PredictHQ queries ---
+    // If categories includes 'party', use a more sophisticated approach to find party events
     let categoriesForQuery = categories || [];
     let keywordForQuery = keyword;
-    let labelsForQuery = [];
+    let labelsForQuery: string[] = [];
+    let rankGte = 0; // Default rank threshold
+
     if (categoriesForQuery.includes('party')) {
+      console.log('[PARTY_DEBUG] Party category requested - applying enhanced party detection');
+
+      // Increase radius for party searches
+      if (radius < 75) {
+        console.log(`[PARTY_DEBUG] Increasing radius from ${radius} to 75 miles for party search`);
+        // This is already handled above, but logging for clarity
+      }
+
       // Add all party-related PredictHQ categories - only using valid PredictHQ categories
       // Prioritize categories that are most likely to contain party events
-      const partyCategories = ['concerts','festivals','community','conferences','performing-arts','expos','sports'];
+      const partyCategories = ['concerts', 'festivals', 'community', 'conferences', 'performing-arts', 'expos'];
       categoriesForQuery = Array.from(new Set([...categoriesForQuery, ...partyCategories]));
-
-      // Always include all these categories when searching for parties
-      // This ensures we get the widest possible range of events that could be parties
 
       // Force the category parameter to include all party-related categories
       queryParams.append('category', partyCategories.join(','));
 
-      // Add party-related labels - massively expanded for comprehensive coverage
+      // Add party-related labels - prioritizing the most relevant ones
       // We'll rely heavily on labels to identify potential party events
       labelsForQuery = [
-        // Nightlife and club related
-        'nightlife','party','club','nightclub','dance-club','disco','lounge','bar',
-        'dance-party','dance-floor','dancing','dj-set','dj-night','dj-party',
-        'after-hours','late-night','bottle-service','vip-tables','vip-section',
-        'night-out','night-life','club-night','dance-night','party-night',
+        // Top priority labels - strongest party indicators
+        'nightlife', 'party', 'club', 'nightclub', 'dance-club', 'disco',
+        'dance-party', 'dj-set', 'dj-night', 'dj-party', 'rave',
+        'bottle-service', 'vip-tables', 'vip-section',
+        'club-night', 'dance-night', 'party-night',
 
-        // Social events
-        'social-gathering','celebration','networking','mixer','social',
-        'meetup','meet-and-greet','singles','speed-dating','social-event',
-        'happy-hour','cocktail','cocktail-party','open-bar','drinks',
-        'social-mixer','networking-event','singles-event','mingling',
+        // Day party specific labels
+        'day-party', 'pool-party', 'beach-party', 'day-club',
+        'rooftop-party', 'outdoor-party',
 
-        // Music and entertainment
-        'music','live-music','concert','performance','show','entertainment',
-        'dance','dj','electronic-music','hip-hop','edm','house-music',
-        'techno','rave','festival','music-festival','dance-music',
-        'live-dj','live-band','live-performance','music-event','concert-event',
+        // Music and entertainment focused labels
+        'electronic-music', 'hip-hop', 'edm', 'house-music',
+        'techno', 'music-festival', 'dance-music',
 
-        // Special events
-        'gala','reception','vip','exclusive','launch-party','opening',
-        'premiere','after-party','release-party','album-release',
-        'birthday-party','anniversary-party','celebration-event',
-        'special-event','exclusive-event','vip-event','private-event',
+        // Venue type labels
+        'lounge', 'bar', 'club-venue', 'nightclub-venue', 'dance-venue',
+        'warehouse-party', 'underground-party',
 
-        // Day parties
-        'day-party','pool-party','beach-party','brunch','day-club',
-        'afternoon-party','rooftop-party','outdoor-party','bbq-party',
-        'daytime-event','pool-event','rooftop-event','outdoor-event',
-
-        // Venue types
-        'venue','club-venue','event-space','rooftop','terrace',
-        'warehouse-party','underground-party','pop-up-party',
-        'lounge-venue','bar-venue','nightclub-venue','dance-venue',
-
-        // Additional party types
-        'themed-party','costume-party','masquerade','holiday-party',
-        'new-years-party','halloween-party','summer-party','winter-party',
-        'spring-party','fall-party','seasonal-party','annual-party'
+        // Special event types
+        'exclusive', 'vip', 'launch-party', 'after-party',
+        'themed-party', 'costume-party', 'masquerade'
       ];
 
-      // Add comprehensive party-related keywords if not present - strengthened for better party detection
+      // Add comprehensive party-related keywords if not present
       if (!keywordForQuery) {
-        // Create a very comprehensive party keyword search to compensate for category limitations
-        keywordForQuery = 'party OR club OR nightclub OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR concert OR lounge OR venue OR vip OR exclusive OR "pool party" OR "day party" OR "dance party" OR "after party" OR "launch party" OR "birthday party" OR "singles party" OR "warehouse party" OR "underground party" OR "rooftop party" OR "beach party" OR "brunch party" OR "dj set" OR "bottle service" OR "vip tables" OR "open bar" OR "night out" OR "dance floor" OR "dancing" OR "electronic music" OR "hip hop" OR "edm" OR "house music" OR "techno" OR "disco" OR "bar crawl" OR "pub crawl" OR "social event" OR "networking event" OR "mixer event" OR "celebration event" OR "vip event" OR "exclusive event" OR "special event" OR "dance event" OR "music event" OR "nightlife event" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"';
+        // Create a focused party keyword search with the most relevant terms first
+        keywordForQuery = 'nightclub OR "night club" OR "dance club" OR "dance party" OR "dj set" OR "dj night" OR rave OR "bottle service" OR "vip table" OR "vip section" OR "dance floor" OR "electronic music" OR "hip hop" OR "edm" OR "house music" OR techno OR "underground party" OR "warehouse party" OR "pool party" OR "day party" OR "rooftop party" OR "exclusive party" OR "vip party" OR "club night" OR "dance night" OR "party night" OR "nightlife" OR "night life"';
+      } else {
+        // If keyword is provided, enhance it with party-specific terms
+        keywordForQuery = `(${keywordForQuery}) AND (party OR club OR nightlife OR dance OR dj)`;
       }
+
+      // Set a minimum rank threshold to filter out low-quality events
+      // PredictHQ rank is 0-100, with higher values for more significant events
+      rankGte = 30; // Only include events with rank >= 30
+      queryParams.append('rank.gte', rankGte.toString());
+      console.log(`[PARTY_DEBUG] Setting minimum rank threshold to ${rankGte}`);
 
       // Increase the limit for party events
       if (limit < 500) {
         limit = 500;
-        console.log('[PREDICTHQ] Increased limit for party events to 500');
+        console.log('[PARTY_DEBUG] Increased limit for party events to 500');
       }
 
       console.log('[PARTY_DEBUG] Enhanced PredictHQ filters for party events');
     }
-    // --- END party events prioritization ---
+    // --- END enhanced party events prioritization ---
 
     // Add category filters
     if (categoriesForQuery && categoriesForQuery.length > 0) {
@@ -580,8 +579,13 @@ function normalizePredictHQEvent(event: any): Event {
     const partyCategories = ['concerts', 'festivals', 'community', 'performing-arts', 'expos'];
     const hasPartyCategory = event.category && partyCategories.includes(event.category);
 
+    // Check event rank (PredictHQ specific) - higher rank events are more significant
+    const eventRank = event.rank || 0;
+    const isHighRankEvent = eventRank >= 60; // High rank threshold
+    const isMediumRankEvent = eventRank >= 40; // Medium rank threshold
+
     // Log party detection for debugging
-    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, IsPartyByDetection: ${isPartyByDetection}, HasPartyLabels: ${hasPartyLabels}, HasPartyVenue: ${hasPartyVenue}, HasPartyTerms: ${hasPartyTerms}, HasPartyCategory: ${hasPartyCategory}`);
+    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, Rank: ${eventRank}, IsPartyByDetection: ${isPartyByDetection}, HasPartyLabels: ${hasPartyLabels}, HasPartyVenue: ${hasPartyVenue}, HasPartyTerms: ${hasPartyTerms}, HasPartyCategory: ${hasPartyCategory}`);
 
     // If any of our party detection methods return true, categorize as a party
     // We're being more aggressive with party detection to compensate for category limitations
@@ -591,25 +595,56 @@ function normalizePredictHQEvent(event: any): Event {
       console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
     }
 
-    // For events from PredictHQ with certain categories, be more aggressive about categorizing as parties
-    // This ensures we get more party events from PredictHQ
+    // For events from PredictHQ with certain categories, use a more sophisticated approach
+    // This ensures we get more high-quality party events from PredictHQ
     if (event.category === 'concerts' || event.category === 'festivals' || event.category === 'performing-arts') {
       // Check if the title or description contains music-related terms that suggest a party
-      const musicPartyTerms = [
-        'dj', 'dance', 'club', 'party', 'nightlife', 'electronic', 'hip hop', 'hip-hop', 'edm', 'house', 'techno',
-        'disco', 'rave', 'festival', 'concert', 'live music', 'performance', 'show', 'night', 'evening',
-        'weekend', 'friday', 'saturday', 'sunday', 'entertainment', 'venue', 'lounge', 'bar'
+      // Weighted approach - some terms are stronger indicators than others
+      const strongPartyTerms = [
+        'dj', 'dance', 'club', 'nightclub', 'party', 'nightlife', 'electronic',
+        'hip hop', 'hip-hop', 'edm', 'house', 'techno', 'disco', 'rave'
       ];
+
+      const mediumPartyTerms = [
+        'festival', 'concert', 'live music', 'performance', 'show', 'night',
+        'venue', 'lounge', 'bar', 'vip', 'exclusive'
+      ];
+
+      const weakPartyTerms = [
+        'evening', 'weekend', 'friday', 'saturday', 'sunday', 'entertainment'
+      ];
+
       const lowerTitle = (event.title || '').toLowerCase();
       const lowerDesc = (event.description || '').toLowerCase();
+      const combinedText = `${lowerTitle} ${lowerDesc}`;
 
-      const hasMusicPartyTerms = musicPartyTerms.some(term => lowerTitle.includes(term) || lowerDesc.includes(term));
+      // Check for term presence with different weights
+      const hasStrongTerms = strongPartyTerms.some(term => combinedText.includes(term));
+      const hasMediumTerms = mediumPartyTerms.some(term => combinedText.includes(term));
+      const hasWeakTerms = weakPartyTerms.some(term => combinedText.includes(term));
 
-      // Be more aggressive - if it's a concert or festival with any of these terms, it's likely a party
-      if (hasMusicPartyTerms) {
+      // Determine if it's a party based on term presence and event rank
+      const isPartyByStrongTerms = hasStrongTerms;
+      const isPartyByMediumTerms = hasMediumTerms && (isMediumRankEvent || hasWeakTerms);
+      const isPartyByWeakTerms = hasWeakTerms && isHighRankEvent;
+
+      if (isPartyByStrongTerms || isPartyByMediumTerms || isPartyByWeakTerms) {
         category = 'party';
-        partySubcategory = partySubcategory || 'club';
-        console.log(`[PARTY_DEBUG] PredictHQ music event categorized as party: ${event.title}`);
+
+        // Determine subcategory based on terms
+        if (!partySubcategory) {
+          if (combinedText.includes('club') || combinedText.includes('nightclub') ||
+              combinedText.includes('dj') || combinedText.includes('dance')) {
+            partySubcategory = 'club';
+          } else if (combinedText.includes('day') || combinedText.includes('afternoon') ||
+                     combinedText.includes('pool') || combinedText.includes('rooftop')) {
+            partySubcategory = 'day-party';
+          } else {
+            partySubcategory = 'general';
+          }
+        }
+
+        console.log(`[PARTY_DEBUG] PredictHQ music event categorized as party: ${event.title} (Subcategory: ${partySubcategory})`);
       }
 
       // For concerts and festivals, even without specific terms, there's a good chance it's party-like
@@ -622,6 +657,11 @@ function normalizePredictHQEvent(event: any): Event {
           console.log(`[PARTY_DEBUG] PredictHQ high-ranked music event categorized as party: ${event.title}`);
         }
       }
+    }
+
+    // Store the original rank in the event object for later scoring
+    if (event.rank) {
+      (normalizedEvent as any)._rank = event.rank;
     }
 
     // Generate a unique ID

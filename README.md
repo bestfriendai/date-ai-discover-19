@@ -1,4 +1,27 @@
-# Welcome to your Lovable project
+# DateAI Discover
+
+A platform for discovering events and planning dates using React, TypeScript, Mapbox GL JS, and Supabase.
+
+## Recent Improvements
+
+### Map Markers
+- Fixed issues with map markers not displaying correctly
+- Added better coordinate validation to prevent errors
+- Implemented coordinate jittering to prevent marker overlap
+- Improved marker batching for better performance
+- Enhanced selection state handling for markers
+
+### PredictHQ Integration
+- Improved party event detection with weighted keyword scoring
+- Added rank-based filtering for higher quality events
+- Enhanced party subcategory detection
+- Implemented more sophisticated party scoring algorithm
+- Optimized API parameters for better party event discovery
+
+### Code Structure
+- Added utility functions for map operations
+- Improved error handling in Supabase functions
+- Enhanced logging for better debugging
 
 ## Project info
 
@@ -59,6 +82,36 @@ This project is built with:
 - React
 - shadcn-ui
 - Tailwind CSS
+- Mapbox GL JS
+- Supabase
+- PredictHQ API
+- Ticketmaster API
+
+## Project Structure
+
+The project is organized as follows:
+
+- `src/` - Frontend React application
+  - `components/` - UI components
+    - `map/` - Map-related components
+    - `party/` - Party-specific components
+  - `utils/` - Utility functions
+  - `services/` - API service functions
+  - `types/` - TypeScript type definitions
+  - `hooks/` - Custom React hooks
+
+- `supabase/` - Supabase backend
+  - `functions/` - Supabase Edge Functions
+    - `search-events/` - Function for searching events from multiple sources
+    - `predicthq-fixed.ts` - Improved PredictHQ integration
+
+## Key Features
+
+- **Event Discovery**: Find events on an interactive map
+- **Party AI**: Specialized discovery for party events
+- **Itinerary Building**: Create and manage date plans
+- **Favorites**: Save events for later
+- **Chat**: AI-powered event recommendations
 
 ## How can I deploy this project?
 
