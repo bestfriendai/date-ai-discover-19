@@ -1,8 +1,9 @@
+
 import React, { useState } from 'react';
 import { MapControls, EventFilters } from './MapControls';
 import { MapStyleControls } from './MapStyleControls';
 import { CoordinatesDisplay } from './CoordinatesDisplay';
-import { Clock, DollarSign, Filter, Settings } from 'lucide-react';
+import { ClockIcon, DollarSignIcon, FilterIcon, SettingsIcon } from '@/lib/icons';
 import { CollapsiblePanel } from './CollapsiblePanel';
 import { TimeSlider } from './TimeSlider';
 import { PriceRangeFilter } from './PriceRangeFilter';
@@ -57,7 +58,7 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
       {/* Bottom right: Time Filter Panel */}
       <CollapsiblePanel
         title="Time Filter"
-        icon={<Clock className="h-4 w-4" />}
+        icon={<ClockIcon className="h-4 w-4" />}
         position="right"
         className="bottom-4"
       >
@@ -70,7 +71,7 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
       {/* Bottom left: Price Filter Panel */}
       <CollapsiblePanel
         title="Price Filter"
-        icon={<DollarSign className="h-4 w-4" />}
+        icon={<DollarSignIcon className="h-4 w-4" />}
         position="left"
         className="bottom-4"
       >

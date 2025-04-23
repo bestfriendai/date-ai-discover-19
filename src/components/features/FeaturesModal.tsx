@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import { FeaturesList } from './FeaturesList';
-import { Sparkles } from 'lucide-react';
+import { SparklesIcon } from '@/lib/icons';
 
 // Define the features data
 const featuresData = [
@@ -86,7 +86,7 @@ export const FeaturesModal: React.FC<FeaturesModalProps> = ({ trigger }) => {
       <DialogTrigger asChild>
         {trigger || (
           <Button variant="outline" size="sm" className="gap-2">
-            <Sparkles className="h-4 w-4" />
+            <SparklesIcon className="h-4 w-4" />
             <span>Features</span>
           </Button>
         )}

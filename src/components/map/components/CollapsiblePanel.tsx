@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { ChevronUp, ChevronDown } from 'lucide-react';
+import { ChevronUpIcon, ChevronDownIcon } from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 
 interface CollapsiblePanelProps {
@@ -49,9 +50,9 @@ export function CollapsiblePanel({
             <span className="text-sm font-medium">{title}</span>
           </span>
           {isOpen ? (
-            <ChevronUp className="h-4 w-4 ml-2" />
+            <ChevronUpIcon className="h-4 w-4 ml-2" />
           ) : (
-            <ChevronDown className="h-4 w-4 ml-2" />
+            <ChevronDownIcon className="h-4 w-4 ml-2" />
           )}
         </button>
 

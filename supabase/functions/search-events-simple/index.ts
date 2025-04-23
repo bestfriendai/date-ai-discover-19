@@ -1,135 +1,199 @@
-// Setup type definitions for built-in Supabase Runtime APIs
-import "jsr:@supabase/functions-js/edge-runtime.d.ts"
 
-// CORS headers for cross-origin requests
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { Event, SearchEventsResponse } from "../search-events/types.ts";
+
+// CORS headers for browser access
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-}
+};
 
-// Handle CORS preflight requests
-function handleCors() {
-  return new Response('ok', { headers: corsHeaders })
-}
-
-// Main function to handle requests
-Deno.serve(async (req: Request) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return handleCors()
-  }
-
-  // Add CORS headers to all responses
-  const headers = {
-    ...corsHeaders,
-    'Content-Type': 'application/json'
+    return new Response('ok', { headers: corsHeaders });
   }
 
   try {
-    // Parse request parameters
-    const params = await req.json()
+    console.log('Request received');
 
-    // Log the request parameters
-    console.log('Received request with params:', JSON.stringify(params, null, 2))
-
-    // Create a simple response with mock data
-    const response = {
-      events: [
-        {
-          id: 'mock-event-1',
-          source: 'mock',
-          title: 'Mock Party Event',
-          description: 'This is a mock party event for testing',
-          date: '2023-12-31',
-          time: '20:00',
-          location: 'New York, NY',
-          venue: 'Mock Venue',
-          category: 'party',
-          partySubcategory: 'club',
-          image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&auto=format&fit=crop',
-          coordinates: [-73.9857, 40.7484],
-          url: 'https://example.com/event1',
-          rank: 80,
-          localRelevance: 90,
-          attendance: {
-            forecast: 500,
-            actual: null
-          },
-          demandSurge: 1
-        },
-        {
-          id: 'mock-event-2',
-          source: 'mock',
-          title: 'Mock Music Event',
-          description: 'This is a mock music event for testing',
-          date: '2023-12-25',
-          time: '19:00',
-          location: 'New York, NY',
-          venue: 'Mock Concert Hall',
-          category: 'music',
-          image: 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&auto=format&fit=crop',
-          coordinates: [-73.9857, 40.7484],
-          url: 'https://example.com/event2',
-          rank: 70,
-          localRelevance: 80,
-          attendance: {
-            forecast: 300,
-            actual: null
-          },
-          demandSurge: 0
+    // Parse the request body
+    let params;
+    try {
+      if (req.body) {
+        const bodyText = new TextDecoder().decode(await req.arrayBuffer());
+        console.log('Request body:', bodyText);
+        if (bodyText && bodyText.trim()) {
+          params = JSON.parse(bodyText);
+        } else {
+          params = {};
         }
-      ],
-      sourceStats: {
-        ticketmaster: {
-          count: 1,
-          error: null
-        },
-        predicthq: {
-          count: 1,
-          error: null
-        },
-        serpapi: {
-          count: 0,
-          error: null
-        }
-      },
-      meta: {
-        executionTime: 100,
-        totalEvents: 2,
-        pageSize: 2,
-        page: 1
+      } else {
+        params = {};
       }
+    } catch (e) {
+      console.error('Error parsing request body:', e);
+      return new Response(
+        JSON.stringify({ error: 'Invalid JSON body', details: e.message }),
+        { 
+          status: 400, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
 
-    // Return the response
-    return new Response(JSON.stringify(response), {
-      status: 200,
-      headers
-    })
+    console.log('Parsed params:', params);
+
+    const startTime = Date.now();
+    const searchParams = {
+      keyword: params.keyword || '',
+      latitude: params.lat || params.latitude,
+      longitude: params.lng || params.longitude,
+      radius: params.radius || 30,
+      location: params.location || '',
+      startDate: params.startDate,
+      endDate: params.endDate,
+      categories: params.categories || [],
+      limit: params.limit || 100,
+      predicthqLocation: params.predicthqLocation || ''
+    };
+
+    // Create mock response since this is a simplified version
+    const mockEvents: Event[] = generateMockEvents(searchParams);
+    
+    const response: SearchEventsResponse = {
+      events: mockEvents,
+      sourceStats: {
+        ticketmaster: { count: mockEvents.length / 4, error: null },
+        eventbrite: { count: mockEvents.length / 4, error: null },
+        serpapi: { count: mockEvents.length / 4, error: null },
+        predicthq: { count: mockEvents.length / 4, error: null }
+      },
+      meta: {
+        executionTime: Date.now() - startTime,
+        totalEvents: mockEvents.length,
+        eventsWithCoordinates: mockEvents.filter(e => e.coordinates).length,
+        timestamp: new Date().toISOString()
+      }
+    };
+
+    return new Response(
+      JSON.stringify(response),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 
+      }
+    );
   } catch (error) {
-    // Log the error
-    console.error('Error processing request:', error)
-
-    // Return an error response
-    return new Response(JSON.stringify({
-      error: 'An error occurred while processing your request',
-      details: error instanceof Error ? error.message : String(error)
-    }), {
-      status: 500,
-      headers
-    })
+    console.error('Error processing request:', error);
+    
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || 'Unknown error occurred',
+        events: [],
+        sourceStats: {
+          ticketmaster: { count: 0, error: 'Service error' },
+          eventbrite: { count: 0, error: 'Service error' },
+          serpapi: { count: 0, error: 'Service error' },
+          predicthq: { count: 0, error: 'Service error' }
+        }
+      }),
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500 
+      }
+    );
   }
-})
+});
 
-/* To invoke locally:
+function generateMockEvents(params: any): Event[] {
+  const mockEvents: Event[] = [];
+  const centerLat = params.latitude || 40.7128;
+  const centerLng = params.longitude || -74.0060;
+  const count = Math.min(params.limit || 50, 100); // Cap at 100 events
+  
+  const categories = ['music', 'sports', 'arts', 'family', 'food', 'party'];
+  const venues = ['City Hall', 'Central Park', 'Convention Center', 'Sports Arena', 'Community Center', 'Museum', 'Nightclub', 'The Venue'];
+  const eventNames = [
+    'Summer Festival', 'Live Concert', 'Art Exhibition', 
+    'Family Fun Day', 'Food Tasting Event', 'Sports Tournament',
+    'Dance Party', 'Night Club Event', 'Comedy Show', 'Theater Performance',
+    'Music Festival', 'Cultural Celebration', 'Farmers Market'
+  ];
 
-  1. Run `supabase start` (see: https://supabase.com/docs/reference/cli/supabase-start)
-  2. Make an HTTP request:
+  for (let i = 0; i < count; i++) {
+    // Create variation from center point
+    const latOffset = (Math.random() - 0.5) * 0.1;
+    const lngOffset = (Math.random() - 0.5) * 0.1;
+    const category = categories[Math.floor(Math.random() * categories.length)];
+    
+    // Create random dates within the next 30 days
+    const futureDate = new Date();
+    futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 30));
+    const dateStr = futureDate.toISOString().split('T')[0];
+    
+    // Random time
+    const hours = String(Math.floor(Math.random() * 24)).padStart(2, '0');
+    const minutes = String(Math.floor(Math.random() * 60)).padStart(2, '0');
+    const timeStr = `${hours}:${minutes}`;
 
-  curl -i --location --request POST 'http://127.0.0.1:54321/functions/v1/search-events-simple' \
-    --header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS1kZW1vIiwicm9sZSI6ImFub24iLCJleHAiOjE5ODM4MTI5OTZ9.CRXP1A7WOeoJeXxjNni43kdQwgnWNReilDMblYTn_I0' \
-    --header 'Content-Type: application/json' \
-    --data '{"name":"Functions"}'
+    // Generate price with some free events
+    const isFree = Math.random() < 0.2; // 20% chance of free event
+    const price = isFree ? 'Free' : `$${(Math.random() * 100).toFixed(2)}`;
 
-*/
+    // Random venue from the list
+    const venue = venues[Math.floor(Math.random() * venues.length)];
+    
+    // Event title with category influence
+    const baseEventName = eventNames[Math.floor(Math.random() * eventNames.length)];
+    const title = `${baseEventName} - ${i + 1}`;
+    
+    // Generate description
+    const description = `This is a ${category} event happening at ${venue}. Join us for a great time!`;
+
+    // Generate random coordinates near the center point
+    const coordinates: [number, number] = [
+      centerLng + lngOffset, 
+      centerLat + latOffset
+    ];
+
+    // Calculate mock rank and relevance
+    const rank = Math.floor(Math.random() * 100);
+    const localRelevance = Math.floor(Math.random() * 100);
+
+    // Set random source
+    const sources = ['ticketmaster', 'eventbrite', 'serpapi', 'predicthq'];
+    const source = sources[Math.floor(Math.random() * sources.length)];
+
+    // Set random URL
+    const url = `https://example.com/events/${i}`;
+
+    // Add random attendance forecast
+    const attendance = {
+      forecast: Math.floor(Math.random() * 1000),
+      actual: Math.random() > 0.7 ? Math.floor(Math.random() * 800) : undefined
+    };
+
+    mockEvents.push({
+      id: `mock-${source}-${i}`,
+      source,
+      title,
+      description,
+      date: dateStr,
+      time: timeStr,
+      location: `${venue}, New York, NY`,
+      venue,
+      category,
+      image: `https://picsum.photos/seed/${i}/800/400`,
+      coordinates,
+      url,
+      price,
+      rank,
+      localRelevance,
+      attendance,
+      demandSurge: Math.random() > 0.8 ? 1 : 0
+    });
+  }
+
+  return mockEvents;
+}

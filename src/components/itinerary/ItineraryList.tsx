@@ -1,7 +1,6 @@
-
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, Calendar, MapPin } from 'lucide-react';
+import { PlusCircleIcon, CalendarIcon, MapPinIcon } from '@/lib/icons';
 import { formatDate } from '@/lib/utils';
 import type { Itinerary } from '@/types';
 
@@ -28,7 +27,7 @@ const ItineraryList = ({ itineraries }: ItineraryListProps) => {
           )}
           <div className="flex justify-between items-center">
             <div className="flex items-center text-sm text-muted-foreground">
-              <Calendar className="h-3.5 w-3.5 mr-1" />
+              <CalendarIcon className="h-3.5 w-3.5 mr-1" />
               {formatDate(itinerary.date)}
             </div>
             <div className="text-sm text-muted-foreground">

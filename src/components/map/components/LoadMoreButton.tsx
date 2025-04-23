@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2Icon, PlusIcon } from '@/lib/icons';
 
 interface LoadMoreButtonProps {
   isLoading: boolean;
@@ -28,12 +28,12 @@ export const LoadMoreButton = ({
       >
         {isLoading ? (
           <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            <Loader2Icon className="mr-2 h-4 w-4 animate-spin" />
             Loading...
           </>
         ) : (
           <>
-            <Plus className="mr-2 h-4 w-4" />
+            <PlusIcon className="mr-2 h-4 w-4" />
             <span className="hidden sm:inline">Load More Events</span>
             <span className="sm:hidden">Load More</span>
             <span className="ml-1">({loadedEvents}/{totalEvents})</span>

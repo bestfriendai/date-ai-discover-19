@@ -1,5 +1,6 @@
+
 import { AnimatedCard } from '../animations/AnimatedCard';
-import { CalendarDays, Clock, MapPin, Star } from 'lucide-react';
+import { CalendarDaysIcon, ClockIcon, MapPinIcon, StarIcon } from '@/lib/icons';
 import type { Event } from '@/types';
 
 interface EventGridProps {
@@ -26,8 +27,8 @@ const EventGrid = ({ events }: EventGridProps) => {
             <div className="p-4">
               <h3 className="font-medium mb-2 line-clamp-2">{event.title}</h3>
               <div className="flex items-center text-sm text-muted-foreground mb-2">
-                <CalendarDays className="w-4 h-4 mr-1" />
-                {event.date} • <Clock className="w-4 h-4 mx-1" />
+                <CalendarDaysIcon className="w-4 h-4 mr-1" />
+                {event.date} • <ClockIcon className="w-4 h-4 mx-1" />
                 {event.time}
               </div>
               <div className="flex items-center">
@@ -35,13 +36,13 @@ const EventGrid = ({ events }: EventGridProps) => {
                   {event.category}
                   {typeof event.rank === 'number' && (
                       <span className="flex items-center text-yellow-500">
-                        <Star className="w-3 h-3 fill-current" />
+                        <StarIcon className="w-3 h-3 fill-current" />
                         {Math.round(event.rank)}
                       </span>
                     )}
                 </div>
                 <div className="flex items-center text-xs text-muted-foreground">
-                  <MapPin className="w-3 h-3 mr-1" />
+                  <MapPinIcon className="w-3 h-3 mr-1" />
                   <span className="truncate max-w-[150px]">{event.location}</span>
                 </div>
               </div>
