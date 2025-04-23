@@ -370,21 +370,29 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Make the API request with proper error handling
     let response: Response;
     try {
+      // Create a controller for the timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
       response = await fetch(url, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${apiKey}`,
           'Accept': 'application/json'
         },
-        // Add timeout to prevent hanging requests
-        signal: AbortSignal.timeout(10000) // 10 second timeout
+        // Use the controller's signal instead of AbortSignal.timeout
+        signal: controller.signal
       });
+
+      // Clear the timeout
+      clearTimeout(timeoutId);
+
       console.log('[PREDICTHQ] API response status:', response.status);
     } catch (fetchError) {
       console.error('[PREDICTHQ] Fetch error:', fetchError);
       return {
         events: [],
-        error: `PredictHQ API fetch error: ${fetchError.message || fetchError}`,
+        error: `PredictHQ API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`,
         status: 500
       };
     }

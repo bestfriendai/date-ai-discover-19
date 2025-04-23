@@ -17,7 +17,27 @@ import {
   TooltipProvider,
 } from '@/components/ui/tooltip';
 // Import icons from lucide-react
-import { Music, Palette, Trophy, Users, Utensils, CalendarDays, PartyPopper, Sparkle, Headphones, Package, Sun, Coffee, Network, Wine, Building, MapPin } from 'lucide-react';
+import { Music, MapPin } from 'lucide-react';
+
+// Custom icon components to replace missing Lucide icons
+interface IconProps {
+  className?: string;
+}
+
+const Palette: React.FC<IconProps> = ({ className }) => <span className={className}>🎨</span>;
+const Trophy: React.FC<IconProps> = ({ className }) => <span className={className}>🏆</span>;
+const Users: React.FC<IconProps> = ({ className }) => <span className={className}>👥</span>;
+const Utensils: React.FC<IconProps> = ({ className }) => <span className={className}>🍽️</span>;
+const PartyPopper: React.FC<IconProps> = ({ className }) => <span className={className}>🎉</span>;
+const Sparkle: React.FC<IconProps> = ({ className }) => <span className={className}>✨</span>;
+const Headphones: React.FC<IconProps> = ({ className }) => <span className={className}>🎧</span>;
+const Package: React.FC<IconProps> = ({ className }) => <span className={className}>📦</span>;
+const Sun: React.FC<IconProps> = ({ className }) => <span className={className}>☀️</span>;
+const Coffee: React.FC<IconProps> = ({ className }) => <span className={className}>☕</span>;
+const Network: React.FC<IconProps> = ({ className }) => <span className={className}>🔄</span>;
+const Wine: React.FC<IconProps> = ({ className }) => <span className={className}>🍷</span>;
+const Building: React.FC<IconProps> = ({ className }) => <span className={className}>🏢</span>;
+const CalendarDays: React.FC<IconProps> = ({ className }) => <span className={className}>📅</span>;
 
 // Re-export PartySubcategory type here since we can't import from partyUtils
 type PartySubcategory =
@@ -107,8 +127,9 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
   const [isProcessing, setIsProcessing] = useState(false);
   // Ref to keep track of the IDs of markers currently being managed by this component
   const managedMarkerIdsRef = useRef<MarkerIdSet>(new Set());
-  const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: Root, isSelected: boolean}}>(
-  {}); // Keep markersRef for batch processing context if needed, though markerMap is primary
+  // Removed unused ref
+  /* const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: Root, isSelected: boolean}}>(
+  {}); */
 
 
   // Console log for debugging the input features

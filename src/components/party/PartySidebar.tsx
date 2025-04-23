@@ -115,7 +115,7 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
             >
               {isLoading ? (
                 <span className="flex items-center">
-                  <Loader className="h-3 w-3 mr-1 animate-spin" /> Loading
+                  <div className="h-3 w-3 mr-1 rounded-full border-2 border-white border-t-transparent animate-spin"></div> Loading
                 </span>
               ) : (
                 <span>{filteredEvents.length} Parties</span>

@@ -256,16 +256,22 @@ serve(async (req: Request) => {
     return new Response('ok', { headers: corsHeaders })
   }
 
+  // Add CORS headers to all responses
+  const responseHeaders = {
+    ...corsHeaders,
+    'Content-Type': 'application/json'
+  };
+
   try {
     console.log('[SEARCH-EVENTS] Received request');
     const startTime = Date.now();
 
     // Use the exact secret names as set in Supabase
-    const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN');
-    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
-    const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET');
-    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-    const PREDICTHQ_API_KEY = Deno.env.get('PREDICTHQ_API_KEY');
+    const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') || '';
+    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY') || '';
+    const TICKETMASTER_SECRET = Deno.env.get('TICKETMASTER_SECRET') || '';
+    const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY') || '';
+    const PREDICTHQ_API_KEY = Deno.env.get('PREDICTHQ_API_KEY') || '';
 
     // Log API key availability (not the actual keys)
     console.log('[SEARCH-EVENTS] API keys available:', {
@@ -299,7 +305,7 @@ serve(async (req: Request) => {
     if (!TICKETMASTER_KEY) {
       return new Response(JSON.stringify({ error: 'TICKETMASTER_KEY is not set' }), {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: responseHeaders
       });
     }
 
@@ -972,7 +978,7 @@ serve(async (req: Request) => {
         timestamp: new Date().toISOString()
       }
     }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: responseHeaders,
       status: 200,
     })
   } catch (error) {
@@ -984,7 +990,32 @@ serve(async (req: Request) => {
     let errorStack = '';
     let errorType = 'Unknown';
 
-    if (error instanceof Error) {
+    // Return a valid response even in case of error
+    return new Response(JSON.stringify({
+      events: [],
+      error: error instanceof Error ? error.message : String(error),
+      sourceStats: {
+        ticketmaster: { count: 0, error: 'Function error' },
+        eventbrite: { count: 0, error: 'Function error' },
+        serpapi: { count: 0, error: 'Function error' },
+        predicthq: { count: 0, error: 'Function error' }
+      },
+      meta: {
+        executionTime: Date.now() - startTime,
+        totalEvents: 0,
+        eventsWithCoordinates: 0,
+        currentPage: 1,
+        pageSize: 10,
+        totalPages: 0,
+        timestamp: new Date().toISOString()
+      }
+    }), {
+      headers: responseHeaders,
+      status: 500,
+    });
+
+    // The error response is already returned above, this code is unreachable
+    /* if (error instanceof Error) {
       errorMessage = error.message;
       errorStack = error.stack || '';
       errorType = error.name || 'Error';
@@ -1000,7 +1031,7 @@ serve(async (req: Request) => {
       errorMessage = String(error);
     }
 
-    // Return a structured error response
+    // This return statement is unreachable
     return new Response(JSON.stringify({
       error: errorMessage,
       errorType,
@@ -1016,7 +1047,7 @@ serve(async (req: Request) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
-    })
+    }) */
   }
 })
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Calendar, MapPin, Filter, Loader2, Music, Users, Clock, Sparkles } from 'lucide-react';
+import { Search, X, Calendar, MapPin, Filter, Music, Users, Clock, Sparkles } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -153,7 +153,7 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
             disabled={loading}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md hover:shadow-lg transition-all"
           >
-            {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Sparkles className="h-4 w-4 mr-2" />}
+            {loading ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></div> : <Sparkles className="h-4 w-4 mr-2" />}
             Find Hot Parties
           </Button>
         </div>
