@@ -1,6 +1,15 @@
+// @ts-ignore: Deno types are not available in the TypeScript compiler context but will be available at runtime
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
-import { Event, SearchParams, SourceStats, SearchEventsResponse } from "./types.ts"
+import { Event, SearchParams, SourceStats, SearchEventsResponse, PartySubcategory } from "./types.ts"
+
+// Add Deno namespace declaration for TypeScript
+declare const Deno: {
+  env: {
+    get(key: string): string | undefined;
+  };
+  serve(handler: (req: Request) => Promise<Response>): void;
+};
 
 // Handle OPTIONS request for CORS preflight
 const handleOptionsRequest = () => {
@@ -10,7 +19,7 @@ const handleOptionsRequest = () => {
   })
 }
 // Import the fixed PredictHQ integration
-import { fetchPredictHQEvents } from "./predicthq-fixed.ts"
+import { fetchPredictHQEvents, PredictHQResponse } from "./predicthq-fixed-new.ts"
 // Import party detection utilities
 import { detectPartyEvent, detectPartySubcategory } from "./partyUtils.ts"
 
@@ -216,7 +225,7 @@ function normalizeSerpApiEvent(event: any): Event {
     }
 
     // Generate a unique ID
-    const id = `serpapi-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    const id = `serp-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
     return {
       id,
@@ -272,7 +281,7 @@ serve(async (req: Request) => {
 
   try {
     console.log('[SEARCH-EVENTS] Received request');
-    const startTime = Date.now();
+    const startTime: number = Date.now();
 
     // Use the exact secret names as set in Supabase
     const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') || '';
@@ -340,11 +349,11 @@ serve(async (req: Request) => {
     } = params;
 
     // Allow location to be reassigned if reverse geocoding is needed
-    let location = params.location;
+    let location: string | undefined = params.location;
 
     // Support both lat/lng and latitude/longitude parameter formats
-    let userLat = latitude || lat;
-    let userLng = longitude || lng;
+    let userLat: number | undefined = latitude || lat;
+    let userLng: number | undefined = longitude || lng;
 
     // If location is not provided but coordinates are, reverse geocode to get city name
     if (!location && userLat && userLng && MAPBOX_TOKEN) {
@@ -376,6 +385,12 @@ serve(async (req: Request) => {
     let eventbriteCount = 0, eventbriteError: string | null = null
     let serpapiCount = 0, serpapiError: string | null = null
     let predicthqCount = 0, predicthqError: string | null = null
+
+    // Define PredictHQ variables at the top level
+    let phqLatitude: number | undefined = undefined;
+    let phqLongitude: number | undefined = undefined;
+    let phqLocation: string = 'New York'; // Default value
+    let phqWithinParam: string = ''; // Use empty string instead of null/undefined
 
     // --- Always include party-related filters for Ticketmaster queries if 'party' is requested ---
     if (params.categories && params.categories.includes('party')) {
@@ -412,11 +427,27 @@ serve(async (req: Request) => {
         const partyRadius = effectiveRadius; // No longer increasing radius for party events
         let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}&sort=date,asc`;
 
-        // Add location parameters
+        // Add location parameters - use latlong parameter for coordinates
         if (userLat && userLng) {
-          ticketmasterUrl += `&latlong=${userLat},${userLng}&radius=${partyRadius}&unit=miles`
+          // Ensure coordinates are valid numbers
+          const validLat = Number(userLat);
+          const validLng = Number(userLng);
+          if (!isNaN(validLat) && !isNaN(validLng) && 
+              validLat >= -90 && validLat <= 90 && 
+              validLng >= -180 && validLng <= 180) {
+            // Use latlong parameter as per Ticketmaster API documentation
+            ticketmasterUrl += `&latlong=${validLat},${validLng}&radius=${partyRadius}&unit=miles`;
+            console.log(`[DEBUG] Using coordinates for Ticketmaster: ${validLat},${validLng} with radius ${partyRadius} miles`);
+          } else {
+            console.warn(`[WARNING] Invalid coordinates for Ticketmaster: ${userLat},${userLng}`);
+            if (location) {
+              ticketmasterUrl += `&city=${encodeURIComponent(location)}`;
+              console.log(`[DEBUG] Falling back to location for Ticketmaster: ${location}`);
+            }
+          }
         } else if (location) {
-          ticketmasterUrl += `&city=${encodeURIComponent(location)}`
+          ticketmasterUrl += `&city=${encodeURIComponent(location)}`;
+          console.log(`[DEBUG] Using location for Ticketmaster: ${location}`);
         }
 
         // Add segmentName and classificationName if party category is requested
@@ -427,12 +458,18 @@ serve(async (req: Request) => {
           ticketmasterUrl += `&classificationName=${encodeURIComponent(params.classificationName)}`;
         }
 
-        // Add date range
+        // Add date range - use ISO 8601 format as required by Ticketmaster API
         if (startDate) {
-          ticketmasterUrl += `&startDateTime=${startDate}T00:00:00Z`
+          // Ensure proper ISO format with time component
+          const startDateISO = startDate.includes('T') ? startDate : `${startDate}T00:00:00Z`;
+          ticketmasterUrl += `&startDateTime=${startDateISO}`;
+          console.log(`[DEBUG] Using start date for Ticketmaster: ${startDateISO}`);
         }
         if (endDate) {
-          ticketmasterUrl += `&endDateTime=${endDate}T23:59:59Z`
+          // Ensure proper ISO format with time component
+          const endDateISO = endDate.includes('T') ? endDate : `${endDate}T23:59:59Z`;
+          ticketmasterUrl += `&endDateTime=${endDateISO}`;
+          console.log(`[DEBUG] Using end date for Ticketmaster: ${endDateISO}`);
         }
 
         // Add keyword
@@ -463,7 +500,23 @@ serve(async (req: Request) => {
         console.log('[DEBUG] Ticketmaster API URL:', ticketmasterUrl);
 
         const response = await fetch(ticketmasterUrl)
+        
+        // Check for HTTP errors first
+        if (!response.ok) {
+          throw new Error(`Ticketmaster API returned ${response.status}: ${response.statusText}`);
+        }
+        
         const data = await response.json()
+        
+        // Check for API-specific errors
+        if (data.errors && data.errors.length > 0) {
+          console.error('[ERROR] Ticketmaster API errors:', data.errors);
+          // Continue processing if there are partial results
+          if (!data._embedded?.events) {
+            throw new Error(`Ticketmaster API error: ${data.errors[0].detail || 'Unknown error'}`);
+          }
+        }
+        
         console.log('[DEBUG] Ticketmaster API response:', {
           page: data.page,
           eventsCount: data._embedded?.events?.length || 0,
@@ -530,10 +583,10 @@ serve(async (req: Request) => {
       }
 
       // Process PredictHQ location parameters first
-      let phqLatitude = userLat ? Number(userLat) : undefined;
-      let phqLongitude = userLng ? Number(userLng) : undefined;
-      let phqLocation = location || 'New York'; // Default to New York if no location provided
-      let phqWithinParam;
+      phqLatitude = userLat ? Number(userLat) : undefined;
+      phqLongitude = userLng ? Number(userLng) : undefined;
+      phqLocation = location || 'New York'; // Default to New York if no location provided
+      phqWithinParam = ''; // Reset to empty string before processing
 
       console.log('[DEBUG] Processing PredictHQ location parameters');
       console.log('[DEBUG] predicthqLocation:', predicthqLocation);
@@ -551,7 +604,7 @@ serve(async (req: Request) => {
           // Clear other location parameters to avoid conflicts
           phqLatitude = undefined;
           phqLongitude = undefined;
-          phqLocation = undefined;
+          phqLocation = ''; // Use empty string instead of undefined
         } else {
           // Check if it's a lat,lng format
           const latLngMatch = predicthqLocation.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
@@ -563,7 +616,7 @@ serve(async (req: Request) => {
               phqLatitude = lat;
               phqLongitude = lng;
               // Clear other location parameters to avoid conflicts
-              phqLocation = undefined;
+              phqLocation = ''; // Use empty string instead of undefined
               console.log(`[DEBUG] Parsed coordinates from predicthqLocation: ${lat},${lng}`);
             } else {
               console.log(`[DEBUG] Invalid coordinates in predicthqLocation: ${predicthqLocation}`);
@@ -628,8 +681,8 @@ serve(async (req: Request) => {
           // Add party-related keywords if not already present
           if (!enhancedKeyword || enhancedKeyword.toLowerCase().indexOf('party') === -1) {
             enhancedKeyword = enhancedKeyword ?
-              `${enhancedKeyword} OR party OR club OR nightlife OR dj OR dance OR festival OR social OR gathering OR mixer OR celebration` :
-              'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
+              `${enhancedKeyword} OR party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR social OR gathering OR mixer OR celebration` :
+              'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
           }
 
           // Use a higher limit for party searches
@@ -678,7 +731,7 @@ serve(async (req: Request) => {
           });
 
           // Race the API call against the timeout
-          const predicthqResult = await Promise.race([apiCallPromise, timeoutPromise]);
+          const predicthqResult = await Promise.race([apiCallPromise, timeoutPromise]) as PredictHQResponse;
 
           const predicthqEvents = predicthqResult.events || [];
           predicthqCount = predicthqEvents.length;
@@ -688,8 +741,8 @@ serve(async (req: Request) => {
             eventCount: predicthqCount,
             hasError: !!predicthqError,
             error: predicthqError,
-            warnings: predicthqResult.warnings,
-            status: predicthqResult.status
+            warnings: predicthqResult.warnings || [],
+            status: predicthqResult.status || 0
           });
 
           if (predicthqError) {
@@ -972,17 +1025,15 @@ serve(async (req: Request) => {
             categories: categories || [],
             hasCoordinates: !!(phqLatitude && phqLongitude),
             hasLocation: !!phqLocation,
-            hasWithinParam: !!phqWithinParam
+            hasWithin: !!phqWithinParam,
+            withinParam: phqWithinParam || 'none'
           }
         }
       },
       meta: {
         executionTime,
-        totalEvents: totalEvents,
+        totalEvents,
         eventsWithCoordinates: eventsWithCoords.length,
-        currentPage: page,
-        pageSize: limit,
-        totalPages: Math.ceil(totalEvents / limit),
         timestamp: new Date().toISOString()
       }
     }), {
@@ -994,7 +1045,7 @@ serve(async (req: Request) => {
     console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
 
     // Extract detailed error information
-    let errorMessage = 'Unknown error occurred';
+    let errorMessage = 'Unknown error';
     let errorStack = '';
     let errorType = 'Unknown';
 
@@ -1009,12 +1060,9 @@ serve(async (req: Request) => {
         predicthq: { count: 0, error: 'Function error' }
       },
       meta: {
-        executionTime: Date.now() - startTime,
+        executionTime: 0, // Can't reference startTime in this scope
         totalEvents: 0,
         eventsWithCoordinates: 0,
-        currentPage: 1,
-        pageSize: 10,
-        totalPages: 0,
         timestamp: new Date().toISOString()
       }
     }), {
@@ -1062,11 +1110,8 @@ serve(async (req: Request) => {
 // Helper function to parse event dates in various formats
 function parseEventDate(dateStr: string, timeStr: string): Date {
   try {
-    console.log(`[DATE_PARSE] Parsing date: ${dateStr}, time: ${timeStr}`);
-
     // Handle null or undefined inputs
     if (!dateStr) {
-      console.log('[DATE_PARSE] No date string provided, using current date');
       return new Date();
     }
 
@@ -1092,9 +1137,7 @@ function parseEventDate(dateStr: string, timeStr: string): Date {
         }
       }
 
-      const result = new Date(year, month - 1, day, hours, minutes);
-      console.log(`[DATE_PARSE] Parsed ISO date: ${result.toISOString()}`);
-      return result;
+      return new Date(year, month - 1, day, hours, minutes);
     }
 
     // Try to parse date strings like "Mon, May 19"
@@ -1124,23 +1167,19 @@ function parseEventDate(dateStr: string, timeStr: string): Date {
         }
       }
 
-      const result = new Date(year, month, day, hours, minutes);
-      console.log(`[DATE_PARSE] Parsed month name date: ${result.toISOString()}`);
-      return result;
+      return new Date(year, month, day, hours, minutes);
     }
 
     // Try to parse full date string directly
     const directParse = new Date(dateStr);
     if (!isNaN(directParse.getTime())) {
-      console.log(`[DATE_PARSE] Direct parse successful: ${directParse.toISOString()}`);
       return directParse;
     }
 
     // Fallback: return current date (events with unparseable dates will be sorted last)
-    console.log(`[DATE_PARSE] Could not parse date: ${dateStr}, using current date`);
     return new Date();
   } catch (error) {
-    console.error('[DATE_PARSE] Error parsing event date:', error, { dateStr, timeStr });
+    console.error('Error parsing event date:', error);
     return new Date(); // Fallback to current date
   }
 }

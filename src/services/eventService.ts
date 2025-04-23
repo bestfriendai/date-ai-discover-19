@@ -76,14 +76,41 @@ export async function searchEvents(params: SearchParams): Promise<{
 
     try {
       // Call Supabase function to fetch events from multiple sources
-      console.log('[DEBUG] About to call supabase.functions.invoke("search-events")');
-      const { data, error } = await supabase.functions.invoke('search-events', {
-        body: searchParams
+      console.log('[DEBUG] About to call supabase.functions.invoke("search-events-simple")');
+      
+      // Add timeout handling for the function call
+      const timeoutMs = 30000; // 30 seconds timeout
+      const functionPromise = supabase.functions.invoke('search-events-simple', {
+        body: searchParams,
+        headers: { 'Content-Type': 'application/json' }
       });
+      
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
+      });
+      
+      // Race the function call against the timeout
+      const { data, error } = await Promise.race([
+        functionPromise,
+        timeoutPromise.then(() => ({ data: null, error: { message: 'Timeout exceeded', status: 408 } }))
+      ]) as any;
 
       if (error) {
         console.error('[ERROR] Supabase function error:', error);
-        throw error;
+        // Return a structured error response instead of throwing
+        return {
+          events: [],
+          sourceStats: { 
+            ticketmaster: { count: 0, error: error.message || String(error) }, 
+            eventbrite: { count: 0 }, 
+            serpapi: { count: 0 },
+            error: { message: error.message || String(error), status: error.status || 500 }
+          },
+          totalEvents: 0,
+          pageSize: params.limit || 200,
+          page: params.page || 1
+        };
       }
 
       console.log('[DEBUG] Supabase function response:', data);
@@ -176,10 +203,15 @@ export async function searchEvents(params: SearchParams): Promise<{
       };
     } catch (error) {
       console.error('[ERROR] Error calling Supabase function:', error);
-      // Return empty array instead of mock data
+      // Return empty array with structured error information
       return {
         events: [],
-        sourceStats: { ticketmaster: { count: 0, error: String(error) }, eventbrite: { count: 0 }, serpapi: { count: 0 } },
+        sourceStats: { 
+          ticketmaster: { count: 0, error: String(error) }, 
+          eventbrite: { count: 0 }, 
+          serpapi: { count: 0 },
+          error: { message: String(error), status: 500 }
+        },
         totalEvents: 0,
         pageSize: params.limit || 200,
         page: params.page || 1
@@ -282,17 +314,35 @@ export async function getEventById(id: string): Promise<Event | null> {
       };
     }
 
-    // If not in local database, fetch from API
-    const { data, error } = await supabase.functions.invoke('get-event', {
-      body: JSON.stringify({ id })
+    // If not in local database, fetch from API with timeout handling
+    const timeoutMs = 20000; // 20 seconds timeout
+    const functionPromise = supabase.functions.invoke('get-event', {
+      body: { id }, // Use object directly instead of JSON.stringify
+      headers: { 'Content-Type': 'application/json' }
     });
+    
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
+    });
+    
+    // Race the function call against the timeout
+    const { data, error } = await Promise.race([
+      functionPromise,
+      timeoutPromise.then(() => ({ data: null, error: { message: 'Timeout exceeded', status: 408 } }))
+    ]) as any;
 
-    if (error) throw error;
+    if (error) {
+      console.error('[ERROR] Error fetching event by ID:', error);
+      return null;
+    }
+
     if (!data?.event) return null;
 
     return data.event;
   } catch (error) {
     console.error('Error getting event by ID:', error);
-    throw error;
+    // Return null instead of throwing to prevent app crashes
+    return null;
   }
 }

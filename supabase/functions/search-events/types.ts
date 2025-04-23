@@ -4,6 +4,9 @@
 
 import { PartySubcategory } from './partyUtils.ts';
 
+// Re-export PartySubcategory type
+export { PartySubcategory };
+
 /**
  * Event interface matching the frontend type
  */

@@ -151,8 +151,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Build the PredictHQ API URL
     let url = 'https://api.predicthq.com/v1/events/';
 
-    // Add a try-catch block around the entire API call process
-    try {
+    // Process the API call
 
     // Build query parameters
     const queryParams = new URLSearchParams();
