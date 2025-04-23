@@ -1,3 +1,4 @@
+
 import { useCallback, useEffect, useState, useMemo } from 'react';
 import { MapLayout } from '@/components/map/layout/MapLayout';
 import { PartyContent } from '@/components/party/PartyContent';
@@ -6,10 +7,11 @@ import { useMapState } from '@/components/map/hooks/useMapState';
 import { useMapFilters } from '@/components/map/hooks/useMapFilters';
 import { useMapEvents } from '@/components/map/hooks/useMapEvents';
 import AddToPlanModal from '@/components/events/AddToPlanModal';
-import { toast } from '@/hooks/use-toast';
-import type { Event } from '@/types';
 import { SourceStatsDisplay } from '@/components/map/components/SourceStatsDisplay';
+import type { Event } from '@/types';
 import { PartySubcategory } from '@/utils/eventNormalizers';
+import { scoreAndSortPartyEvents } from '@/utils/scorePartyEvents';
+import { usePartyAIHandlers } from '@/hooks/usePartyAIHandlers';
 
 const PartyAI = () => {
   const {
@@ -68,88 +70,32 @@ const PartyAI = () => {
     setEventToAdd(null);
   }, []);
 
-  // Handler for advanced search
-  const handleAdvancedSearch = useCallback((searchParams: any) => {
-    console.log('[PartyAI] Advanced search with params:', searchParams);
-
-    // Always include 'party' category in the search
-    // Also add party-related keywords to improve results
-    const paramsWithPartyCategory = {
-      ...searchParams,
-      categories: ['party'],
-      keyword: searchParams.keyword
-        ? `${searchParams.keyword} party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music`
-        : 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
-      limit: 500 // Increase limit to get more party events
-    };
-
-    if (mapCenter) {
-      toast({
-        title: "Finding the best parties",
-        description: "PartyAI is searching for the hottest events matching your criteria",
-      });
-
-      fetchEvents(
-        { ...filters, ...paramsWithPartyCategory },
-        mapCenter,
-        searchParams.distance || filters.distance
-      );
-    }
-  }, [fetchEvents, filters, mapCenter, toast]);
-
-  // Handler for "Search This Area" button
-  const handleSearchThisArea = useCallback(() => {
-    console.log('[PartyAI] Search this area clicked');
-    if (mapCenter) {
-      // Always include 'party' category in the search
-      // Also add party-related keywords to improve results
-      const filtersWithPartyCategory = {
-        ...filters,
-        categories: ['party'],
-        keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
-        limit: 500 // Increase limit to get more party events
-      };
-
-      toast({
-        title: "Searching for parties in this area",
-        description: "PartyAI is finding the best events in the current map view",
-      });
-
-      fetchEvents(filtersWithPartyCategory, mapCenter, filters.distance);
-      setMapHasMoved(false);
-    }
-  }, [fetchEvents, filters, mapCenter, setMapHasMoved, toast]);
+  // Use extracted handlers for search
+  const { handleAdvancedSearch, handleSearchThisArea } = usePartyAIHandlers({
+    mapCenter,
+    setMapHasMoved,
+    fetchEvents,
+    filters
+  });
 
   // Initial fetch when map is loaded and centered
   useEffect(() => {
     if (mapLoaded && mapCenter && !events.length && !isEventsLoading) {
       console.log('[PartyAI] Initial fetch of party events');
-
-      // Set the categories filter to only include 'party'
       onCategoriesChange(['party']);
-
-      // Fetch events with the party category filter and party-related keywords
-      // Use a comprehensive set of keywords to find all types of parties
       fetchEvents(
         {
           ...filters,
           categories: ['party'],
           keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"',
-          limit: 500 // Increase limit to get more party events
+          limit: 500
         },
         mapCenter,
-        Math.max(filters.distance || 0, 50) // Use at least 50 miles radius for parties
+        Math.max(filters.distance || 0, 50)
       );
-
-      // Show a toast message to indicate we're finding the best parties
-      toast({
-        title: "Finding the best parties",
-        description: "PartyAI is searching for the hottest events in your area",
-      });
     }
-  }, [mapLoaded, mapCenter, events.length, isEventsLoading, fetchEvents, filters, onCategoriesChange, toast]);
+  }, [mapLoaded, mapCenter, events.length, isEventsLoading, fetchEvents, filters, onCategoriesChange]);
 
-  // Always ensure the category filter is set to 'party'
   useEffect(() => {
     // Make sure we always have 'party' in the categories filter
     if (!filters.categories?.includes('party')) {
@@ -159,68 +105,11 @@ const PartyAI = () => {
 
   // Score and sort party events to find the best ones
   const partyEvents = useMemo(() => {
-    // First, filter to only include party events
-    const filteredEvents = events.filter(event => event.category === 'party');
-
-    // Score each party event based on various factors
-    const scoredEvents = filteredEvents.map(event => {
-      let score = 0;
-
-      // Score based on subcategory (prioritize clubs, day parties, etc.)
-      if (event.partySubcategory) {
-        switch(event.partySubcategory) {
-          case 'club': score += 10; break;
-          case 'day-party': score += 8; break;
-          case 'celebration': score += 6; break;
-          case 'networking': score += 4; break;
-          case 'brunch': score += 5; break;
-          default: score += 3;
-        }
-      }
-
-      // Score based on description quality (length and keywords)
-      if (event.description) {
-        // Add points for longer descriptions (more info = better event listing)
-        score += Math.min(5, Math.floor(event.description.length / 100));
-
-        // Add points for keywords that suggest a good party
-        const description = event.description.toLowerCase();
-        const goodPartyKeywords = ['dj', 'music', 'dance', 'drinks', 'vip', 'exclusive', 'featured',
-                                  'popular', 'sold out', 'tickets', 'nightlife', 'entertainment'];
-
-        goodPartyKeywords.forEach(keyword => {
-          if (description.includes(keyword)) score += 1;
-        });
-      }
-
-      // Score based on having an image
-      if (event.image && !event.image.includes('placeholder')) {
-        score += 3;
-      }
-
-      // Score based on having a venue
-      if (event.venue) {
-        score += 2;
-      }
-
-      // Score based on having a price (ticketed events are often better quality)
-      if (event.price) {
-        score += 2;
-      }
-
-      return { ...event, _score: score };
-    });
-
-    // Sort events by score (highest first)
-    return scoredEvents
-      .sort((a, b) => (b._score || 0) - (a._score || 0))
-      .map(({ _score, ...event }) => event); // Remove the score before returning
+    return scoreAndSortPartyEvents(events);
   }, [events]);
 
   return (
     <MapLayout>
-
-
       <PartyContent
         leftSidebarOpen={leftSidebarOpen}
         rightSidebarOpen={rightSidebarOpen}
