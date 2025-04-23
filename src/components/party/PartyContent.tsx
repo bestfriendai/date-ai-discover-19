@@ -65,6 +65,7 @@ export const PartyContent = ({
 
   // Function to receive the map instance from MapComponent
   const handleMapInstance = (map: mapboxgl.Map) => {
+    console.log('[PartyContent] Received map instance');
     setMapInstance(map);
   };
 
@@ -97,7 +98,7 @@ export const PartyContent = ({
           onMapInstance={handleMapInstance}
         />
 
-        {/* Render the PartyMapMarkers component when we have a map and events */}
+        {/* Only render markers when we have both a map instance and events */}
         {mapInstance && events.length > 0 && (
           <PartyMapMarkers
             map={mapInstance}

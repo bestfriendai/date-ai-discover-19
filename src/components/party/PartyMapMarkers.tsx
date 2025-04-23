@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import mapboxgl from 'mapbox-gl';
 import type { Event } from '@/types';
 import PartyMarker from './PartyMarker';
@@ -18,15 +18,19 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
   selectedEventId,
   onMarkerClick
 }) => {
+  // Use a ref to track mounted state
+  const isMounted = useRef(true);
   const [activeMarkers, setActiveMarkers] = useState<Map<string, { marker: mapboxgl.Marker, root: any }>>(new Map());
 
   const updateMarkers = useCallback(() => {
-    if (!map || !events.length) return;
+    if (!map || !events.length || !isMounted.current) return;
 
     console.log('[PartyMapMarkers] Updating markers for', events.length, 'events');
 
+    // Create a new map based on current state
     const newMarkers = new Map(activeMarkers);
     
+    // Add or update markers for each event
     events.forEach(event => {
       if (!event.coordinates || !Array.isArray(event.coordinates) || event.coordinates.length !== 2) {
         console.warn('[PartyMapMarkers] Event missing valid coordinates:', event.id);
@@ -38,26 +42,33 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
       const existingMarker = newMarkers.get(id);
 
       if (existingMarker) {
-        existingMarker.root.render(
+        // Only render if component is still mounted
+        if (isMounted.current) {
+          existingMarker.root.render(
+            <PartyMarker 
+              event={event} 
+              isSelected={isSelected} 
+              onClick={() => onMarkerClick(event)} 
+            />
+          );
+        }
+        return;
+      }
+
+      // Create new marker element and root
+      const el = document.createElement('div');
+      const root = createRoot(el);
+      
+      // Only render if component is still mounted
+      if (isMounted.current) {
+        root.render(
           <PartyMarker 
             event={event} 
             isSelected={isSelected} 
             onClick={() => onMarkerClick(event)} 
           />
         );
-        return;
       }
-
-      const el = document.createElement('div');
-      const root = createRoot(el);
-      
-      root.render(
-        <PartyMarker 
-          event={event} 
-          isSelected={isSelected} 
-          onClick={() => onMarkerClick(event)} 
-        />
-      );
 
       const marker = new mapboxgl.Marker({ element: el })
         .setLngLat(event.coordinates as [number, number])
@@ -68,9 +79,9 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
 
     // Remove markers that are no longer in the events list
     const currentIds = new Set(events.map(e => String(e.id)));
-    activeMarkers.forEach((_, id) => {
+    Array.from(newMarkers.keys()).forEach(id => {
       if (!currentIds.has(id)) {
-        const markerToRemove = activeMarkers.get(id);
+        const markerToRemove = newMarkers.get(id);
         if (markerToRemove) {
           markerToRemove.marker.remove();
           markerToRemove.root.unmount();
@@ -79,19 +90,34 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
       }
     });
 
-    setActiveMarkers(newMarkers);
+    // Only update state if component is still mounted
+    if (isMounted.current) {
+      setActiveMarkers(newMarkers);
+    }
   }, [map, events, selectedEventId, onMarkerClick, activeMarkers]);
 
+  // Effect to update markers when props change
   useEffect(() => {
     updateMarkers();
-    
+  }, [map, events, selectedEventId, updateMarkers]);
+
+  // Cleanup effect
+  useEffect(() => {
     return () => {
+      // Mark component as unmounted
+      isMounted.current = false;
+      
+      // Clean up all markers and roots
       activeMarkers.forEach(({ marker, root }) => {
         marker.remove();
-        root.unmount();
+        try {
+          root.unmount();
+        } catch (e) {
+          console.warn('[PartyMapMarkers] Error unmounting root:', e);
+        }
       });
     };
-  }, [map, events, selectedEventId, updateMarkers, activeMarkers]);
+  }, []);
 
   return null;
 };
