@@ -1,6 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { Event, SearchParams, SourceStats, SearchEventsResponse } from "./types.ts"
+
+// Handle OPTIONS request for CORS preflight
+const handleOptionsRequest = () => {
+  return new Response(null, {
+    status: 204,
+    headers: new Headers(corsHeaders)
+  })
+}
 // Import the fixed PredictHQ integration
 import { fetchPredictHQEvents } from "./predicthq-fixed.ts"
 // Import party detection utilities
@@ -253,7 +261,7 @@ async function reverseGeocodeCity(lat: number, lng: number, mapboxToken: string)
 serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return handleOptionsRequest();
   }
 
   // Add CORS headers to all responses
@@ -1010,7 +1018,7 @@ serve(async (req: Request) => {
         timestamp: new Date().toISOString()
       }
     }), {
-      headers: responseHeaders,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     });
 
