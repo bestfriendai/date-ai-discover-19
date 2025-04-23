@@ -1,5 +1,5 @@
 // @ts-ignore: Deno types are not available in the TypeScript compiler context but will be available at runtime
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { Event, SearchParams, SourceStats, SearchEventsResponse, PartySubcategory } from "./types.ts"
 
@@ -526,8 +526,8 @@ serve(async (req: Request) => {
           // Ensure coordinates are valid numbers
           const validLat = Number(userLat);
           const validLng = Number(userLng);
-          if (!isNaN(validLat) && !isNaN(validLng) && 
-              validLat >= -90 && validLat <= 90 && 
+          if (!isNaN(validLat) && !isNaN(validLng) &&
+              validLat >= -90 && validLat <= 90 &&
               validLng >= -180 && validLng <= 180) {
             // Use latlong parameter as per Ticketmaster API documentation
             ticketmasterUrl += `&latlong=${validLat},${validLng}&radius=${partyRadius}&unit=miles`;
@@ -594,14 +594,14 @@ serve(async (req: Request) => {
         console.log('[DEBUG] Ticketmaster API URL:', ticketmasterUrl);
 
         const response = await fetch(ticketmasterUrl)
-        
+
         // Check for HTTP errors first
         if (!response.ok) {
           throw new Error(`Ticketmaster API returned ${response.status}: ${response.statusText}`);
         }
-        
+
         const data = await response.json()
-        
+
         // Check for API-specific errors
         if (data.errors && data.errors.length > 0) {
           console.error('[ERROR] Ticketmaster API errors:', data.errors);
@@ -610,7 +610,7 @@ serve(async (req: Request) => {
             throw new Error(`Ticketmaster API error: ${data.errors[0].detail || 'Unknown error'}`);
           }
         }
-        
+
         console.log('[DEBUG] Ticketmaster API response:', {
           page: data.page,
           eventsCount: data._embedded?.events?.length || 0,
@@ -1066,6 +1066,26 @@ serve(async (req: Request) => {
       filteredEvents = uniqueEvents.filter(event => !excludeIdSet.has(event.id));
     }
 
+    // Helper function to parse event date and time
+    function parseEventDate(dateStr: string, timeStr?: string): Date {
+      try {
+        // If date is already in ISO format with time, parse directly
+        if (dateStr.includes('T') && dateStr.includes('Z')) {
+          return new Date(dateStr);
+        }
+
+        // Otherwise, combine date and time
+        const dateOnly = dateStr.split('T')[0]; // Handle case where date might have a T
+        const timeOnly = timeStr || '00:00';
+        const dateTimeStr = `${dateOnly}T${timeOnly}`;
+
+        return new Date(dateTimeStr);
+      } catch (e) {
+        console.warn('Error parsing date:', dateStr, timeStr, e);
+        return new Date(); // Return current date as fallback
+      }
+    }
+
     // Sort events by date (soonest first)
     filteredEvents.sort((a, b) => {
       // Parse dates
@@ -1190,80 +1210,3 @@ serve(async (req: Request) => {
     });
   }
 })
-
-// Helper function to parse event dates in various formats
-function parseEventDate(dateStr: string, timeStr: string): Date {
-  try {
-    // Handle null or undefined inputs
-    if (!dateStr) {
-      return new Date();
-    }
-
-    // Try to parse ISO date format (YYYY-MM-DD)
-    if (dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      const [year, month, day] = dateStr.split('-').map(Number);
-
-      // Parse time (HH:MM format)
-      let hours = 0, minutes = 0;
-      if (timeStr) {
-        // Handle various time formats
-        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-        if (timeParts) {
-          hours = parseInt(timeParts[1], 10);
-          minutes = parseInt(timeParts[2], 10);
-
-          // Handle AM/PM
-          if (timeParts[4] && timeParts[4].toUpperCase() === 'PM' && hours < 12) {
-            hours += 12;
-          } else if (timeParts[4] && timeParts[4].toUpperCase() === 'AM' && hours === 12) {
-            hours = 0;
-          }
-        }
-      }
-
-      return new Date(year, month - 1, day, hours, minutes);
-    }
-
-    // Try to parse date strings like "Mon, May 19"
-    const monthMatch = dateStr.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})/i);
-    if (monthMatch) {
-      const monthNames = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
-      const month = monthNames.indexOf(monthMatch[1].toLowerCase());
-      const day = parseInt(monthMatch[2], 10);
-
-      // Use current year as default
-      const year = new Date().getFullYear();
-
-      // Parse time (HH:MM AM/PM format)
-      let hours = 0, minutes = 0;
-      if (timeStr) {
-        const timeParts = timeStr.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
-        if (timeParts) {
-          hours = parseInt(timeParts[1], 10);
-          minutes = parseInt(timeParts[2], 10);
-
-          // Handle AM/PM
-          if (timeParts[4] && timeParts[4].toUpperCase() === 'PM' && hours < 12) {
-            hours += 12;
-          } else if (timeParts[4] && timeParts[4].toUpperCase() === 'AM' && hours === 12) {
-            hours = 0;
-          }
-        }
-      }
-
-      return new Date(year, month, day, hours, minutes);
-    }
-
-    // Try to parse full date string directly
-    const directParse = new Date(dateStr);
-    if (!isNaN(directParse.getTime())) {
-      return directParse;
-    }
-
-    // Fallback: return current date (events with unparseable dates will be sorted last)
-    return new Date();
-  } catch (error) {
-    console.error('Error parsing event date:', error);
-    return new Date(); // Fallback to current date
-  }
-}

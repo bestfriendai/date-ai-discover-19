@@ -1,11 +1,14 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { Event, SearchEventsResponse } from "../search-events/types.ts";
 
 // CORS headers for browser access
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Credentials': 'true'
 };
 
 serve(async (req) => {
@@ -35,9 +38,9 @@ serve(async (req) => {
       console.error('Error parsing request body:', e);
       return new Response(
         JSON.stringify({ error: 'Invalid JSON body', details: e.message }),
-        { 
-          status: 400, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       );
     }
@@ -60,7 +63,7 @@ serve(async (req) => {
 
     // Create mock response since this is a simplified version
     const mockEvents: Event[] = generateMockEvents(searchParams);
-    
+
     const response: SearchEventsResponse = {
       events: mockEvents,
       sourceStats: {
@@ -79,16 +82,16 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify(response),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200 
+        status: 200
       }
     );
   } catch (error) {
     console.error('Error processing request:', error);
-    
+
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || 'Unknown error occurred',
         events: [],
         sourceStats: {
@@ -98,9 +101,9 @@ serve(async (req) => {
           predicthq: { count: 0, error: 'Service error' }
         }
       }),
-      { 
+      {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
+        status: 500
       }
     );
   }
@@ -111,11 +114,11 @@ function generateMockEvents(params: any): Event[] {
   const centerLat = params.latitude || 40.7128;
   const centerLng = params.longitude || -74.0060;
   const count = Math.min(params.limit || 50, 100); // Cap at 100 events
-  
+
   const categories = ['music', 'sports', 'arts', 'family', 'food', 'party'];
   const venues = ['City Hall', 'Central Park', 'Convention Center', 'Sports Arena', 'Community Center', 'Museum', 'Nightclub', 'The Venue'];
   const eventNames = [
-    'Summer Festival', 'Live Concert', 'Art Exhibition', 
+    'Summer Festival', 'Live Concert', 'Art Exhibition',
     'Family Fun Day', 'Food Tasting Event', 'Sports Tournament',
     'Dance Party', 'Night Club Event', 'Comedy Show', 'Theater Performance',
     'Music Festival', 'Cultural Celebration', 'Farmers Market'
@@ -126,12 +129,12 @@ function generateMockEvents(params: any): Event[] {
     const latOffset = (Math.random() - 0.5) * 0.1;
     const lngOffset = (Math.random() - 0.5) * 0.1;
     const category = categories[Math.floor(Math.random() * categories.length)];
-    
+
     // Create random dates within the next 30 days
     const futureDate = new Date();
     futureDate.setDate(futureDate.getDate() + Math.floor(Math.random() * 30));
     const dateStr = futureDate.toISOString().split('T')[0];
-    
+
     // Random time
     const hours = String(Math.floor(Math.random() * 24)).padStart(2, '0');
     const minutes = String(Math.floor(Math.random() * 60)).padStart(2, '0');
@@ -143,17 +146,17 @@ function generateMockEvents(params: any): Event[] {
 
     // Random venue from the list
     const venue = venues[Math.floor(Math.random() * venues.length)];
-    
+
     // Event title with category influence
     const baseEventName = eventNames[Math.floor(Math.random() * eventNames.length)];
     const title = `${baseEventName} - ${i + 1}`;
-    
+
     // Generate description
     const description = `This is a ${category} event happening at ${venue}. Join us for a great time!`;
 
     // Generate random coordinates near the center point
     const coordinates: [number, number] = [
-      centerLng + lngOffset, 
+      centerLng + lngOffset,
       centerLat + latOffset
     ];
 

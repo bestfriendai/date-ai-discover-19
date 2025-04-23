@@ -1,9 +1,12 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Credentials': 'true'
 }
 
 serve(async (req) => {
@@ -59,8 +62,28 @@ serve(async (req) => {
       status: 200,
     })
   } catch (error) {
-    console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[FETCH-EVENTS] Error:', error)
+
+    // Extract error details
+    let errorMessage = 'Unknown error occurred';
+    let errorType = 'UnknownError';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorType = error.name;
+      console.error('[FETCH-EVENTS] Error stack:', error.stack);
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object') {
+      errorMessage = JSON.stringify(error);
+    }
+
+    return new Response(JSON.stringify({
+      error: errorMessage,
+      errorType,
+      timestamp: new Date().toISOString(),
+      events: [] // Return empty events array for consistency
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })

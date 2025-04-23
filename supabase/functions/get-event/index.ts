@@ -1,8 +1,11 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth',
+  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+  'Access-Control-Allow-Credentials': 'true'
 }
 
 serve(async (req) => {
@@ -13,32 +16,32 @@ serve(async (req) => {
 
   try {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY')
-    
+
     if (!TICKETMASTER_KEY) {
       throw new Error('TICKETMASTER_KEY is not set')
     }
-    
+
     // Parse request parameters
     const { id } = await req.json()
-    
+
     if (!id) {
       throw new Error('Event ID is required')
     }
-    
+
     // Check if it's a Ticketmaster event
     if (id.startsWith('ticketmaster-')) {
       const ticketmasterId = id.replace('ticketmaster-', '')
-      
+
       const response = await fetch(
         `https://app.ticketmaster.com/discovery/v2/events/${ticketmasterId}.json?apikey=${TICKETMASTER_KEY}`
       )
-      
+
       const data = await response.json()
-      
+
       if (data.errors || !data.name) {
         throw new Error('Event not found')
       }
-      
+
       // Transform Ticketmaster event
       const event = {
         id: `ticketmaster-${data.id}`,
@@ -56,11 +59,11 @@ serve(async (req) => {
           parseFloat(data._embedded?.venues?.[0]?.location?.latitude)
         ] : undefined,
         url: data.url,
-        price: data.priceRanges ? 
-          `${data.priceRanges[0].min} - ${data.priceRanges[0].max} ${data.priceRanges[0].currency}` : 
+        price: data.priceRanges ?
+          `${data.priceRanges[0].min} - ${data.priceRanges[0].max} ${data.priceRanges[0].currency}` :
           undefined
       }
-      
+
       return new Response(JSON.stringify({ event }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
@@ -74,8 +77,27 @@ serve(async (req) => {
       throw new Error('Unknown event source')
     }
   } catch (error) {
-    console.error('Error:', error)
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error('[GET-EVENT] Error:', error)
+
+    // Extract error details
+    let errorMessage = 'Unknown error occurred';
+    let errorType = 'UnknownError';
+
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorType = error.name;
+      console.error('[GET-EVENT] Error stack:', error.stack);
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else if (error && typeof error === 'object') {
+      errorMessage = JSON.stringify(error);
+    }
+
+    return new Response(JSON.stringify({
+      error: errorMessage,
+      errorType,
+      timestamp: new Date().toISOString()
+    }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500,
     })
