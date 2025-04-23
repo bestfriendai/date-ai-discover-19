@@ -3,6 +3,9 @@ import { DateRange } from 'react-day-picker';
 /**
  * Event interface representing an event from any source
  */
+// Import PartySubcategory type from eventNormalizers
+import { PartySubcategory } from './utils/eventNormalizers';
+
 export interface Event {
   id: string;
   title: string;
@@ -14,6 +17,7 @@ export interface Event {
   coordinates?: [number, number]; // [longitude, latitude]
   price?: number | string;
   category?: string;
+  partySubcategory?: PartySubcategory; // Added for party events
   image?: string;
   url?: string;
   source?: string;
@@ -30,6 +34,7 @@ export interface EventFilters {
   sortBy?: 'date' | 'distance' | 'price'; // Sort options
   keyword?: string; // Search keyword
   location?: string; // Location search
+  limit?: number; // Maximum number of events to return
 }
 
 /**
@@ -45,7 +50,9 @@ export interface ItineraryItem {
   title: string;
   description?: string;
   location?: string;
+  location_name?: string; // For DB compatibility
   coordinates?: [number, number] | unknown;
+  location_coordinates?: [number, number] | unknown; // For DB compatibility
   startTime: string; // ISO string
   endTime: string; // ISO string
   notes?: string;

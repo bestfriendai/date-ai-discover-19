@@ -63,8 +63,8 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
       <div className="sticky top-0 z-10 bg-black/80 backdrop-blur-md border-b border-purple-900/30 p-4">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
-            <h2 className="text-xl font-bold bg-gradient-to-r from-white to-purple-200 bg-clip-text text-transparent">
-              Parties
+            <h2 className="text-xl font-bold bg-gradient-to-r from-pink-500 via-purple-500 to-indigo-500 bg-clip-text text-transparent">
+              Party Finder
             </h2>
             <div className="ml-2 px-3 py-1 bg-gradient-to-r from-purple-600 to-pink-600 text-white rounded-full text-xs font-medium">
               {isLoading ? '...' : filteredEvents.length} Parties

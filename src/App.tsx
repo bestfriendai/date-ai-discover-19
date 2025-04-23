@@ -26,7 +26,7 @@ const App = () => {
         <Routes location={location} key={location.pathname}>
         <Route path="/" element={
           <PageTransition>
-            <Index />
+            <PartyAI />
           </PageTransition>
         } />
         <Route path="/map" element={
@@ -34,9 +34,9 @@ const App = () => {
             <MapView />
           </PageTransition>
         } />
-        <Route path="/party" element={
+        <Route path="/old-home" element={
           <PageTransition>
-            <PartyAI />
+            <Index />
           </PageTransition>
         } />
         <Route path="/plan" element={

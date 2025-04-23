@@ -31,11 +31,21 @@ const Header = () => {
               </svg>
             </div>
             <div className="flex items-center">
-              <span className="font-bold text-xl bg-gradient-to-r from-white via-blue-100 to-indigo-200 bg-clip-text text-transparent">FomoAI</span>
+              <span className="font-bold text-xl bg-gradient-to-r from-white via-purple-100 to-pink-200 bg-clip-text text-transparent">PartyAI</span>
             </div>
           </Link>
 
           <nav className="hidden md:flex items-center space-x-3">
+            <Link to="/">
+              <Button
+                variant={location.pathname === '/' ? 'default' : 'ghost'}
+                size="sm"
+                className={`gap-2 rounded-full px-4 transition-all duration-300 ${location.pathname === '/' ? 'bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 text-white hover:from-purple-700 hover:via-pink-600 hover:to-red-600 shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30' : 'hover:bg-slate-800/70 text-slate-300 hover:text-white'}`}
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5.8 11.3 2 22l10.7-3.79" /><path d="M4 3h.01" /><path d="M22 8h.01" /><path d="M15 2h.01" /><path d="M22 20h.01" /><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" /><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17" /><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7" /><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z" /></svg>
+                PartyAI
+              </Button>
+            </Link>
             <Link to="/map">
               <Button
                 variant={location.pathname === '/map' ? 'default' : 'ghost'}
@@ -44,16 +54,6 @@ const Header = () => {
               >
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
                 Map
-              </Button>
-            </Link>
-            <Link to="/party">
-              <Button
-                variant={location.pathname === '/party' ? 'default' : 'ghost'}
-                size="sm"
-                className={`gap-2 rounded-full px-4 transition-all duration-300 ${location.pathname === '/party' ? 'bg-gradient-to-r from-purple-600 via-pink-500 to-red-500 text-white hover:from-purple-700 hover:via-pink-600 hover:to-red-600 shadow-md shadow-purple-500/20 hover:shadow-lg hover:shadow-purple-500/30' : 'hover:bg-slate-800/70 text-slate-300 hover:text-white'}`}
-              >
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5.8 11.3 2 22l10.7-3.79" /><path d="M4 3h.01" /><path d="M22 8h.01" /><path d="M15 2h.01" /><path d="M22 20h.01" /><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12v0c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10" /><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11v0c-.11.7-.72 1.22-1.43 1.22H17" /><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98v0C9.52 4.9 9 5.52 9 6.23V7" /><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z" /></svg>
-                PartyAI
               </Button>
             </Link>
             <Link to="/chat">

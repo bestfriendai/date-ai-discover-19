@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { callPerplexityAPI, ChatMessage, extractEventsFromResponse } from '@/services/perplexityService';
 import { Event } from '@/types';
@@ -105,8 +106,8 @@ export const useChatWithEvents = () => {
     setIsLoading(true);
 
     try {
-      // Convert chat history to Perplexity API format
-      const perplexityMessages = [
+      // Convert chat history to Perplexity API format with proper typing
+      const perplexityMessages: Array<{role: 'system' | 'user' | 'assistant', content: string}> = [
         { role: 'system', content: SYSTEM_PROMPT },
         ...chatHistoryRef.current.map(msg => ({
           role: msg.role === 'ai' ? 'assistant' as const : 'user' as const,

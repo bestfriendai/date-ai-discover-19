@@ -93,7 +93,7 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
-              placeholder="Search parties..."
+              placeholder="DJs, clubs, rooftop parties, celebrations..."
               value={filters.keyword}
               onChange={(e) => handleInputChange('keyword', e.target.value)}
               className="pl-9"
@@ -111,7 +111,7 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
 
           <Button onClick={handleSearch} disabled={loading}>
             {loading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Search className="h-4 w-4 mr-2" />}
-            Find Parties
+            Find Hot Parties
           </Button>
         </div>
 
