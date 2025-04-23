@@ -16,23 +16,8 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-// Import icons individually from lucide-react
-import { Music } from 'lucide-react/dist/esm/icons/music';
-import { Palette } from 'lucide-react/dist/esm/icons/palette';
-import { Trophy } from 'lucide-react/dist/esm/icons/trophy';
-import { Users } from 'lucide-react/dist/esm/icons/users';
-import { Utensils } from 'lucide-react/dist/esm/icons/utensils';
-import { CalendarDays } from 'lucide-react/dist/esm/icons/calendar-days';
-import { PartyPopper } from 'lucide-react/dist/esm/icons/party-popper';
-import { Sparkle } from 'lucide-react/dist/esm/icons/sparkle';
-import { Headphones } from 'lucide-react/dist/esm/icons/headphones';
-import { Package } from 'lucide-react/dist/esm/icons/package';
-import { Sun } from 'lucide-react/dist/esm/icons/sun';
-import { Coffee } from 'lucide-react/dist/esm/icons/coffee';
-import { Network } from 'lucide-react/dist/esm/icons/network';
-import { Wine } from 'lucide-react/dist/esm/icons/wine';
-import { Building } from 'lucide-react/dist/esm/icons/building';
-import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
+// Import icons from lucide-react
+import { Music, Palette, Trophy, Users, Utensils, CalendarDays, PartyPopper, Sparkle, Headphones, Package, Sun, Coffee, Network, Wine, Building, MapPin } from 'lucide-react';
 
 // Re-export PartySubcategory type here since we can't import from partyUtils
 type PartySubcategory =
