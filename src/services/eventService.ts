@@ -76,11 +76,11 @@ export async function searchEvents(params: SearchParams): Promise<{
 
     try {
       // Call Supabase function to fetch events from multiple sources
-      console.log('[DEBUG] About to call supabase.functions.invoke("search-events-simple")');
+      console.log('[DEBUG] About to call supabase.functions.invoke("search-events")'); // Corrected function name
       
       // Add timeout handling for the function call
       const timeoutMs = 30000; // 30 seconds timeout
-      const functionPromise = supabase.functions.invoke('search-events-simple', {
+      const functionPromise = supabase.functions.invoke('search-events', { // Corrected function name
         body: searchParams,
         headers: { 'Content-Type': 'application/json' }
       });

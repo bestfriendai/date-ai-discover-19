@@ -279,9 +279,10 @@ serve(async (req: Request) => {
     'Content-Type': 'application/json'
   };
 
+  const startTime: number = Date.now(); // Define startTime before the try block
   try {
     console.log('[SEARCH-EVENTS] Received request');
-    const startTime: number = Date.now();
+    // const startTime: number = Date.now(); // Moved outside try block
 
     // Use the exact secret names as set in Supabase
     const MAPBOX_TOKEN = Deno.env.get('MAPBOX_TOKEN') || '';
@@ -1143,61 +1144,50 @@ serve(async (req: Request) => {
     let errorStack = '';
     let errorType = 'Unknown';
 
-    // Return a valid response even in case of error
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      errorStack = error.stack || ''; // Get stack trace if available
+      errorType = error.name || 'Error';
+      console.error(`[SEARCH-EVENTS] ${errorType}: ${errorMessage}`);
+      console.error('[SEARCH-EVENTS] Stack trace:', errorStack);
+    } else if (typeof error === 'object' && error !== null) {
+      try {
+        errorMessage = JSON.stringify(error); // Try to stringify object errors
+      } catch (e) {
+        errorMessage = '[Object cannot be stringified]';
+      }
+      console.error(`[SEARCH-EVENTS] Object Error: ${errorMessage}`);
+    } else {
+      errorMessage = String(error); // Fallback for other types
+      console.error(`[SEARCH-EVENTS] Other Error: ${errorMessage}`);
+    }
+
+    // Calculate execution time safely, as startTime is now defined outside the try block
+    const executionTime = Date.now() - startTime;
+
+    // Return a valid JSON response even in case of error
     return new Response(JSON.stringify({
       events: [],
-      error: error instanceof Error ? error.message : String(error),
-      sourceStats: {
-        ticketmaster: { count: 0, error: 'Function error' },
-        eventbrite: { count: 0, error: 'Function error' },
-        serpapi: { count: 0, error: 'Function error' },
-        predicthq: { count: 0, error: 'Function error' }
+      error: errorMessage,
+      errorType,
+      stack: errorStack, // Include stack trace in response for easier debugging
+      timestamp: new Date().toISOString(),
+      sourceStats: { // Provide default stats indicating failure
+        ticketmaster: { count: 0, error: 'Function execution failed' },
+        eventbrite: { count: 0, error: 'Function execution failed' },
+        serpapi: { count: 0, error: 'Function execution failed' },
+        predicthq: { count: 0, error: 'Function execution failed' }
       },
       meta: {
-        executionTime: 0, // Can't reference startTime in this scope
+        executionTime, // Include execution time up to the error
         totalEvents: 0,
         eventsWithCoordinates: 0,
         timestamp: new Date().toISOString()
       }
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
+      status: 500, // Ensure a 500 status is returned for internal errors
     });
-
-    // The error response is already returned above, this code is unreachable
-    /* if (error instanceof Error) {
-      errorMessage = error.message;
-      errorStack = error.stack || '';
-      errorType = error.name || 'Error';
-      console.error(`[SEARCH-EVENTS] ${errorType}: ${errorMessage}`);
-      console.error('[SEARCH-EVENTS] Stack trace:', errorStack);
-    } else if (typeof error === 'object' && error !== null) {
-      try {
-        errorMessage = JSON.stringify(error);
-      } catch (e) {
-        errorMessage = '[Object cannot be stringified]';
-      }
-    } else {
-      errorMessage = String(error);
-    }
-
-    // This return statement is unreachable
-    return new Response(JSON.stringify({
-      error: errorMessage,
-      errorType,
-      stack: errorStack,
-      timestamp: new Date().toISOString(),
-      events: [],
-      sourceStats: {
-        ticketmaster: { count: 0, error: 'Function execution failed' },
-        eventbrite: { count: 0, error: 'Function execution failed' },
-        serpapi: { count: 0, error: 'Function execution failed' },
-        predicthq: { count: 0, error: 'Function execution failed' }
-      }
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    }) */
   }
 })
 
