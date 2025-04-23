@@ -1,5 +1,15 @@
 import { useState, useRef, useEffect } from 'react';
-import { Filter, Locate, Search, X, Moon, Sun, Satellite, Loader2, Map, Compass, MapPin } from 'lucide-react';
+import { Filter } from 'lucide-react/dist/esm/icons/filter';
+import { Locate } from 'lucide-react/dist/esm/icons/locate';
+import { Search } from 'lucide-react/dist/esm/icons/search';
+import { X } from 'lucide-react/dist/esm/icons/x';
+import { Moon } from 'lucide-react/dist/esm/icons/moon';
+import { Sun } from 'lucide-react/dist/esm/icons/sun';
+import { Satellite } from 'lucide-react/dist/esm/icons/satellite';
+import { Loader2 } from 'lucide-react/dist/esm/icons/loader-2';
+import { Map } from 'lucide-react/dist/esm/icons/map';
+import { Compass } from 'lucide-react/dist/esm/icons/compass';
+import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
 import { Button } from '@/components/ui/button';
 import { Input } from "@/components/ui/input";
 import { toast } from '@/hooks/use-toast';

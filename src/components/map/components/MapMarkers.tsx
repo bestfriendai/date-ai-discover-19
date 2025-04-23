@@ -1,7 +1,11 @@
 // src/components/map/MapMarkers.tsx
-import React, { useEffect, useRef, useState, useCallback, memo, useMemo } from 'react';
+'use client';
+
+import * as React from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
-import { createRoot, type Root } from 'react-dom/client';
+import { createRoot } from 'react-dom/client';
+import type { Root } from 'react-dom/client';
 import PerformanceMonitor from '@/utils/performanceMonitor';
 import type { Event } from '@/types';
 import { validateCoordinates, isLikelyOnLand, applyCoordinateJitter } from '@/utils/mapUtils';
@@ -12,7 +16,54 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-import { MapPin, Music, Trophy, Palette, Users, Utensils, CalendarDays, PartyPopper } from 'lucide-react';
+// Import icons individually from lucide-react
+import { Music } from 'lucide-react/dist/esm/icons/music';
+import { Palette } from 'lucide-react/dist/esm/icons/palette';
+import { Trophy } from 'lucide-react/dist/esm/icons/trophy';
+import { Users } from 'lucide-react/dist/esm/icons/users';
+import { Utensils } from 'lucide-react/dist/esm/icons/utensils';
+import { CalendarDays } from 'lucide-react/dist/esm/icons/calendar-days';
+import { PartyPopper } from 'lucide-react/dist/esm/icons/party-popper';
+import { Sparkle } from 'lucide-react/dist/esm/icons/sparkle';
+import { Headphones } from 'lucide-react/dist/esm/icons/headphones';
+import { Package } from 'lucide-react/dist/esm/icons/package';
+import { Sun } from 'lucide-react/dist/esm/icons/sun';
+import { Coffee } from 'lucide-react/dist/esm/icons/coffee';
+import { Network } from 'lucide-react/dist/esm/icons/network';
+import { Wine } from 'lucide-react/dist/esm/icons/wine';
+import { Building } from 'lucide-react/dist/esm/icons/building';
+import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
+
+// Re-export PartySubcategory type here since we can't import from partyUtils
+type PartySubcategory =
+  | 'day-party'
+  | 'social'
+  | 'brunch'
+  | 'club'
+  | 'networking'
+  | 'celebration'
+  | 'immersive'
+  | 'popup'
+  | 'silent'
+  | 'rooftop'
+  | 'general';
+
+// Type guard for PartySubcategory
+function isPartySubcategory(value: string): value is PartySubcategory {
+  return [
+    'day-party',
+    'social',
+    'brunch',
+    'club',
+    'networking',
+    'celebration',
+    'immersive',
+    'popup',
+    'silent',
+    'rooftop',
+    'general'
+  ].includes(value);
+}
 import { cn } from '@/lib/utils';
 
 // Marker batch processing constants - increased for better performance
@@ -20,7 +71,7 @@ const MARKER_BATCH_SIZE = 100; // Process more markers per batch
 const MARKER_BATCH_DELAY = 5; // Reduced delay between batches
 
 // Interface for marker props
-interface MapMarkersProps {
+type MapMarkersProps = {
   map: mapboxgl.Map | null;
   features: Event[];
   onMarkerClick: (event: Event) => void;
@@ -29,13 +80,16 @@ interface MapMarkersProps {
 
 // Global map to store all markers - this prevents recreation on component re-renders
 const markerMap = new Map<string, {
-  marker: mapboxgl.Marker,
-  root: Root,
-  isSelected: boolean,
+  marker: mapboxgl.Marker;
+  root: Root;
+  isSelected: boolean;
 }>();
 
+// Type for managed marker IDs
+type MarkerIdSet = Set<string>;
+
 // Get category icon based on category name
-const getCategoryIcon = (category: string | undefined) => {
+const getCategoryIcon = (category: string | undefined, partySubcategory?: PartySubcategory) => {
   const lowerCategory = category?.toLowerCase() || 'other';
   switch(lowerCategory) {
     case 'music': return <Music className="h-5 w-5 text-white" />;
@@ -45,15 +99,29 @@ const getCategoryIcon = (category: string | undefined) => {
     case 'family': return <Users className="h-5 w-5 text-white" />;
     case 'food': return <Utensils className="h-5 w-5 text-white" />;
     case 'restaurant': return <Utensils className="h-5 w-5 text-white" />;
-    case 'party': return <PartyPopper className="h-5 w-5 text-white" />;
+    case 'party':
+      if (partySubcategory && isPartySubcategory(partySubcategory)) {
+        switch(partySubcategory) {
+          case 'immersive': return <Sparkle className="h-5 w-5 text-white" />;
+          case 'silent': return <Headphones className="h-5 w-5 text-white" />;
+          case 'popup': return <Package className="h-5 w-5 text-white" />;
+          case 'day-party': return <Sun className="h-5 w-5 text-white" />;
+          case 'brunch': return <Coffee className="h-5 w-5 text-white" />;
+          case 'networking': return <Network className="h-5 w-5 text-white" />;
+          case 'club': return <Wine className="h-5 w-5 text-white" />;
+          case 'rooftop': return <Building className="h-5 w-5 text-white" />;
+          default: return <PartyPopper className="h-5 w-5 text-white" />;
+        }
+      }
+      return <PartyPopper className="h-5 w-5 text-white" />;
     default: return <CalendarDays className="h-5 w-5 text-white" />;
   }
 };
 
-const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId }: MapMarkersProps) => {
+const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, selectedFeatureId }) => {
   const [isProcessing, setIsProcessing] = useState(false);
-   // Ref to keep track of the IDs of markers currently being managed by this component
-  const managedMarkerIdsRef = useRef<Set<string>>(new Set());
+  // Ref to keep track of the IDs of markers currently being managed by this component
+  const managedMarkerIdsRef = useRef<MarkerIdSet>(new Set());
   const markersRef = useRef<{[key: string]: {marker: mapboxgl.Marker, root: Root, isSelected: boolean}}>(
   {}); // Keep markersRef for batch processing context if needed, though markerMap is primary
 
@@ -190,7 +258,7 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
     }
 
     // Remove markers that are no longer in the features list
-    const markersToRemove = Array.from(managedMarkerIdsRef.current).filter(id => !nextFeatureIds.has(id));
+    const markersToRemove = Array.from(managedMarkerIdsRef.current as Set<string>).filter(id => !nextFeatureIds.has(id));
     if (markersToRemove.length > 0) {
         console.log(`[MARKERS] Removing ${markersToRemove.length} markers that are no longer in the features list.`);
         markersToRemove.forEach(id => {
@@ -368,12 +436,14 @@ const MapMarkers = React.memo(({ map, features, onMarkerClick, selectedFeatureId
 });
 
 
-// Simple EventMarker component (Keep as is, assumed to be working)
-const EventMarker: React.FC<{
-  event: Event; // Expect Event object
+// EventMarker component with enhanced party subcategory support
+interface EventMarkerProps {
+  event: Event;
   isSelected: boolean;
   onClick: () => void;
-}> = memo(({ event, isSelected, onClick }) => {
+}
+
+const EventMarker = React.memo<EventMarkerProps>(({ event, isSelected, onClick }) => {
   // Use event.category directly as we expect normalized Event objects
   const category = event.category || 'other';
 
@@ -382,16 +452,36 @@ const EventMarker: React.FC<{
     if (isSelected) {
       bgColorClass = 'bg-indigo-600 ring-2 ring-white shadow-lg shadow-indigo-500/40';
     } else {
-      switch(category?.toLowerCase()) {
-        case 'music': bgColorClass = 'bg-indigo-600/90'; break;
-        case 'sports': bgColorClass = 'bg-emerald-600/90'; break;
-        case 'arts':
-        case 'theatre': bgColorClass = 'bg-pink-600/90'; break;
-        case 'family': bgColorClass = 'bg-amber-600/90'; break;
-        case 'food':
-        case 'restaurant': bgColorClass = 'bg-orange-600/90'; break;
-        case 'party': bgColorClass = 'bg-violet-600/90'; break;
-        default: bgColorClass = 'bg-gray-600/90';
+      if (category?.toLowerCase() === 'party' && event.partySubcategory && isPartySubcategory(event.partySubcategory)) {
+        // Enhanced colors for party subcategories
+        const subcategory = event.partySubcategory as PartySubcategory;
+        const colorMap: Record<PartySubcategory, string> = {
+          'immersive': 'bg-purple-600/90',
+          'silent': 'bg-cyan-600/90',
+          'popup': 'bg-lime-600/90',
+          'day-party': 'bg-yellow-600/90',
+          'brunch': 'bg-orange-600/90',
+          'networking': 'bg-blue-600/90',
+          'club': 'bg-violet-600/90',
+          'rooftop': 'bg-emerald-600/90',
+          'social': 'bg-violet-600/90',
+          'celebration': 'bg-violet-600/90',
+          'general': 'bg-violet-600/90'
+        };
+        bgColorClass = colorMap[subcategory];
+      } else {
+        // Regular category colors
+        switch(category?.toLowerCase()) {
+          case 'music': bgColorClass = 'bg-indigo-600/90'; break;
+          case 'sports': bgColorClass = 'bg-emerald-600/90'; break;
+          case 'arts':
+          case 'theatre': bgColorClass = 'bg-pink-600/90'; break;
+          case 'family': bgColorClass = 'bg-amber-600/90'; break;
+          case 'food':
+          case 'restaurant': bgColorClass = 'bg-orange-600/90'; break;
+          case 'party': bgColorClass = 'bg-violet-600/90'; break;
+          default: bgColorClass = 'bg-gray-600/90';
+        }
       }
     }
 
@@ -460,7 +550,7 @@ const EventMarker: React.FC<{
             )}
             aria-label={`Event: ${event.title || 'Unknown event'}`}
           >
-            {getCategoryIcon(category)}
+            {getCategoryIcon(category, event.partySubcategory)}
           </button>
         </TooltipTrigger>
         <TooltipContent side="top" align="center" className="z-[9999]">

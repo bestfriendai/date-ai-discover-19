@@ -1,6 +1,7 @@
 
 import React from 'react';
-import { Mountain, MountainSnow } from 'lucide-react';
+import { Mountain } from 'lucide-react/dist/esm/icons/mountain';
+import { MountainSnow } from 'lucide-react/dist/esm/icons/mountain-snow';
 import mapboxgl from 'mapbox-gl';
 
 interface TerrainToggleProps {

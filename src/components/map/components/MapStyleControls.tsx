@@ -1,6 +1,12 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Map as MapIcon, Sunrise, Moon, Mountain, Globe, Building, Layers } from 'lucide-react';
+import { Map as MapIcon } from 'lucide-react/dist/esm/icons/map';
+import { Sunrise } from 'lucide-react/dist/esm/icons/sunrise';
+import { Moon } from 'lucide-react/dist/esm/icons/moon';
+import { Mountain } from 'lucide-react/dist/esm/icons/mountain';
+import { Globe } from 'lucide-react/dist/esm/icons/globe';
+import { Building } from 'lucide-react/dist/esm/icons/building';
+import { Layers } from 'lucide-react/dist/esm/icons/layers';
 import {
   Tooltip,
   TooltipContent,

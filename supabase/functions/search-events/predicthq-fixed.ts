@@ -9,7 +9,7 @@ import { detectPartyEvent, detectPartySubcategory } from './partyUtils.ts';
 /**
  * Fetch events from PredictHQ API with improved error handling
  */
-export async function fetchPredictHQEvents(params: {
+interface PredictHQParams {
   apiKey: string;
   latitude?: number;
   longitude?: number;
@@ -18,10 +18,19 @@ export async function fetchPredictHQEvents(params: {
   endDate?: string;
   categories?: string[];
   location?: string;
-  withinParam?: string; // Pre-formatted within parameter
+  withinParam?: string;
   keyword?: string;
   limit?: number;
-}): Promise<{ events: Event[], error: string | null }> {
+}
+
+interface PredictHQResponse {
+  events: Event[];
+  error: string | null;
+  status?: number;
+  warnings?: string[];
+}
+
+export async function fetchPredictHQEvents(params: PredictHQParams): Promise<PredictHQResponse> {
   const {
     apiKey,
     latitude,
@@ -37,10 +46,66 @@ export async function fetchPredictHQEvents(params: {
   } = params;
 
   try {
-    // Validate API key
-    if (!apiKey) {
-      console.error('[PREDICTHQ] API key is missing');
-      return { events: [], error: 'PredictHQ API key is missing' };
+    // Validate API key with proper type checking
+    if (typeof apiKey !== 'string' || !apiKey.trim()) {
+      console.error('[PREDICTHQ] Invalid API key:', apiKey);
+      return { 
+        events: [], 
+        error: 'Invalid PredictHQ API key',
+        status: 401
+      };
+    }
+    
+    // Validate date formats if provided
+    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
+      return {
+        events: [],
+        error: 'Invalid startDate format. Use YYYY-MM-DD',
+        status: 400
+      };
+    }
+    
+    if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
+      return {
+        events: [],
+        error: 'Invalid endDate format. Use YYYY-MM-DD',
+        status: 400
+      };
+    }
+    
+    // Validate coordinates if provided
+    if (latitude && (latitude < -90 || latitude > 90)) {
+      return {
+        events: [],
+        error: 'Invalid latitude value. Must be between -90 and 90',
+        status: 400
+      };
+    }
+    
+    if (longitude && (longitude < -180 || longitude > 180)) {
+      return {
+        events: [],
+        error: 'Invalid longitude value. Must be between -180 and 180',
+        status: 400
+      };
+    }
+    
+    // Validate radius
+    if (radius && (radius < 0 || radius > 1000)) {
+      return {
+        events: [],
+        error: 'Invalid radius value. Must be between 0 and 1000 miles',
+        status: 400
+      };
+    }
+    
+    // Validate limit
+    if (limit && (limit < 1 || limit > 1000)) {
+      return {
+        events: [],
+        error: 'Invalid limit value. Must be between 1 and 1000',
+        status: 400
+      };
     }
 
     console.log('[PREDICTHQ] Fetching events with params:', {
@@ -199,8 +264,12 @@ export async function fetchPredictHQEvents(params: {
 
       // Increase the limit for party events
       if (limit < 500) {
-        limit = 500;
-        console.log('[PARTY_DEBUG] Increased limit for party events to 500');
+        const newParams = {
+          ...params,
+          limit: 500
+        };
+        console.log(`[PARTY_DEBUG] Increasing limit from ${params.limit} to ${newParams.limit}`);
+        return fetchPredictHQEvents(newParams);
       }
 
       console.log('[PARTY_DEBUG] Enhanced PredictHQ filters for party events');
@@ -298,8 +367,17 @@ export async function fetchPredictHQEvents(params: {
       };
     }
 
-    // Parse the response
-    const data = await response.json();
+    // Parse the response with error handling
+    let data;
+    try {
+      data = await response.json();
+      if (!data || typeof data !== 'object') {
+        throw new Error('Invalid API response format');
+      }
+    } catch (parseError) {
+      console.error('[PREDICTHQ] Failed to parse API response:', parseError);
+      return { events: [], error: 'Failed to parse PredictHQ API response' };
+    }
     console.log('[PREDICTHQ] API response:', {
       count: data.count,
       resultsCount: data.results?.length || 0,
@@ -326,7 +404,17 @@ export async function fetchPredictHQEvents(params: {
 
     return { events, error: null };
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    let errorMessage = 'Unknown error';
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      if (error.stack) {
+        console.error('[PREDICTHQ] Error stack:', error.stack);
+      }
+    } else if (typeof error === 'string') {
+      errorMessage = error;
+    } else {
+      errorMessage = JSON.stringify(error);
+    }
     console.error('[PREDICTHQ] Error fetching events:', errorMessage);
 
     // Provide more detailed error information
@@ -342,7 +430,11 @@ export async function fetchPredictHQEvents(params: {
       }
     }
 
-    return { events: [], error: detailedError };
+    return { 
+      events: [], 
+      error: detailedError,
+      status: 500
+    };
   }
 }
 
@@ -366,48 +458,48 @@ function normalizePredictHQEvent(event: any): Event {
     let location = 'Location not specified';
 
     // Try to build a detailed location string
-    const locationParts = [];
+    const locationParts: string[] = [];
 
     // Add venue name if available from entities
     const venueEntity = event.entities?.find((e: any) => e.type === 'venue');
     const venueName = venueEntity?.name || event.phq_venue?.name;
     if (venueName) {
-      locationParts.push(venueName);
+      locationParts.push(String(venueName));
     }
 
     // Add address if available
     if (venueEntity?.formatted_address) {
-      locationParts.push(venueEntity.formatted_address);
+      locationParts.push(String(venueEntity.formatted_address));
     } else if (event.phq_venue?.address) {
-      locationParts.push(event.phq_venue.address);
+      locationParts.push(String(event.phq_venue.address));
     }
 
     // Add location_name if available
     if (event.location_name) {
-      locationParts.push(event.location_name);
+      locationParts.push(String(event.location_name));
     }
 
     // Add city/place name
     if (event.place?.name) {
-      locationParts.push(event.place.name);
+      locationParts.push(String(event.place.name));
     }
 
     // Add state if available
     if (event.state) {
-      locationParts.push(event.state);
+      locationParts.push(String(event.state));
     }
 
     // Add country if available
     if (event.country) {
-      locationParts.push(event.country);
+      locationParts.push(String(event.country));
     }
 
     // Build final location string, removing duplicates and filtering empty strings
     if (locationParts.length > 0) {
       // Filter out empty strings and remove duplicates while preserving order
-      const uniqueParts = [];
+      const uniqueParts: string[] = [];
       for (const part of locationParts) {
-        if (part && typeof part === 'string' && part.trim() !== '' && !uniqueParts.includes(part)) {
+        if (part && part.trim() !== '' && !uniqueParts.includes(part)) {
           uniqueParts.push(part);
         }
       }
@@ -415,24 +507,24 @@ function normalizePredictHQEvent(event: any): Event {
       // If we have a venue and a city, we can simplify to "Venue, City, State"
       if (uniqueParts.length > 3) {
         // If we have venue name and city, we can simplify
-        const hasVenue = venueName && uniqueParts.includes(venueName);
-        const hasCity = event.place?.name && uniqueParts.includes(event.place.name);
+        const hasVenue = venueName && uniqueParts.includes(String(venueName));
+        const hasCity = event.place?.name && uniqueParts.includes(String(event.place.name));
 
         if (hasVenue && hasCity) {
           // Create a simplified location with just venue, city, state/country
-          const simpleParts = [];
+          const simpleParts: string[] = [];
 
           // Add venue
-          simpleParts.push(venueName);
+          simpleParts.push(String(venueName));
 
           // Add city
-          simpleParts.push(event.place.name);
+          simpleParts.push(String(event.place.name));
 
           // Add state or country (not both)
           if (event.state) {
-            simpleParts.push(event.state);
+            simpleParts.push(String(event.state));
           } else if (event.country) {
-            simpleParts.push(event.country);
+            simpleParts.push(String(event.country));
           }
 
           location = simpleParts.join(', ');
@@ -659,10 +751,7 @@ function normalizePredictHQEvent(event: any): Event {
       }
     }
 
-    // Store the original rank in the event object for later scoring
-    if (event.rank) {
-      (normalizedEvent as any)._rank = event.rank;
-    }
+    // No need to store _rank since we're now including rank in the Event type
 
     // Generate a unique ID
     const id = `predicthq-${event.id || Date.now()}-${Math.floor(Math.random() * 1000)}`;
@@ -710,6 +799,17 @@ function normalizePredictHQEvent(event: any): Event {
       imageUrl = categoryImages[category];
     }
 
+    // Add rank and local impact data
+    const rank = event.rank || 0;
+    const localRelevance = event.local_rank || 0;
+    const attendance = {
+      forecast: event.phq_attendance || undefined,
+      actual: event.actual_attendance || undefined
+    };
+    const demandSurge = event.labels?.includes('demand_surge') || false;
+    const isRealTime = event.labels?.includes('real_time') || false;
+    const predictHQCategories = event.category ? [event.category] : undefined;
+
     return {
       id,
       source: 'predicthq',
@@ -724,14 +824,21 @@ function normalizePredictHQEvent(event: any): Event {
       image: imageUrl,
       coordinates,
       url: event.url,
-      price: event.ticket_info?.price
+      price: event.ticket_info?.price,
+      // Add PredictHQ specific fields
+      rank,
+      localRelevance,
+      attendance,
+      demandSurge,
+      isRealTime,
+      predictHQCategories
     };
   } catch (error) {
     console.error('Error normalizing PredictHQ event:', error);
     console.error('Problem event:', JSON.stringify(event, null, 2).substring(0, 500) + '...');
 
     // Instead of throwing, return a minimal valid event
-    return {
+    const errorEvent: Event = {
       id: `predicthq-error-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
       source: 'predicthq',
       title: event?.title || 'Unknown Event',
@@ -740,7 +847,16 @@ function normalizePredictHQEvent(event: any): Event {
       time: '00:00',
       location: 'Location unavailable',
       category: 'other',
-      image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop'
+      image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop',
+      rank: 0,
+      localRelevance: 0,
+      attendance: {
+        forecast: undefined,
+        actual: undefined
+      },
+      demandSurge: false,
+      isRealTime: false
     };
+    return errorEvent;
   }
 }

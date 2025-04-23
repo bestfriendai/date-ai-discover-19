@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { DollarSign, PlusCircle, MinusCircle } from 'lucide-react';
+import { DollarSign } from 'lucide-react/dist/esm/icons/dollar-sign';
+import { PlusCircle } from 'lucide-react/dist/esm/icons/plus-circle';
+import { MinusCircle } from 'lucide-react/dist/esm/icons/minus-circle';
 import {
   Tooltip,
   TooltipContent,

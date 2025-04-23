@@ -1,5 +1,17 @@
-// Import party subcategory type
-import { PartySubcategory } from '../utils/eventNormalizers';
+// Party subcategory types
+// Re-export PartySubcategory type
+export type PartySubcategory =
+  | 'day-party'
+  | 'social'
+  | 'brunch'
+  | 'club'
+  | 'networking'
+  | 'celebration'
+  | 'immersive'
+  | 'popup'
+  | 'silent'
+  | 'rooftop'
+  | 'general';
 
 // Event types
 export interface Event {
@@ -12,11 +24,21 @@ export interface Event {
   location: string;
   venue?: string;
   category: string;
-  partySubcategory?: PartySubcategory; // Added for party event subcategorization
+  partySubcategory?: PartySubcategory;
   image: string;
   coordinates?: [number, number]; // [longitude, latitude]
   url?: string;
   price?: string;
+  // PredictHQ specific fields
+  rank?: number; // Event impact score (1-100)
+  localRelevance?: number; // Local impact score (1-100)
+  attendance?: {
+    forecast?: number; // Predicted attendance
+    actual?: number; // Actual attendance if available
+  };
+  demandSurge?: boolean; // Indicates if event is causing unusual demand
+  isRealTime?: boolean; // Indicates if event is real-time/unscheduled
+  predictHQCategories?: string[]; // Additional categories from PredictHQ
 }
 
 // Itinerary types

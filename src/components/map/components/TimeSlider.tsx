@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { Clock, Calendar } from 'lucide-react';
+import { Clock } from 'lucide-react/dist/esm/icons/clock';
+import { Calendar } from 'lucide-react/dist/esm/icons/calendar';
 import {
   Tooltip,
   TooltipContent,

@@ -1,6 +1,6 @@
 
 import { AnimatePresence } from 'framer-motion';
-import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
+import { Routes, Route, useLocation } from 'react-router-dom';
 import { PageTransition } from './components/animations/PageTransition';
 import { AuthProvider } from './contexts/AuthContext';
 import { Toaster } from './components/ui/toaster';
@@ -13,17 +13,15 @@ import Favorites from "./pages/Favorites";
 import Chat from "./pages/Chat";
 import Profile from "./pages/Profile";
 import EditItinerary from "./pages/EditItinerary";
-import PartyAI from "./pages/PartyAI"; // Import PartyAI page
-import ChatMapView from "./pages/ChatMapView"; // Import ChatMapView page
+import PartyAI from "./pages/PartyAI";
+import ChatMapView from "./pages/ChatMapView";
 
-const App = () => {
+const AppRoutes = () => {
   const location = useLocation();
-
+  
   return (
-    <TooltipProvider delayDuration={0}>
-      <AuthProvider>
-        <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
         <Route path="/" element={
           <PageTransition>
             <PartyAI />
@@ -75,10 +73,18 @@ const App = () => {
             <NotFound />
           </PageTransition>
         } />
-        </Routes>
-        <Toaster />
-      </AnimatePresence>
-    </AuthProvider>
+      </Routes>
+      <Toaster />
+    </AnimatePresence>
+  );
+};
+
+const App = () => {
+  return (
+    <TooltipProvider delayDuration={0}>
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </TooltipProvider>
   );
 };

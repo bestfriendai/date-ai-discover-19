@@ -3,7 +3,18 @@
  */
 
 // Party subcategory types
-export type PartySubcategory = 'day-party' | 'social' | 'brunch' | 'club' | 'networking' | 'celebration' | 'general';
+export type PartySubcategory =
+  | 'day-party'
+  | 'social'
+  | 'brunch'
+  | 'club'
+  | 'networking'
+  | 'celebration'
+  | 'immersive'
+  | 'popup'
+  | 'silent'
+  | 'rooftop'
+  | 'general';
 
 /**
  * Helper function to detect party-related keywords in title or description
@@ -13,7 +24,7 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   const partyKeywords = {
     // General party terms that strongly indicate a party event - massively expanded for comprehensive detection
     strong: [
-      // Basic party terms
+      // Modern party terms
       'party', 'celebration', 'social', 'mixer', 'gathering', 'gala',
       'reception', 'meet-up', 'meetup', 'happy hour', 'happy-hour',
       'mingle', 'networking', 'social event', 'cocktail', 'dance party', 'rave',
@@ -26,6 +37,21 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
       'networking event', 'mixer event', 'celebration event', 'vip event',
       'exclusive event', 'special event', 'dance event', 'music event', 'nightlife event',
       'show', 'performance', 'dj', 'nightlife', 'bar', 'lounge', 'club',
+      
+      // New modern party terms
+      'silent disco', 'pop-up party', 'immersive experience', 'secret party',
+      'underground party', 'warehouse party', 'art party', 'creative social',
+      'experiential event', 'interactive party', 'themed social',
+      'cultural celebration', 'community gathering', 'local event',
+      'micro festival', 'boutique festival', 'curated experience',
+      'exclusive access', 'members only', 'private event',
+      'speakeasy', 'hidden venue', 'secret location',
+      'popup bar', 'popup club', 'popup venue',
+      'silent party', 'headphone party', 'silent rave',
+      'immersive art', 'immersive music', 'immersive party',
+      'rooftop social', 'rooftop party', 'skyline party',
+      'yacht party', 'boat party', 'cruise party',
+      'pool social', 'beach social', 'outdoor social',
 
       // Additional party terms
       'themed party', 'costume party', 'masquerade', 'holiday party',
@@ -50,7 +76,19 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
       'day fest', 'day festival', 'outdoor festival', 'pool festival',
       'day celebration', 'afternoon celebration', 'daytime celebration',
       'day social', 'afternoon social', 'daytime social', 'day mixer',
-      'bbq party', 'barbecue party', 'cookout', 'picnic', 'outdoor social'
+      'bbq party', 'barbecue party', 'cookout', 'picnic', 'outdoor social',
+      
+      // New modern day party terms
+      'day rave', 'sunshine social', 'sunset party', 'sunset social',
+      'poolside social', 'poolside party', 'beach club', 'beach social',
+      'yacht day', 'boat day', 'cruise day', 'harbor party',
+      'garden social', 'outdoor lounge', 'lawn party', 'park social',
+      'day festival', 'afternoon festival', 'day carnival',
+      'outdoor experience', 'outdoor celebration', 'sunshine celebration',
+      'daytime popup', 'day popup', 'popup pool party',
+      'rooftop brunch', 'rooftop social', 'skyline social',
+      'terrace social', 'patio social', 'courtyard party',
+      'outdoor silent disco', 'day silent disco', 'outdoor headphone party'
     ],
 
     // Brunch event terms - expanded for better detection
@@ -152,7 +190,11 @@ export function detectPartySubcategory(title: string = '', description: string =
     dayParty: [
       'day party', 'day-party', 'pool party', 'afternoon party', 'daytime',
       'day time', 'outdoor party', 'garden party', 'patio party', 'beach party',
-      'pool', 'day club', 'dayclub', 'rooftop party', 'terrace party'
+      'pool', 'day club', 'dayclub', 'rooftop party', 'terrace party',
+      'day rave', 'sunshine social', 'sunset party', 'sunset social',
+      'poolside social', 'poolside party', 'beach club', 'beach social',
+      'yacht day', 'boat day', 'cruise day', 'harbor party',
+      'garden social', 'outdoor lounge', 'lawn party', 'park social'
     ],
 
     brunch: [
@@ -167,7 +209,42 @@ export function detectPartySubcategory(title: string = '', description: string =
       'night life', 'clubbing', 'dance floor', 'bottle service',
       'vip table', 'vip section', 'bar crawl', 'pub crawl',
       'lounge', 'venue', 'live music', 'concert', 'performance',
-      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music'
+      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music',
+      'underground club', 'secret club', 'hidden venue',
+      'speakeasy club', 'warehouse club', 'industrial venue',
+      'boutique club', 'intimate venue', 'exclusive club',
+      'members club', 'private club', 'curated night'
+    ],
+
+    immersive: [
+      'immersive experience', 'immersive art', 'immersive music',
+      'immersive party', 'experiential event', 'interactive party',
+      'art party', 'creative social', 'themed social',
+      'themed party', 'concept party', 'multi-room venue',
+      'art space', 'creative venue', 'immersive club'
+    ],
+
+    popup: [
+      'pop-up party', 'popup bar', 'popup club', 'popup venue',
+      'secret party', 'secret location', 'hidden venue',
+      'underground party', 'warehouse party', 'industrial space',
+      'temporary venue', 'limited time', 'exclusive popup',
+      'one night only', 'special venue'
+    ],
+
+    silent: [
+      'silent disco', 'silent party', 'headphone party',
+      'silent rave', 'silent club', 'headphone club',
+      'silent social', 'quiet party', 'wireless headphones',
+      'multi-channel', 'multi-dj', 'choose your channel'
+    ],
+
+    rooftop: [
+      'rooftop party', 'rooftop social', 'skyline party',
+      'rooftop venue', 'rooftop bar', 'rooftop club',
+      'terrace party', 'terrace social', 'outdoor venue',
+      'sky lounge', 'sky bar', 'view venue',
+      'penthouse party', 'high-rise venue'
     ],
 
     networking: [
@@ -218,27 +295,24 @@ export function detectPartySubcategory(title: string = '', description: string =
   console.log(`[SUBCATEGORY_DETECTION] Event: "${title}", Matches: DayParty=${matchesDayParty}, Brunch=${matchesBrunch}, Club=${matchesClub}, Networking=${matchesNetworking}, Celebration=${matchesCelebration}, TimeBasedCategory=${timeBasedCategory || 'none'}`);
 
   // Determine the subcategory based on keyword matches and time
-  // Priority: Brunch > Day Party > Club > Networking > Celebration > General
+  // Priority: Immersive > Silent > Popup > Rooftop > Brunch > Day Party > Club > Networking > Celebration > General
 
-  if (matchesBrunch) {
-    return 'brunch';
-  }
+  // Check for modern party types first
+  const matchesImmersive = subcategoryKeywords.immersive.some(keyword => combinedText.includes(keyword));
+  const matchesSilent = subcategoryKeywords.silent.some(keyword => combinedText.includes(keyword));
+  const matchesPopup = subcategoryKeywords.popup.some(keyword => combinedText.includes(keyword));
+  const matchesRooftop = subcategoryKeywords.rooftop.some(keyword => combinedText.includes(keyword));
 
-  if (matchesDayParty || (timeBasedCategory === 'day-party' && !matchesClub && !matchesNetworking)) {
-    return 'day-party';
-  }
-
-  if (matchesClub || timeBasedCategory === 'club') {
-    return 'club';
-  }
-
-  if (matchesNetworking) {
-    return 'networking';
-  }
-
-  if (matchesCelebration) {
-    return 'celebration';
-  }
+  // Return based on priority
+  if (matchesImmersive) return 'immersive';
+  if (matchesSilent) return 'silent';
+  if (matchesPopup) return 'popup';
+  if (matchesRooftop) return 'rooftop';
+  if (matchesBrunch) return 'brunch';
+  if (matchesDayParty || (timeBasedCategory === 'day-party' && !matchesClub && !matchesNetworking)) return 'day-party';
+  if (matchesClub || timeBasedCategory === 'club') return 'club';
+  if (matchesNetworking) return 'networking';
+  if (matchesCelebration) return 'celebration';
 
   // Default to general if no specific subcategory is detected
   return 'general';

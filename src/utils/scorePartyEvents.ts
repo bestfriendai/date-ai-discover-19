@@ -1,6 +1,21 @@
 
 import type { Event } from '@/types';
 
+// Type guard for PredictHQ events
+function isPredictHQEvent(event: Event): event is Event & {
+  rank: number;
+  localRelevance: number;
+  attendance: { forecast?: number; actual?: number };
+  demandSurge: boolean;
+  isRealTime: boolean;
+} {
+  return event.source === 'predicthq' &&
+    typeof (event as any).rank === 'number' &&
+    typeof (event as any).localRelevance === 'number' &&
+    typeof (event as any).demandSurge === 'boolean' &&
+    typeof (event as any).isRealTime === 'boolean';
+}
+
 export function scoreAndSortPartyEvents(events: Event[]): Event[] {
   // First, filter to only include party events
   const filteredEvents = events.filter(event => event.category === 'party');
@@ -36,14 +51,20 @@ export function scoreAndSortPartyEvents(events: Event[]): Event[] {
       const highValueKeywords = [
         'vip', 'exclusive', 'sold out', 'tickets', 'open bar',
         'bottle service', 'dance floor', 'headliner', 'dj set',
-        'rave', 'underground', 'warehouse'
+        'rave', 'underground', 'warehouse', 'silent disco',
+        'pop-up party', 'immersive experience', 'secret location',
+        'rooftop party', 'yacht party', 'pool party', 'beach party',
+        'festival', 'all-inclusive'
       ];
 
       // Medium-value keywords
       const mediumValueKeywords = [
         'dj', 'music', 'dance', 'drinks', 'featured', 'popular',
         'nightlife', 'entertainment', 'live music', 'concert',
-        'performance', 'party', 'club', 'nightclub'
+        'performance', 'party', 'club', 'nightclub', 'themed party',
+        'costume party', 'masquerade', 'glow party', 'foam party',
+        'paint party', 'neon party', 'retro party', 'decade party',
+        'international', 'cultural', 'local artists'
       ];
 
       // Low-value keywords (general terms)
@@ -78,15 +99,56 @@ export function scoreAndSortPartyEvents(events: Event[]): Event[] {
 
     // Score based on having a price (ticketed events are often better quality)
     if (event.price) {
-      score += 2;
+      // Add extra points for higher-priced events (often indicate better quality)
+      const priceStr = typeof event.price === 'number' ? `$${event.price}` : event.price;
+      const priceMatch = priceStr?.match(/\$(\d+)/);
+      if (priceMatch) {
+        const price = parseInt(priceMatch[1]);
+        if (price > 100) score += 4;
+        else if (price > 50) score += 3;
+        else score += 2;
+      } else {
+        score += 2; // Default score for having a price
+      }
+
+      // Add points if it's a ticketed event (indicated by price)
+      if (typeof priceStr === 'string' && priceStr.toLowerCase().includes('ticket')) {
+        score += 2;
+      }
     }
 
     // Score based on time of day (if available)
     if (event.time) {
       const [hours] = event.time.split(':').map(Number);
       // Score higher for evening/night events
-      if (hours >= 20 || hours < 4) score += 4; // 8 PM to 4 AM
-      else if (hours >= 16 && hours < 20) score += 2; // 4 PM to 8 PM (for day parties)
+      if (hours >= 22 || hours < 4) score += 5; // 10 PM to 4 AM (prime party time)
+      else if (hours >= 20 && hours < 22) score += 4; // 8 PM to 10 PM
+      else if (hours >= 16 && hours < 20) score += 3; // 4 PM to 8 PM (day parties)
+      else if (hours >= 11 && hours < 16) score += 2; // 11 AM to 4 PM (brunch/day events)
+    }
+
+    // Add points for PredictHQ data if available
+    if (isPredictHQEvent(event)) {
+      // Add points for rank (global popularity)
+      score += Math.floor(event.rank / 10); // Add up to 10 points for rank (0-100)
+
+      // Add points for local relevance
+      score += Math.floor(event.localRelevance / 10); // Add up to 10 points for local relevance
+
+      // Add points for expected attendance
+      if (event.attendance?.forecast) {
+        // Scale attendance score logarithmically
+        const attendanceScore = Math.min(10, Math.floor(Math.log10(event.attendance.forecast)));
+        score += attendanceScore;
+      }
+
+      // Add points for demand surge and real-time events
+      if (event.demandSurge) {
+        score += 5; // Events with high demand get a boost
+      }
+      if (event.isRealTime) {
+        score += 3; // Real-time events get a small boost
+      }
     }
 
     return { ...event, _score: score };

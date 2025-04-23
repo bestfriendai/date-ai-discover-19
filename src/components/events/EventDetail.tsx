@@ -9,7 +9,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import AddToPlanModal from './AddToPlanModal';
 import { toast } from '@/hooks/use-toast';
 import { Event } from '@/types';
-import { ExternalLink, MapPin, Calendar, Clock, Heart, Plus, Share2, Ticket } from 'lucide-react';
+import { ExternalLink } from 'lucide-react/dist/esm/icons/external-link';
+import { MapPin } from 'lucide-react/dist/esm/icons/map-pin';
+import { CalendarDays as Calendar } from 'lucide-react/dist/esm/icons/calendar-days';
+import { Clock } from 'lucide-react/dist/esm/icons/clock';
+import { Heart } from 'lucide-react/dist/esm/icons/heart';
+import { Plus } from 'lucide-react/dist/esm/icons/plus';
+import { Share2 } from 'lucide-react/dist/esm/icons/share-2';
+import { Ticket } from 'lucide-react/dist/esm/icons/ticket';
+import { Star } from 'lucide-react/dist/esm/icons/star';
+import { Users } from 'lucide-react/dist/esm/icons/users';
+import { TrendingUp } from 'lucide-react/dist/esm/icons/trending-up';
 
 // Helper function to format party subcategory for display
 const formatPartySubcategory = (subcategory: string): string => {
@@ -230,8 +240,35 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
             </Button>
           </div>
 
-          <div className="border border-[hsl(var(--sidebar-border))] rounded-md p-4 bg-[hsl(var(--sidebar-accent))]/40"> {/* Removed mb-6 */}
+          <div className="border border-[hsl(var(--sidebar-border))] rounded-md p-4 bg-[hsl(var(--sidebar-accent))]/40">
             <div className="grid grid-cols-2 gap-4">
+              {event.rank && (
+                <div>
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Event Rank</p>
+                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
+                    <Star className="h-4 w-4 mr-2 fill-yellow-500" />
+                    <p>{Math.round(event.rank)}/100</p>
+                  </div>
+                </div>
+              )}
+              {event.localRelevance && (
+                <div>
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Local Impact</p>
+                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
+                    <TrendingUp className="h-4 w-4 mr-2" />
+                    <p>{Math.round(event.localRelevance)}/100</p>
+                  </div>
+                </div>
+              )}
+              {event.attendance?.forecast && (
+                <div>
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Expected Attendance</p>
+                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
+                    <Users className="h-4 w-4 mr-2" />
+                    <p>{event.attendance.forecast.toLocaleString()}</p>
+                  </div>
+                </div>
+              )}
               <div>
                 <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Date</p>
                 <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
