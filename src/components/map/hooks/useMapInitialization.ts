@@ -50,7 +50,45 @@ export const useMapInitialization = (
           return;
         }
 
-        const mapboxToken = (window as any).FALLBACK_MAPBOX_TOKEN || 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+        // Try to fetch token from Supabase function
+        let mapboxToken;
+        try {
+          console.log('[MAP_DEBUG] Attempting to fetch Mapbox token from Supabase');
+          const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+
+          if (error) {
+            console.error('[MAP_DEBUG] Error fetching Mapbox token from Supabase:', error);
+            throw error;
+          }
+
+          if (data && data.MAPBOX_TOKEN) {
+            console.log('[MAP_DEBUG] Successfully retrieved Mapbox token from Supabase');
+            mapboxToken = data.MAPBOX_TOKEN;
+          } else {
+            console.warn('[MAP_DEBUG] No token returned from Supabase function');
+            throw new Error('No token returned from server');
+          }
+        } catch (tokenError) {
+          console.warn('[MAP_DEBUG] Falling back to default token:', tokenError);
+          // Fallback to environment variables, window variable, or hardcoded value
+          if (import.meta.env.VITE_MAPBOX_TOKEN) {
+            console.log('[MAP_DEBUG] Using Mapbox token from environment variables');
+            mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+          }
+          else if ((window as any).FALLBACK_MAPBOX_TOKEN) {
+            console.log('[MAP_DEBUG] Using fallback Mapbox token from window');
+            mapboxToken = (window as any).FALLBACK_MAPBOX_TOKEN;
+          }
+          else {
+            console.log('[MAP_DEBUG] Using hardcoded Mapbox token');
+            mapboxToken = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+          }
+        }
+
+        // Validate token format (basic check)
+        if (!mapboxToken.startsWith('pk.')) {
+          console.warn('[MAP_DEBUG] Warning: Mapbox token does not start with expected prefix (pk.)');
+        }
 
         console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
         mapboxgl.accessToken = mapboxToken;
@@ -103,7 +141,7 @@ export const useMapInitialization = (
       } catch (error: any) {
         if (!isMounted) return;
 
-        const errorMessage = error instanceof Error 
+        const errorMessage = error instanceof Error
           ? `Map initialization failed: ${error.message}`
           : "Map initialization failed. Could not load the map.";
 

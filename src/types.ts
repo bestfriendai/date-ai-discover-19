@@ -21,6 +21,15 @@ export interface Event {
   image?: string;
   url?: string;
   source?: string;
+
+  // PredictHQ specific fields
+  rank?: number;
+  localRelevance?: number;
+  attendance?: {
+    forecast?: number;
+    actual?: number;
+  };
+  demandSurge?: number;
 }
 
 /**

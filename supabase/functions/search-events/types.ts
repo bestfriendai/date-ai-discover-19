@@ -22,6 +22,15 @@ export interface Event {
   coordinates?: [number, number]; // [longitude, latitude]
   url?: string;
   price?: string;
+
+  // PredictHQ specific fields
+  rank?: number;
+  localRelevance?: number;
+  attendance?: {
+    forecast?: number;
+    actual?: number;
+  };
+  demandSurge?: number;
 }
 
 /**

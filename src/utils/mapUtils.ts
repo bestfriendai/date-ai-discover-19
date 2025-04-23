@@ -53,6 +53,11 @@ export function isLikelyOnLand(coordinates: [number, number]): boolean {
     return false;
   }
 
+  // MODIFIED: Always return true to show all markers
+  // This ensures all events with valid coordinates are displayed
+  return true;
+
+  /* Original ocean filtering code - commented out to show all markers
   const [lng, lat] = coordinates;
 
   // Very simple check for coordinates in the middle of major oceans
@@ -91,6 +96,7 @@ export function isLikelyOnLand(coordinates: [number, number]): boolean {
   }
 
   return true;
+  */
 }
 
 /**

@@ -88,6 +88,31 @@ export async function searchEvents(params: SearchParams): Promise<{
         console.log(
           `[Events] PredictHQ: ${data.sourceStats.predicthq.count} ${data.sourceStats.predicthq.error ? `(Error: ${data.sourceStats.predicthq.error})` : ''}`
         );
+
+        // Add detailed PredictHQ debugging
+        if (data.sourceStats.predicthq) {
+          console.log('[PREDICTHQ_DEBUG] PredictHQ source stats:', data.sourceStats.predicthq);
+
+          if (data.sourceStats.predicthq.error) {
+            console.error('[PREDICTHQ_ERROR] PredictHQ API error:', data.sourceStats.predicthq.error);
+          }
+
+          if (data.sourceStats.predicthq.warnings) {
+            console.warn('[PREDICTHQ_WARN] PredictHQ API warnings:', data.sourceStats.predicthq.warnings);
+          }
+
+          if (data.sourceStats.predicthq.details) {
+            console.log('[PREDICTHQ_DEBUG] PredictHQ API details:', data.sourceStats.predicthq.details);
+          }
+
+          // Check if any events came from PredictHQ
+          const predicthqEvents = data.events?.filter((event: any) => event.source === 'predicthq') || [];
+          console.log(`[PREDICTHQ_DEBUG] Found ${predicthqEvents.length} events from PredictHQ`);
+
+          if (predicthqEvents.length > 0) {
+            console.log('[PREDICTHQ_DEBUG] First PredictHQ event:', predicthqEvents[0]);
+          }
+        }
       }
 
       // Check if we have events before returning
@@ -115,14 +140,18 @@ export async function searchEvents(params: SearchParams): Promise<{
       }
 
       // --- FILTER EVENTS: Only include those with image and description ---
+      // Modified to be less strict - only require image OR description, not both
       const filteredEvents = (data.events || []).filter(
         (ev: any) =>
-          !!ev.image &&
-          typeof ev.image === 'string' &&
-          ev.image.trim().length > 0 &&
-          !!ev.description &&
-          typeof ev.description === 'string' &&
-          ev.description.trim().length > 0
+          // Require valid coordinates
+          ev.coordinates &&
+          Array.isArray(ev.coordinates) &&
+          ev.coordinates.length === 2 &&
+          // Require either image OR description
+          (
+            (!!ev.image && typeof ev.image === 'string' && ev.image.trim().length > 0) ||
+            (!!ev.description && typeof ev.description === 'string' && ev.description.trim().length > 0)
+          )
       );
 
       return {

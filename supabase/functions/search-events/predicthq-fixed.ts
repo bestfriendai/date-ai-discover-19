@@ -49,13 +49,19 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Validate API key with proper type checking
     if (typeof apiKey !== 'string' || !apiKey.trim()) {
       console.error('[PREDICTHQ] Invalid API key:', apiKey);
-      return { 
-        events: [], 
+      return {
+        events: [],
         error: 'Invalid PredictHQ API key',
         status: 401
       };
     }
-    
+
+    // Log API key details for debugging
+    console.log('[PREDICTHQ] API Key validation passed');
+    console.log('[PREDICTHQ] API Key length:', apiKey.length);
+    console.log('[PREDICTHQ] API Key prefix:', apiKey.substring(0, 4) + '...');
+    console.log('[PREDICTHQ] API Key suffix:', '...' + apiKey.substring(apiKey.length - 4));
+
     // Validate date formats if provided
     if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
       return {
@@ -64,7 +70,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         status: 400
       };
     }
-    
+
     if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
       return {
         events: [],
@@ -72,7 +78,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         status: 400
       };
     }
-    
+
     // Validate coordinates if provided
     if (latitude && (latitude < -90 || latitude > 90)) {
       return {
@@ -81,7 +87,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         status: 400
       };
     }
-    
+
     if (longitude && (longitude < -180 || longitude > 180)) {
       return {
         events: [],
@@ -89,7 +95,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         status: 400
       };
     }
-    
+
     // Validate radius
     if (radius && (radius < 0 || radius > 1000)) {
       return {
@@ -98,7 +104,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         status: 400
       };
     }
-    
+
     // Validate limit
     if (limit && (limit < 1 || limit > 1000)) {
       return {
@@ -136,12 +142,10 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       console.log(`[PREDICTHQ] Using pre-formatted within parameter: ${withinParam}`);
     } else if (latitude && longitude) {
       // Convert radius from miles to km (PredictHQ uses km)
-      // For party events, use a much larger radius
+      // Use the provided radius without increasing it
       let effectiveRadius = radius;
-      if (categories && categories.includes('party')) {
-        effectiveRadius = Math.max(radius, 75); // At least 75 miles for party events
-        console.log(`[PREDICTHQ] Using significantly increased radius for party events: ${effectiveRadius} miles`);
-      }
+      // Log the radius being used
+      console.log(`[PREDICTHQ] Using radius: ${effectiveRadius} miles`);
       const radiusKm = Math.round(effectiveRadius * 1.60934);
       queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
       console.log(`[PREDICTHQ] Using coordinates: ${latitude},${longitude} with radius ${radiusKm}km`);
@@ -154,12 +158,10 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         if (!isNaN(lat) && !isNaN(lng) &&
             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           // Convert radius from miles to km (PredictHQ uses km)
-          // For party events, use a much larger radius
+          // Use the provided radius without increasing it
           let effectiveRadius = radius;
-          if (categories && categories.includes('party')) {
-            effectiveRadius = Math.max(radius, 75); // At least 75 miles for party events
-            console.log(`[PREDICTHQ] Using significantly increased radius for party events: ${effectiveRadius} miles`);
-          }
+          // Log the radius being used
+          console.log(`[PREDICTHQ] Using radius: ${effectiveRadius} miles`);
           const radiusKm = Math.round(effectiveRadius * 1.60934);
           queryParams.append('within', `${radiusKm}km@${lat},${lng}`);
           console.log(`[PREDICTHQ] Parsed coordinates from location string: ${lat},${lng} with radius ${radiusKm}km`);
@@ -202,16 +204,16 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     let categoriesForQuery = categories || [];
     let keywordForQuery = keyword;
     let labelsForQuery: string[] = [];
-    let rankGte = 0; // Default rank threshold
+    // No longer using rankGte since we're not setting a rank threshold
 
     if (categoriesForQuery.includes('party')) {
       console.log('[PARTY_DEBUG] Party category requested - applying enhanced party detection');
 
-      // Increase radius for party searches
-      if (radius < 75) {
-        console.log(`[PARTY_DEBUG] Increasing radius from ${radius} to 75 miles for party search`);
-        // This is already handled above, but logging for clarity
-      }
+      // Use the provided radius without increasing it
+      console.log(`[PARTY_DEBUG] Using radius: ${radius} miles for party search`);
+
+      // Force active state for party events
+      queryParams.append('state', 'active');
 
       // Add all party-related PredictHQ categories - only using valid PredictHQ categories
       // Prioritize categories that are most likely to contain party events
@@ -220,6 +222,9 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
       // Force the category parameter to include all party-related categories
       queryParams.append('category', partyCategories.join(','));
+
+      // Add state parameter to ensure we get active events
+      queryParams.append('state', 'active');
 
       // Add party-related labels - prioritizing the most relevant ones
       // We'll rely heavily on labels to identify potential party events
@@ -244,31 +249,42 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
         // Special event types
         'exclusive', 'vip', 'launch-party', 'after-party',
-        'themed-party', 'costume-party', 'masquerade'
+        'themed-party', 'costume-party', 'masquerade',
+
+        // Social gathering labels
+        'social', 'social-gathering', 'mixer', 'networking', 'meetup',
+        'singles', 'dating', 'speed-dating', 'mingling', 'social-event',
+        'community-event', 'gathering', 'get-together', 'celebration',
+        'gala', 'reception', 'cocktail-party', 'happy-hour',
+
+        // Additional entertainment labels
+        'entertainment', 'live-entertainment', 'performance', 'show',
+        'concert', 'live-music', 'live-band', 'live-dj', 'live-performance',
+        'comedy', 'comedy-night', 'stand-up', 'improv', 'karaoke',
+        'open-mic', 'trivia', 'game-night', 'bingo', 'quiz-night'
       ];
 
       // Add comprehensive party-related keywords if not present
       if (!keywordForQuery) {
         // Create a focused party keyword search with the most relevant terms first
-        keywordForQuery = 'nightclub OR "night club" OR "dance club" OR "dance party" OR "dj set" OR "dj night" OR rave OR "bottle service" OR "vip table" OR "vip section" OR "dance floor" OR "electronic music" OR "hip hop" OR "edm" OR "house music" OR techno OR "underground party" OR "warehouse party" OR "pool party" OR "day party" OR "rooftop party" OR "exclusive party" OR "vip party" OR "club night" OR "dance night" OR "party night" OR "nightlife" OR "night life"';
+        keywordForQuery = 'party OR nightclub OR "night club" OR "dance club" OR "dance party" OR "dj set" OR "dj night" OR rave OR "bottle service" OR "vip table" OR "vip section" OR "dance floor" OR "electronic music" OR "hip hop" OR "edm" OR "house music" OR techno OR "underground party" OR "warehouse party" OR "pool party" OR "day party" OR "rooftop party" OR "exclusive party" OR "vip party" OR "club night" OR "dance night" OR "party night" OR "nightlife" OR "night life" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
       } else {
         // If keyword is provided, enhance it with party-specific terms
-        keywordForQuery = `(${keywordForQuery}) AND (party OR club OR nightlife OR dance OR dj)`;
+        keywordForQuery = `(${keywordForQuery}) OR party OR club OR nightlife OR dance OR dj OR social OR gathering OR mixer OR celebration`;
       }
 
-      // Set a minimum rank threshold to filter out low-quality events
+      // Set a very low minimum rank threshold to include more party events
       // PredictHQ rank is 0-100, with higher values for more significant events
-      rankGte = 30; // Only include events with rank >= 30
-      queryParams.append('rank.gte', rankGte.toString());
-      console.log(`[PARTY_DEBUG] Setting minimum rank threshold to ${rankGte}`);
+      // Don't set rank.gte for party events to get all results
+      console.log(`[PARTY_DEBUG] Removing rank threshold to include all party events`);
 
-      // Increase the limit for party events
-      if (limit < 500) {
+      // Use a reasonable limit for party events
+      if (limit < 300) {
         const newParams = {
           ...params,
-          limit: 500
+          limit: 300
         };
-        console.log(`[PARTY_DEBUG] Increasing limit from ${params.limit} to ${newParams.limit}`);
+        console.log(`[PARTY_DEBUG] Adjusting limit from ${params.limit} to ${newParams.limit}`);
         return fetchPredictHQEvents(newParams);
       }
 
@@ -286,7 +302,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         'family': ['community', 'expos'],
         'food': ['community', 'expos'],
         // Include categories that might contain party events - only using valid PredictHQ categories
-        'party': ['festivals', 'community', 'conferences', 'concerts', 'expos', 'performing-arts', 'sports', 'community']
+        'party': ['concerts', 'festivals', 'community', 'performing-arts', 'expos']
       };
 
       // Log the categories for debugging
@@ -306,9 +322,15 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         queryParams.append('category', predictHQCategories.join(','));
       }
     }
-    // Add labels if present
+    // Add labels if present - use phq_label instead of labels (which is deprecated)
     if (labelsForQuery.length > 0) {
-      queryParams.append('labels', labelsForQuery.join(','));
+      // Use phq_label instead of labels (which is deprecated)
+      // Add each label individually for better matching
+      labelsForQuery.forEach(label => {
+        queryParams.append('phq_label', label);
+      });
+      // Set the operator to 'any' to match events with any of the labels
+      queryParams.append('phq_label.op', 'any');
     }
     // Add keyword search
     if (keywordForQuery) {
@@ -319,23 +341,53 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     queryParams.append('limit', limit.toString());
 
     // Add include parameters for additional data - request all available fields for rich event data
-    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images');
+    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images,phq_labels');
 
     // Append query parameters to URL
     url += `?${queryParams.toString()}`;
 
     console.log('[PREDICTHQ] API URL:', url);
+    console.log('[PREDICTHQ] API Key prefix:', apiKey ? apiKey.substring(0, 4) + '...' : 'NOT SET');
+    console.log('[PREDICTHQ] Query parameters:', {
+      categories: categoriesForQuery,
+      labels: labelsForQuery,
+      keyword: keywordForQuery,
+      location: location,
+      latitude: latitude,
+      longitude: longitude,
+      radius: radius,
+      startDate: startDate,
+      endDate: endDate,
+      limit: limit
+    });
 
     // Make the API request with proper error handling
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Accept': 'application/json'
-      },
-      // Add timeout to prevent hanging requests
-      signal: AbortSignal.timeout(10000) // 10 second timeout
+    console.log('[PREDICTHQ] Making API request with headers:', {
+      'Authorization': apiKey ? `Bearer ${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NOT SET',
+      'Accept': 'application/json'
     });
+
+    // Make the API request with proper error handling
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Accept': 'application/json'
+        },
+        // Add timeout to prevent hanging requests
+        signal: AbortSignal.timeout(10000) // 10 second timeout
+      });
+      console.log('[PREDICTHQ] API response status:', response.status);
+    } catch (fetchError) {
+      console.error('[PREDICTHQ] Fetch error:', fetchError);
+      return {
+        events: [],
+        error: `PredictHQ API fetch error: ${fetchError.message || fetchError}`,
+        status: 500
+      };
+    }
 
     // Check for HTTP errors
     if (!response.ok) {
@@ -345,6 +397,8 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       // More detailed error logging
       if (response.status === 401) {
         console.error('[PREDICTHQ] Authentication error - check API key');
+        console.error('[PREDICTHQ] API Key prefix:', apiKey ? apiKey.substring(0, 4) + '...' : 'NOT SET');
+        console.error('[PREDICTHQ] API Key length:', apiKey ? apiKey.length : 0);
       } else if (response.status === 429) {
         console.error('[PREDICTHQ] Rate limit exceeded');
       } else if (response.status === 400) {
@@ -361,6 +415,12 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         }
       }
 
+      // Log all request headers for debugging
+      console.error('[PREDICTHQ] Request headers:', {
+        'Authorization': apiKey ? 'Bearer ' + apiKey.substring(0, 4) + '...' : 'NOT SET',
+        'Accept': 'application/json'
+      });
+
       return {
         events: [],
         error: `PredictHQ API error: ${response.status} ${errorText}`
@@ -368,7 +428,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     }
 
     // Parse the response with error handling
-    let data;
+    let data: any;
     try {
       data = await response.json();
       if (!data || typeof data !== 'object') {
@@ -384,6 +444,13 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       next: !!data.next,
       previous: !!data.previous
     });
+
+    // Log the full response for debugging
+    if (data.results && data.results.length > 0) {
+      console.log('[PREDICTHQ] First result full details:', JSON.stringify(data.results[0]));
+    } else {
+      console.log('[PREDICTHQ] No results returned from API');
+    }
 
     // Log the first result for debugging if available
     if (data.results && data.results.length > 0) {
@@ -430,8 +497,8 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       }
     }
 
-    return { 
-      events: [], 
+    return {
+      events: [],
       error: detailedError,
       status: 500
     };
@@ -599,7 +666,7 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Also check if the event has party-related labels
     // Check if the event has party-related labels - expanded list for better detection
-    const hasPartyLabels = event.labels && Array.isArray(event.labels) && event.labels.some(label => {
+    const hasPartyLabels = event.labels && Array.isArray(event.labels) && event.labels.some((label: string) => {
       const partyLabels = [
         'nightlife', 'party', 'club', 'nightclub', 'dance-club', 'disco', 'lounge',
         'dance-party', 'dj-set', 'dj-night', 'dj-party', 'social-gathering', 'celebration',
@@ -619,7 +686,7 @@ function normalizePredictHQEvent(event: any): Event {
     });
 
     // Check if the event is in a venue that suggests it's a party - expanded venue types
-    const hasPartyVenue = event.entities && Array.isArray(event.entities) && event.entities.some(entity => {
+    const hasPartyVenue = event.entities && Array.isArray(event.entities) && event.entities.some((entity: any) => {
       if (entity.type === 'venue' && entity.name) {
         const partyVenueTerms = [
           'club', 'lounge', 'bar', 'nightclub', 'disco', 'party', 'dance', 'dj',
@@ -679,9 +746,24 @@ function normalizePredictHQEvent(event: any): Event {
     // Log party detection for debugging
     console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, Rank: ${eventRank}, IsPartyByDetection: ${isPartyByDetection}, HasPartyLabels: ${hasPartyLabels}, HasPartyVenue: ${hasPartyVenue}, HasPartyTerms: ${hasPartyTerms}, HasPartyCategory: ${hasPartyCategory}`);
 
+    // Check for party-related phq_labels
+    const hasPartyPhqLabels = event.phq_labels && Array.isArray(event.phq_labels) && event.phq_labels.some((labelObj: any) => {
+      const partyPhqLabels = [
+        'nightlife', 'entertainment', 'music', 'performing-arts', 'food-and-beverage',
+        'community-and-culture', 'lifestyle', 'fashion-and-style', 'sports-and-fitness',
+        'business-and-professional', 'education', 'politics-and-activism', 'science-and-technology',
+        'arts-and-crafts', 'hobbies-and-special-interest', 'family-and-kids', 'holiday-and-seasonal'
+      ];
+      return labelObj && labelObj.label && partyPhqLabels.includes(labelObj.label);
+    });
+
+    // Check if the event is in a party-related category
+    const partyRelatedCategories = ['concerts', 'festivals', 'community', 'performing-arts', 'expos', 'conferences'];
+    const isPartyRelatedCategory = event.category && partyRelatedCategories.includes(event.category);
+
     // If any of our party detection methods return true, categorize as a party
     // We're being more aggressive with party detection to compensate for category limitations
-    if (isPartyByDetection || hasPartyLabels || hasPartyVenue || hasPartyTerms || hasPartyCategory) {
+    if (isPartyByDetection || hasPartyLabels || hasPartyVenue || hasPartyTerms || hasPartyCategory || hasPartyPhqLabels || isPartyRelatedCategory) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.title, event.description, time);
       console.log(`[PARTY_DEBUG] PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
@@ -806,9 +888,7 @@ function normalizePredictHQEvent(event: any): Event {
       forecast: event.phq_attendance || undefined,
       actual: event.actual_attendance || undefined
     };
-    const demandSurge = event.labels?.includes('demand_surge') || false;
-    const isRealTime = event.labels?.includes('real_time') || false;
-    const predictHQCategories = event.category ? [event.category] : undefined;
+    const demandSurge = event.labels?.includes('demand_surge') ? 1 : 0;
 
     return {
       id,
@@ -829,9 +909,7 @@ function normalizePredictHQEvent(event: any): Event {
       rank,
       localRelevance,
       attendance,
-      demandSurge,
-      isRealTime,
-      predictHQCategories
+      demandSurge
     };
   } catch (error) {
     console.error('Error normalizing PredictHQ event:', error);
@@ -854,8 +932,7 @@ function normalizePredictHQEvent(event: any): Event {
         forecast: undefined,
         actual: undefined
       },
-      demandSurge: false,
-      isRealTime: false
+      demandSurge: 0
     };
     return errorEvent;
   }

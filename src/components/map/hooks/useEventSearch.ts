@@ -167,10 +167,19 @@ export const useEventSearch = () => {
         radius: radiusOverride !== undefined ? radiusOverride : filters.distance,
         startDate: filters.dateRange?.from ? formatISO(filters.dateRange.from, { representation: 'date' }) : undefined,
         endDate: filters.dateRange?.to ? formatISO(filters.dateRange.to, { representation: 'date' }) : undefined,
-        categories: filters.categories,
+        categories: filters.categories || [],
         keyword: filters.keyword,
         location: filters.location,
       };
+
+      // Ensure 'party' is included in categories if it's selected in filters
+      if (filters.categories && filters.categories.includes('party')) {
+        console.log('[EVENTS] Party category selected, ensuring it is included in API request');
+        // Make sure we're sending the party category to the API
+        if (!searchParams.categories.includes('party')) {
+          searchParams.categories.push('party');
+        }
+      }
 
       console.log('[EVENTS] Search params:', searchParams);
       setLastSearchParams(searchParams);

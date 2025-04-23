@@ -3,9 +3,10 @@ import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Heart, Calendar } from 'lucide-react';
+import { User, LogOut, Heart, Calendar, Sparkles } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
+import FeaturesModal from '@/components/features/FeaturesModal';
 
 const Header = () => {
   const location = useLocation();
@@ -90,6 +91,9 @@ const Header = () => {
         </div>
 
         <div className="flex items-center gap-3">
+          <div className="hidden md:flex items-center gap-2">
+            <FeaturesModal />
+          </div>
           <Button variant="ghost" size="icon" className="hidden md:flex hover:bg-slate-800/70 transition-all duration-300 text-slate-300 hover:text-white">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
           </Button>

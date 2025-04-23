@@ -250,8 +250,17 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
             const entry = markerMap.get(id);
             if (entry) {
                 try {
-                    entry.root.unmount();
-                    entry.marker.remove();
+                    // Use a safe unmounting approach to prevent React warnings
+                    setTimeout(() => {
+                      if (entry && entry.root) {
+                        try {
+                          entry.root.unmount();
+                          entry.marker.remove();
+                        } catch (e) {
+                          console.warn('[MARKERS] Error during delayed unmount:', e);
+                        }
+                      }
+                    }, 0);
                 } catch (e) {
                     console.error('[MARKERS] Error cleaning up marker on removal:', id, e);
                 }
@@ -402,8 +411,17 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
         const entry = markerMap.get(id);
         if (entry) {
           try {
-            entry.root.unmount();
-            entry.marker.remove();
+            // Use a safe unmounting approach to prevent React warnings
+            setTimeout(() => {
+              if (entry && entry.root) {
+                try {
+                  entry.root.unmount();
+                  entry.marker.remove();
+                } catch (e) {
+                  console.warn('[MARKERS] Error during delayed unmount:', e);
+                }
+              }
+            }, 0);
           } catch (e) {
             console.error('[MARKERS] Error during cleanup of marker on unmount:', id, e);
           }
@@ -476,7 +494,7 @@ const EventMarker = React.memo<EventMarkerProps>(({ event, isSelected, onClick }
     return { bgColor: bgColorClass, textColor, scale, animation, category };
   }, [category, isSelected]);
 
-  const { bgColor, textColor, scale, animation } = markerStyles;
+  const { bgColor, scale, animation } = markerStyles;
 
   const tooltipContent = useMemo(() => (
     <div className="p-3 max-w-xs bg-slate-900/90 backdrop-blur-md border border-slate-800 rounded-lg shadow-xl">

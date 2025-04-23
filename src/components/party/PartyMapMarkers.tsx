@@ -29,7 +29,7 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
 
     // Create a new map based on current state
     const newMarkers = new Map(activeMarkers);
-    
+
     // Add or update markers for each event
     events.forEach(event => {
       if (!event.coordinates || !Array.isArray(event.coordinates) || event.coordinates.length !== 2) {
@@ -45,10 +45,10 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
         // Only render if component is still mounted
         if (isMounted.current) {
           existingMarker.root.render(
-            <PartyMarker 
-              event={event} 
-              isSelected={isSelected} 
-              onClick={() => onMarkerClick(event)} 
+            <PartyMarker
+              event={event}
+              isSelected={isSelected}
+              onClick={() => onMarkerClick(event)}
             />
           );
         }
@@ -58,14 +58,14 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
       // Create new marker element and root
       const el = document.createElement('div');
       const root = createRoot(el);
-      
+
       // Only render if component is still mounted
       if (isMounted.current) {
         root.render(
-          <PartyMarker 
-            event={event} 
-            isSelected={isSelected} 
-            onClick={() => onMarkerClick(event)} 
+          <PartyMarker
+            event={event}
+            isSelected={isSelected}
+            onClick={() => onMarkerClick(event)}
           />
         );
       }
@@ -84,7 +84,16 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
         const markerToRemove = newMarkers.get(id);
         if (markerToRemove) {
           markerToRemove.marker.remove();
-          markerToRemove.root.unmount();
+          // Use a safe unmounting approach to prevent React warnings
+          setTimeout(() => {
+            if (markerToRemove && markerToRemove.root && isMounted.current) {
+              try {
+                markerToRemove.root.unmount();
+              } catch (e) {
+                console.warn('[PartyMapMarkers] Error during delayed unmount:', e);
+              }
+            }
+          }, 0);
           newMarkers.delete(id);
         }
       }
@@ -106,15 +115,20 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
     return () => {
       // Mark component as unmounted
       isMounted.current = false;
-      
+
       // Clean up all markers and roots
       activeMarkers.forEach(({ marker, root }) => {
         marker.remove();
-        try {
-          root.unmount();
-        } catch (e) {
-          console.warn('[PartyMapMarkers] Error unmounting root:', e);
-        }
+        // Use setTimeout to avoid React unmounting warnings
+        setTimeout(() => {
+          try {
+            if (root) {
+              root.unmount();
+            }
+          } catch (e) {
+            console.warn('[PartyMapMarkers] Error unmounting root:', e);
+          }
+        }, 0);
       });
     };
   }, []);

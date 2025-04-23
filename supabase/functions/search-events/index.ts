@@ -367,12 +367,20 @@ serve(async (req: Request) => {
     if (params.categories && params.categories.includes('party')) {
       // Add Ticketmaster-specific filters for party events
       if (!params.keyword) {
-        params.keyword = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR concert OR music OR lounge OR bar OR venue OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event";
+        params.keyword = 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR concert OR music OR lounge OR bar OR venue OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"';
       }
       // Add Ticketmaster-specific segment and classification parameters for party events
+      // Use Music segment for parties
       params.segmentName = 'Music';
-      params.classificationName = 'Concert';
+      // Don't restrict to just Concert classification to get more variety of events
+      // params.classificationName = 'Concert';
       console.log('[PARTY_DEBUG] Enhanced Ticketmaster filters for party events');
+    }
+    // For music category, add specific genre filters to find more concerts
+    else if (params.categories && params.categories.includes('music')) {
+      // Add Ticketmaster-specific segment for music events
+      params.segmentName = 'Music';
+      console.log('[MUSIC_DEBUG] Enhanced Ticketmaster filters for music events');
     }
     // --- END Ticketmaster party filter enhancement ---
 
@@ -384,12 +392,11 @@ serve(async (req: Request) => {
       let ticketmasterTotalPages = 1;
       const ticketmasterMaxPages = 3; // Increased to 3 pages (600 events) for more party events
       while (ticketmasterPage < ticketmasterTotalPages && ticketmasterPage < ticketmasterMaxPages) {
-        // Use a much wider radius for party events (default 75 miles)
-        const effectiveRadius = Math.max(1, Math.min(Number(radius) || 50, 100));
-        // For party events, we want a much wider radius to find more events
-        const partyRadius = params.categories && params.categories.includes('party') ?
-          Math.max(effectiveRadius, 75) : effectiveRadius; // Increased to 75 miles for party events
-        let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}`;
+        // Use a reasonable radius (default to user-specified radius)
+        const effectiveRadius = Math.max(1, Math.min(Number(radius) || 15, 50));
+        // Use the same radius for all event types
+        const partyRadius = effectiveRadius; // No longer increasing radius for party events
+        let ticketmasterUrl = `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&size=200&page=${ticketmasterPage}&sort=date,asc`;
 
         // Add location parameters
         if (userLat && userLng) {
@@ -485,14 +492,27 @@ serve(async (req: Request) => {
     // Docs: https://docs.predicthq.com/
     // Always attempt to use PredictHQ, even if API key is missing - the function will handle the error
     try {
-      console.log('[DEBUG] Using PredictHQ API to fetch events');
-      console.log('[DEBUG] PredictHQ API Key available:', !!PREDICTHQ_API_KEY);
-      console.log('[DEBUG] PredictHQ API Key prefix:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.substring(0, 4) + '...' : 'N/A');
+      console.log('[PREDICTHQ_DEBUG] Using PredictHQ API to fetch events');
+      console.log('[PREDICTHQ_DEBUG] PredictHQ API Key available:', !!PREDICTHQ_API_KEY);
+      console.log('[PREDICTHQ_DEBUG] PredictHQ API Key prefix:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.substring(0, 4) + '...' : 'N/A');
+      console.log('[PREDICTHQ_DEBUG] PredictHQ API Key length:', PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0);
+      console.log('[PREDICTHQ_DEBUG] PredictHQ API Key suffix:', PREDICTHQ_API_KEY ? '...' + PREDICTHQ_API_KEY.substring(PREDICTHQ_API_KEY.length - 4) : 'N/A');
+
+      // Log the environment variables for debugging
+      console.log('[PREDICTHQ_DEBUG] Environment variables:', {
+        PREDICTHQ_API_KEY_SET: !!PREDICTHQ_API_KEY,
+        PREDICTHQ_API_KEY_LENGTH: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
+        SUPABASE_URL_SET: !!Deno.env.get('SUPABASE_URL'),
+        SUPABASE_ANON_KEY_SET: !!Deno.env.get('SUPABASE_ANON_KEY'),
+        SUPABASE_SERVICE_ROLE_KEY_SET: !!Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+      });
 
       // Validate API key
       if (!PREDICTHQ_API_KEY) {
-        console.warn('[DEBUG] PredictHQ API key is missing or invalid');
+        console.warn('[PREDICTHQ_ERROR] PredictHQ API key is missing or invalid');
         predicthqError = 'PredictHQ API key is missing or invalid';
+      } else {
+        console.log('[PREDICTHQ_DEBUG] PredictHQ API key is valid and will be used');
       }
 
       // Process PredictHQ location parameters first
@@ -594,11 +614,11 @@ serve(async (req: Request) => {
           // Add party-related keywords if not already present
           if (!enhancedKeyword || enhancedKeyword.toLowerCase().indexOf('party') === -1) {
             enhancedKeyword = enhancedKeyword ?
-              `${enhancedKeyword} OR party OR club OR nightlife OR dj OR dance OR festival` :
-              'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"';
+              `${enhancedKeyword} OR party OR club OR nightlife OR dj OR dance OR festival OR social OR gathering OR mixer OR celebration` :
+              'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
           }
 
-          // Increase limit for party searches
+          // Use a higher limit for party searches
           enhancedLimit = 500;
 
           console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
@@ -607,8 +627,7 @@ serve(async (req: Request) => {
           });
         }
 
-        const { events: predicthqEvents, error } = await fetchPredictHQEvents({
-          apiKey: PREDICTHQ_API_KEY,
+        console.log('[PREDICTHQ_DEBUG] Calling PredictHQ API with params:', {
           latitude: phqLatitude,
           longitude: phqLongitude,
           radius: Number(radius),
@@ -616,19 +635,77 @@ serve(async (req: Request) => {
           endDate,
           categories,
           location: phqLocation,
-          withinParam: phqWithinParam, // Pass the pre-formatted within parameter if available
-          keyword: enhancedKeyword,
-          limit: enhancedLimit // Use enhanced limit for party events
+          withinParam: phqWithinParam,
+          keyword: enhancedKeyword ? enhancedKeyword.substring(0, 50) + '...' : 'none',
+          limit: enhancedLimit,
+          apiKeyProvided: !!PREDICTHQ_API_KEY,
+          apiKeyLength: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0
         });
 
-        // Log the result of the API call
-        if (error) {
-          predicthqError = error;
-          console.error('[DEBUG] PredictHQ API call failed with error:', error);
-        } else {
-          console.log(`[DEBUG] PredictHQ API call succeeded with ${predicthqEvents.length} events`);
-          allEvents = [...allEvents, ...predicthqEvents];
+        try {
+          // Add a timeout to the PredictHQ API call to prevent hanging
+          const timeoutPromise = new Promise<{events: [], error: string}>((_, reject) => {
+            setTimeout(() => reject(new Error('PredictHQ API call timed out after 8 seconds')), 8000);
+          });
+
+          // Create the actual API call promise
+          const apiCallPromise = fetchPredictHQEvents({
+            apiKey: PREDICTHQ_API_KEY,
+            latitude: phqLatitude,
+            longitude: phqLongitude,
+            radius: Number(radius),
+            startDate,
+            endDate,
+            categories,
+            location: phqLocation,
+            withinParam: phqWithinParam, // Pass the pre-formatted within parameter if available
+            keyword: enhancedKeyword,
+            limit: enhancedLimit // Use enhanced limit for party events
+          });
+
+          // Race the API call against the timeout
+          const predicthqResult = await Promise.race([apiCallPromise, timeoutPromise]);
+
+          const predicthqEvents = predicthqResult.events || [];
           predicthqCount = predicthqEvents.length;
+          predicthqError = predicthqResult.error;
+
+          console.log('[PREDICTHQ_DEBUG] PredictHQ API response:', {
+            eventCount: predicthqCount,
+            hasError: !!predicthqError,
+            error: predicthqError,
+            warnings: predicthqResult.warnings,
+            status: predicthqResult.status
+          });
+
+          if (predicthqError) {
+            console.error('[PREDICTHQ_ERROR] PredictHQ API error:', predicthqError);
+          } else {
+            console.log(`[PREDICTHQ_DEBUG] PredictHQ API returned ${predicthqCount} events`);
+
+            if (predicthqCount > 0) {
+              console.log('[PREDICTHQ_DEBUG] First PredictHQ event:', predicthqEvents[0]);
+            } else {
+              console.log('[PREDICTHQ_DEBUG] No events returned from PredictHQ API');
+            }
+
+            allEvents = [...allEvents, ...predicthqEvents];
+          }
+        } catch (error) {
+          predicthqError = error instanceof Error ? error.message : String(error);
+          console.error('[PREDICTHQ_ERROR] Exception calling PredictHQ API:', error);
+
+          // Log detailed error information
+          if (error instanceof Error) {
+            console.error('[PREDICTHQ_ERROR] Error name:', error.name);
+            console.error('[PREDICTHQ_ERROR] Error message:', error.message);
+            console.error('[PREDICTHQ_ERROR] Error stack:', error.stack);
+          } else {
+            console.error('[PREDICTHQ_ERROR] Non-Error object thrown:', error);
+          }
+
+          // Continue execution without failing the entire function
+          console.log('[PREDICTHQ_ERROR] Continuing execution despite PredictHQ API error');
         }
       } catch (err) {
         predicthqError = err instanceof Error ? err.message : String(err);
@@ -872,7 +949,18 @@ serve(async (req: Request) => {
         ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
         eventbrite: { count: eventbriteCount, error: eventbriteError },
         serpapi: { count: serpapiCount, error: serpapiError },
-        predicthq: { count: predicthqCount, error: predicthqError }
+        predicthq: {
+          count: predicthqCount,
+          error: predicthqError,
+          details: {
+            apiKeyAvailable: !!PREDICTHQ_API_KEY,
+            apiKeyLength: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
+            categories: categories || [],
+            hasCoordinates: !!(phqLatitude && phqLongitude),
+            hasLocation: !!phqLocation,
+            hasWithinParam: !!phqWithinParam
+          }
+        }
       },
       meta: {
         executionTime,

@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import type { EventFilters } from '@/components/map/components/MapControls';
 
-const DEFAULT_DISTANCE = 30;
+const DEFAULT_DISTANCE = 15; // Reduced from 30 to 15 miles for more local results
 
 export const useMapFilters = () => {
   const [filters, setFilters] = useState<EventFilters>({
