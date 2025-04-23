@@ -327,8 +327,8 @@ serve(async (req: Request) => {
     }
 
     // Parse request parameters
-    const params = await req.json();
-    console.log('[SEARCH-EVENTS] Request parameters:', JSON.stringify(params, null, 2));
+    const params: SearchParams = await req.json();
+    console.log('[SEARCH-EVENTS] Received request with parameters:', JSON.stringify(params, null, 2));
 
     const {
       keyword = '',
@@ -336,17 +336,27 @@ serve(async (req: Request) => {
       lng,
       latitude,
       longitude,
-      radius = 10,
+      radius = 10, // Default radius in miles
       startDate,
       endDate,
       categories = [],
-      eventType = '',
-      serpDate = '',
+      eventType = '', // For SerpApi htichips
+      serpDate = '', // For SerpApi htichips
       limit = 50,
       page = 1,
       excludeIds = [],
-      predicthqLocation
+      predicthqLocation, // Specific location parameter for PredictHQ
+      segmentName, // For Ticketmaster segment filtering
+      classificationName // For Ticketmaster classification filtering
     } = params;
+
+    // Validate required parameters
+    if (!startDate) {
+      return new Response(JSON.stringify({ error: 'Missing required parameter: startDate' }), {
+        status: 400,
+        headers: responseHeaders
+      });
+    }
 
     // Allow location to be reassigned if reverse geocoding is needed
     let location: string | undefined = params.location;
@@ -356,43 +366,126 @@ serve(async (req: Request) => {
     let userLng: number | undefined = longitude || lng;
 
     // If location is not provided but coordinates are, reverse geocode to get city name
-    if (!location && userLat && userLng && MAPBOX_TOKEN) {
-      const city = await reverseGeocodeCity(Number(userLat), Number(userLng), MAPBOX_TOKEN);
-      if (city) {
-        location = city;
+    if (!location && userLat !== undefined && userLng !== undefined && MAPBOX_TOKEN) {
+      try {
+        const city = await reverseGeocodeCity(Number(userLat), Number(userLng), MAPBOX_TOKEN);
+        if (city) {
+          location = city;
+          console.log(`[DEBUG] Reverse geocoded coordinates to location: ${location}`);
+        } else {
+          console.log('[DEBUG] Could not reverse geocode coordinates to a city name.');
+        }
+      } catch (error) {
+        console.error('[DEBUG] Error during reverse geocoding:', error);
+        // Continue without a location name if reverse geocoding fails
       }
     }
 
-    // Check if a valid location or coordinates are provided
+    // Check if a valid location or coordinates are provided after potential reverse geocoding
     const hasValidLocation = (
       (typeof location === 'string' && location.trim().length > 0) ||
-      (userLat && userLng && !isNaN(Number(userLat)) && !isNaN(Number(userLng)))
+      (userLat !== undefined && userLng !== undefined && !isNaN(Number(userLat)) && !isNaN(Number(userLng)))
     );
 
     // If no location is provided, use a default location (New York)
     if (!hasValidLocation) {
-      console.log('[DEBUG] No valid location provided, using default location (New York)');
+      console.log('[DEBUG] No valid location or coordinates provided, using default location (New York)');
       location = 'New York';
-      // Default coordinates for New York City
-      if (!userLat) userLat = 40.7128;
-      if (!userLng) userLng = -74.0060;
+      // Default coordinates for New York City if none provided
+      if (userLat === undefined) userLat = 40.7128;
+      if (userLng === undefined) userLng = -74.0060;
+    } else {
+       console.log('[DEBUG] Valid location or coordinates provided.');
     }
 
     // Prepare results array
     let allEvents: Event[] = []
     // Track per-source stats
     let ticketmasterCount = 0, ticketmasterError: string | null = null
-    let eventbriteCount = 0, eventbriteError: string | null = null
+    let eventbriteCount = 0, eventbriteError: string | null = null // Eventbrite removed, keep for stats reporting
     let serpapiCount = 0, serpapiError: string | null = null
     let predicthqCount = 0, predicthqError: string | null = null
 
     // Define PredictHQ variables at the top level
     let phqLatitude: number | undefined = undefined;
     let phqLongitude: number | undefined = undefined;
-    let phqLocation: string = 'New York'; // Default value
-    let phqWithinParam: string = ''; // Use empty string instead of null/undefined
+    let phqLocation: string | undefined = undefined; // Use undefined initially
+    let phqWithinParam: string | undefined = undefined; // Use undefined initially
+
+    // Process PredictHQ location parameters first
+    console.log('[DEBUG] Processing PredictHQ location parameters');
+    console.log('[DEBUG] predicthqLocation param:', predicthqLocation);
+    console.log('[DEBUG] location param:', location);
+    console.log('[DEBUG] userLat param:', userLat);
+    console.log('[DEBUG] userLng param:', userLng);
+
+    if (predicthqLocation) {
+      // Check if it's already in the within format: {radius}km@{lat},{lng}
+      const withinMatch = predicthqLocation.match(/^(\d+)km@(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+      if (withinMatch) {
+        // It's already in the correct format for the 'within' parameter
+        phqWithinParam = predicthqLocation;
+        console.log('[DEBUG] Using predicthqLocation as within parameter:', phqWithinParam);
+        // Clear other location parameters to avoid conflicts
+        phqLatitude = undefined;
+        phqLongitude = undefined;
+        phqLocation = undefined;
+      } else {
+        // Check if it's a lat,lng format
+        const latLngMatch = predicthqLocation.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
+        if (latLngMatch) {
+          const lat = parseFloat(latLngMatch[1]);
+          const lng = parseFloat(latLngMatch[2]);
+          if (!isNaN(lat) && !isNaN(lng) &&
+              lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+            phqLatitude = lat;
+            phqLongitude = lng;
+            // Clear other location parameters to avoid conflicts
+            phqLocation = undefined;
+            phqWithinParam = undefined;
+            console.log(`[DEBUG] Parsed coordinates from predicthqLocation: ${lat},${lng}`);
+          } else {
+            console.log(`[DEBUG] Invalid coordinates in predicthqLocation: ${predicthqLocation}, using as place name`);
+            phqLocation = predicthqLocation;
+            phqLatitude = undefined;
+            phqLongitude = undefined;
+            phqWithinParam = undefined;
+          }
+        } else {
+          // Use it as a place name
+          phqLocation = predicthqLocation;
+          // Clear other location parameters to avoid conflicts
+          phqLatitude = undefined;
+          phqLongitude = undefined;
+          phqWithinParam = undefined;
+          console.log(`[DEBUG] Using predicthqLocation as place name: ${phqLocation}`);
+        }
+      }
+    } else if (userLat !== undefined && userLng !== undefined) {
+      // If no predicthqLocation but user coordinates, use user coordinates
+      phqLatitude = userLat;
+      phqLongitude = userLng;
+      phqLocation = undefined;
+      phqWithinParam = undefined;
+      console.log(`[DEBUG] Using user coordinates for PredictHQ: ${phqLatitude},${phqLongitude}`);
+    } else if (location) {
+       // If no predicthqLocation and no user coordinates, use the general location string
+       phqLocation = location;
+       phqLatitude = undefined;
+       phqLongitude = undefined;
+       phqWithinParam = undefined;
+       console.log(`[DEBUG] Using general location string for PredictHQ: ${phqLocation}`);
+    } else {
+      // Fallback to default location if nothing is provided
+      phqLocation = 'New York';
+      phqLatitude = undefined;
+      phqLongitude = undefined;
+      phqWithinParam = undefined;
+      console.log('[DEBUG] No location info for PredictHQ, using default location: New York');
+    }
 
     // --- Always include party-related filters for Ticketmaster queries if 'party' is requested ---
+    // This logic remains the same as it's specific to Ticketmaster
     if (params.categories && params.categories.includes('party')) {
       // Add Ticketmaster-specific filters for party events
       if (!params.keyword) {
@@ -1000,8 +1093,9 @@ serve(async (req: Request) => {
     // Log event sources breakdown
     console.log('[SEARCH-EVENTS] Events by source:', {
       ticketmaster: ticketmasterCount,
-      eventbrite: eventbriteCount,
+      eventbrite: eventbriteCount, // Keep for reporting, even if 0
       serpapi: serpapiCount,
+      predicthq: predicthqCount,
       total: filteredEvents.length
     });
 
@@ -1023,7 +1117,7 @@ serve(async (req: Request) => {
             apiKeyAvailable: !!PREDICTHQ_API_KEY,
             apiKeyLength: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
             categories: categories || [],
-            hasCoordinates: !!(phqLatitude && phqLongitude),
+            hasCoordinates: !!(phqLatitude !== undefined && phqLongitude !== undefined),
             hasLocation: !!phqLocation,
             hasWithin: !!phqWithinParam,
             withinParam: phqWithinParam || 'none'

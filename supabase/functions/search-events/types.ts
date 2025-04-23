@@ -41,15 +41,23 @@ export interface Event {
  */
 export interface SearchParams {
   keyword?: string;
+  lat?: number; // Added for lat/lng support
+  lng?: number; // Added for lat/lng support
   latitude?: number;
   longitude?: number;
   radius?: number;
-  startDate?: string;
+  startDate: string; // Made required
   endDate?: string;
   categories?: string[];
   location?: string;
+  eventType?: string; // Added for SerpApi htichips
+  serpDate?: string; // Added for SerpApi htichips
   limit?: number;
+  page?: number; // Added for pagination
   excludeIds?: string[];
+  predicthqLocation?: string; // Added for specific PredictHQ location
+  segmentName?: string; // Added for Ticketmaster segment filtering
+  classificationName?: string; // Added for Ticketmaster classification filtering
 }
 
 /**
