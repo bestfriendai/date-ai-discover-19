@@ -1,9 +1,10 @@
+
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Heart, Calendar, Sparkles } from 'lucide-react';
+import { UserIcon, LogOutIcon, HeartIcon, CalendarIcon, SparklesIcon } from '@/lib/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
 import FeaturesModal from '@/components/features/FeaturesModal';
@@ -122,15 +123,15 @@ const Header = () => {
                   </div>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={() => navigate('/profile')} className="cursor-pointer">
-                    <User className="mr-2 h-4 w-4" />
+                    <UserIcon className="mr-2 h-4 w-4" />
                     <span>Profile</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/favorites')} className="cursor-pointer">
-                    <Heart className="mr-2 h-4 w-4" />
+                    <HeartIcon className="mr-2 h-4 w-4" />
                     <span>Favorites</span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate('/plan')} className="cursor-pointer">
-                    <Calendar className="mr-2 h-4 w-4" />
+                    <CalendarIcon className="mr-2 h-4 w-4" />
                     <span>My Itineraries</span>
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
@@ -141,14 +142,14 @@ const Header = () => {
                     }}
                     className="cursor-pointer"
                   >
-                    <LogOut className="mr-2 h-4 w-4" />
+                    <LogOutIcon className="mr-2 h-4 w-4" />
                     <span>Sign out</span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             ) : (
               <Button variant="outline" size="sm" className="gap-2 rounded-full border-blue-500/30 hover:bg-blue-500/10 hover:text-white transition-all duration-300" onClick={() => setShowAuthModal(true)}>
-                <User className="h-4 w-4" />
+                <UserIcon className="h-4 w-4" />
                 Sign In
               </Button>
             )

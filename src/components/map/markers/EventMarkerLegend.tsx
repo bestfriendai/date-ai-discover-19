@@ -1,45 +1,55 @@
+
 import React from "react";
-import { Music, Trophy, Theater, Heart, Utensils, Ticket, PartyPopper, Sparkles } from "lucide-react";
+import { 
+  MusicIcon, 
+  TrophyIcon, 
+  TheaterIcon, 
+  HeartIcon, 
+  UtensilsIcon, 
+  TicketIcon, 
+  PartyPopperIcon, 
+  SparklesIcon 
+} from "@/lib/icons";
 
 const LEGEND = [
   {
     label: "Music/Concert",
-    icon: Music,
+    icon: MusicIcon,
     color: "linear-gradient(to right bottom, #4f46e5, #3b82f6)", // Indigo to Blue
   },
   {
     label: "Festival",
-    icon: Sparkles,
+    icon: SparklesIcon,
     color: "linear-gradient(to right bottom, #d946ef, #a855f7)", // Fuchsia to Purple
   },
   {
     label: "Sports",
-    icon: Trophy,
+    icon: TrophyIcon,
     color: "linear-gradient(to right bottom, #10b981, #22c55e)", // Emerald to Green
   },
   {
     label: "Arts/Theatre",
-    icon: Theater,
+    icon: TheaterIcon,
     color: "linear-gradient(to right bottom, #ec4899, #db2777)", // Pink to Rose
   },
   {
     label: "Family",
-    icon: Heart,
+    icon: HeartIcon,
     color: "linear-gradient(to right bottom, #f59e0b, #eab308)", // Amber to Yellow
   },
   {
     label: "Food/Restaurant",
-    icon: Utensils,
+    icon: UtensilsIcon,
     color: "linear-gradient(to right bottom, #f97316, #ea580c)", // Orange to Dark Orange
   },
   {
     label: "Party",
-    icon: PartyPopper,
+    icon: PartyPopperIcon,
     color: "linear-gradient(to right bottom, #8b5cf6, #7c3aed)", // Violet to Purple
   },
   {
     label: "Other",
-    icon: Ticket,
+    icon: TicketIcon,
     color: "linear-gradient(to right bottom, #64748b, #475569)", // Slate to Gray
   },
 ];
@@ -52,7 +62,7 @@ const EventMarkerLegend: React.FC = () => (
     style={{ minWidth: 190, maxWidth: 260 }}
   >
     <div className="font-semibold text-sm mb-2 text-primary flex items-center gap-1.5">
-      <Ticket className="h-4 w-4" />
+      <TicketIcon className="h-4 w-4" />
       <span>Map Marker Categories</span>
     </div>
     <ul className="flex flex-col gap-1">

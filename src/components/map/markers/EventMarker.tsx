@@ -2,9 +2,9 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import {
-  Sparkles, Music, Heart, Calendar, MapPin, Star,
-  Ticket, Utensils, Users, PartyPopper, Theater, Trophy
-} from 'lucide-react';
+  SparklesIcon, MusicIcon, HeartIcon, CalendarIcon, MapPinIcon, StarIcon,
+  TicketIcon, UtensilsIcon, UsersIcon, PartyPopperIcon, TheaterIcon, TrophyIcon
+} from '@/lib/icons';
 import { cn } from '../../../lib/utils';
 import type { Event } from '../../../types';
 import {
@@ -16,19 +16,19 @@ import { format } from 'date-fns';
 
 // Enhanced category icons with more specific options
 const categoryIcon = {
-  music: Music,
-  arts: Theater,
-  sports: Trophy,
-  family: Heart,
-  food: Utensils,
-  party: PartyPopper,
-  concert: Music,
-  festival: Sparkles,
-  conference: Users,
-  exhibition: Sparkles,
-  theatre: Theater,
-  theater: Theater,
-  default: Ticket,
+  music: MusicIcon,
+  arts: TheaterIcon,
+  sports: TrophyIcon,
+  family: HeartIcon,
+  food: UtensilsIcon,
+  party: PartyPopperIcon,
+  concert: MusicIcon,
+  festival: SparklesIcon,
+  conference: UsersIcon,
+  exhibition: SparklesIcon,
+  theatre: TheaterIcon,
+  theater: TheaterIcon,
+  default: TicketIcon,
 };
 
 // Enhanced category colors with gradients for better visual appeal
@@ -87,21 +87,21 @@ const EventMarker = memo(({ event, isSelected = false, onClick }: EventMarkerPro
 
       {formattedDate && (
         <div className="text-xs flex items-center mt-1 text-muted-foreground">
-          <Calendar className="h-3 w-3 mr-1 inline" />
+          <CalendarIcon className="h-3 w-3 mr-1 inline" />
           {formattedDate}
         </div>
       )}
 
       {event.venue && (
         <div className="text-xs flex items-center mt-1 text-muted-foreground">
-          <MapPin className="h-3 w-3 mr-1 inline" />
+          <MapPinIcon className="h-3 w-3 mr-1 inline" />
           {event.venue}
         </div>
       )}
 
       {event.price && (
         <div className="text-xs flex items-center mt-1 text-muted-foreground">
-          <Ticket className="h-3 w-3 mr-1 inline" />
+          <TicketIcon className="h-3 w-3 mr-1 inline" />
           {event.price}
         </div>
       )}

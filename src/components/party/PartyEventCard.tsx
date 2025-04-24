@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Event } from '@/types';
-import { Calendar, MapPin, Clock, Music, Users, Star, Ticket } from 'lucide-react';
+import { CalendarIcon, MapPinIcon, ClockIcon, MusicIcon, UsersIcon, StarIcon, TicketIcon } from '@/lib/icons';
 import PartySubcategoryBadge from './PartySubcategoryBadge';
 import { motion } from 'framer-motion';
 
@@ -76,13 +77,13 @@ export const PartyEventCard: React.FC<PartyEventCardProps> = ({
 
           {/* Date and Time */}
           <div className="flex items-center text-xs text-gray-300 mb-1">
-            <Calendar className="h-3 w-3 mr-1" />
-            {event.date} • <Clock className="h-3 w-3 mx-1" /> {event.time || 'TBD'}
+            <CalendarIcon className="h-3 w-3 mr-1" />
+            {event.date} • <ClockIcon className="h-3 w-3 mx-1" /> {event.time || 'TBD'}
           </div>
 
           {/* Location */}
           <div className="flex items-center text-xs text-gray-300 mb-2">
-            <MapPin className="h-3 w-3 mr-1" />
+            <MapPinIcon className="h-3 w-3 mr-1" />
             <span className="truncate max-w-[180px]">{event.venue || event.location}</span>
           </div>
 
@@ -94,7 +95,7 @@ export const PartyEventCard: React.FC<PartyEventCardProps> = ({
 
             {event.price && (
               <div className="flex items-center text-xs font-medium bg-black/40 text-white px-2 py-0.5 rounded-full">
-                <Ticket className="h-3 w-3 mr-1" />
+                <TicketIcon className="h-3 w-3 mr-1" />
                 {event.price}
               </div>
             )}
@@ -107,7 +108,7 @@ export const PartyEventCard: React.FC<PartyEventCardProps> = ({
         <div className="absolute -bottom-1 -right-1 w-6 h-6">
           <span className="absolute w-full h-full rounded-full bg-purple-500 opacity-75 animate-ping"></span>
           <span className="absolute w-full h-full rounded-full bg-purple-600 flex items-center justify-center">
-            <Star className="h-3 w-3 text-white" />
+            <StarIcon className="h-3 w-3 text-white" />
           </span>
         </div>
       )}

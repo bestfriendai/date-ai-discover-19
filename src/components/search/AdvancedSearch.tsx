@@ -5,7 +5,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Slider } from '@/components/ui/slider';
-import { Search, Calendar as CalendarIcon, MapPin, Filter } from 'lucide-react';
+import { SearchIcon, CalendarIcon, MapPinIcon, FilterIcon } from '@/lib/icons';
 import { format } from 'date-fns';
 
 // Custom hook for debouncing values
@@ -107,7 +107,7 @@ const AdvancedSearch = ({ onSearch, initialFilters, initialParams, loading = fal
         {/* Main search bar */}
         <div className="flex items-center space-x-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Search events..."
@@ -123,7 +123,7 @@ const AdvancedSearch = ({ onSearch, initialFilters, initialParams, loading = fal
             onClick={() => setShowFilters(!showFilters)}
             className={showFilters ? 'bg-muted' : ''}
           >
-            <Filter className="h-4 w-4" />
+            <FilterIcon className="h-4 w-4" />
           </Button>
 
           <Button type="submit" onClick={() => onSearch(filters)} disabled={loading}>
@@ -134,7 +134,7 @@ const AdvancedSearch = ({ onSearch, initialFilters, initialParams, loading = fal
         {/* Location and date picker */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="Location"

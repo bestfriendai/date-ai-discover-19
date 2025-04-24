@@ -1,6 +1,6 @@
 import type { Event } from '@/types';
 import { Button } from '@/components/ui/button';
-import { Calendar, MapPin, Heart } from 'lucide-react';
+import { CalendarIcon, MapPinIcon, HeartIcon } from '@/lib/icons';
 
 // Helper function to format party subcategory for display
 const formatPartySubcategory = (subcategory: string): string => {
@@ -31,11 +31,11 @@ export const EventPopup = ({ event, onViewDetails, onAddToPlan }: EventPopupProp
       )}
       <h3 className="font-semibold text-base mb-1 truncate" title={event.title}>{event.title}</h3>
       <div className="flex items-center text-xs text-muted-foreground mb-1 gap-2">
-        <Calendar className="w-4 h-4 mr-1" />
+        <CalendarIcon className="w-4 h-4 mr-1" />
         {event.time || event.date || 'Time TBD'}
       </div>
       <div className="flex items-center text-xs text-muted-foreground mb-2 gap-2">
-        <MapPin className="w-4 h-4 mr-1" />
+        <MapPinIcon className="w-4 h-4 mr-1" />
         {event.venue || event.location || 'Location TBD'}
       </div>
       <div className="text-xs mb-2">
@@ -55,7 +55,7 @@ export const EventPopup = ({ event, onViewDetails, onAddToPlan }: EventPopupProp
             className="flex-1 bg-primary text-primary-foreground rounded px-2 py-1 text-xs font-semibold hover:bg-primary/90 transition"
             onClick={onAddToPlan}
           >
-            <Heart className="w-4 h-4 inline mr-1" /> Add to Plan
+            <HeartIcon className="w-4 h-4 inline mr-1" /> Add to Plan
           </button>
         )}
         {onViewDetails && (
