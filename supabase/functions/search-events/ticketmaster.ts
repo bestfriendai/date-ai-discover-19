@@ -27,6 +27,7 @@ interface TicketmasterResponse {
 
 /**
  * Fetch events from Ticketmaster API
+ * Documentation: https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
  */
 export async function fetchTicketmasterEvents(params: TicketmasterParams): Promise<TicketmasterResponse> {
   // Validate input parameters
@@ -37,6 +38,16 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       error: 'Missing parameters',
       status: 400,
       warnings: ['Missing parameters']
+    };
+  }
+
+  if (!params.apiKey) {
+    console.error('[TICKETMASTER] Missing API key');
+    return {
+      events: [],
+      error: 'Missing API key',
+      status: 401,
+      warnings: ['Missing API key']
     };
   }
 
@@ -74,8 +85,8 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
 
     // Build query parameters
     const queryParams = new URLSearchParams();
-    
-    // Add API key
+
+    // Add API key (required)
     queryParams.append('apikey', apiKey);
 
     // Add location parameters
@@ -108,16 +119,32 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       queryParams.append('classificationName', classificationName);
     }
 
-    // Add size parameter
-    queryParams.append('size', size.toString());
+    // Add size parameter (max 200 per Ticketmaster docs)
+    queryParams.append('size', Math.min(size, 200).toString());
 
     // Add sort parameter - sort by date
     queryParams.append('sort', 'date,asc');
+
+    // Add includeTBA and includeTBD parameters to include events with dates to be announced/defined
+    queryParams.append('includeTBA', 'yes');
+    queryParams.append('includeTBD', 'yes');
 
     // Append query parameters to URL
     url += queryParams.toString();
 
     console.log('[TICKETMASTER] API URL:', url);
+    console.log('[TICKETMASTER_DEBUG] Full request parameters:', {
+      apiKey: apiKey ? `${apiKey.substring(0, 4)}...` : 'NOT SET',
+      latitude,
+      longitude,
+      radius,
+      startDate,
+      endDate,
+      keyword,
+      segmentName,
+      classificationName,
+      size
+    });
 
     // Make the API request with proper error handling
     let response: Response;
@@ -139,6 +166,13 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       clearTimeout(timeoutId);
 
       console.log('[TICKETMASTER] API response status:', response.status);
+
+      // Log response headers for debugging
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+      console.log('[TICKETMASTER] API response headers:', headers);
     } catch (fetchError) {
       console.error('[TICKETMASTER_FETCH_ERROR] Fetch error:', fetchError);
       let errorMsg = `Ticketmaster API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
@@ -197,7 +231,7 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       const venueState = venue?.state?.stateCode || '';
       const venueCountry = venue?.country?.countryCode || '';
       const venueAddress = venue?.address?.line1 || '';
-      
+
       // Build location string
       let locationStr = venueName;
       if (venueCity) {
@@ -230,7 +264,7 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       const category = event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event';
 
       // Extract image
-      const image = event.images && event.images.length > 0 
+      const image = event.images && event.images.length > 0
         ? event.images.find((img: any) => img.ratio === '16_9' && img.width > 500)?.url || event.images[0].url
         : '';
 

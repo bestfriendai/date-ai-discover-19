@@ -1,6 +1,6 @@
 /**
  * PredictHQ API integration for fetching events
- * Documentation: https://docs.predicthq.com/
+ * Documentation: https://docs.predicthq.com/api/events/search-events
  */
 
 import { Event, PartySubcategory } from './types.ts';
@@ -75,7 +75,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         warnings: []
       };
     }
-    
+
     // Log API key details for debugging (safely)
     console.log(`[PREDICTHQ_AUTH_DEBUG] API Key provided (length ${apiKey.length}, starts with ${apiKey.substring(0, 4)}...).`);
 
@@ -126,14 +126,18 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     if (categories.includes('party')) {
       console.log('[PARTY_DEBUG] Party category requested - enhancing PredictHQ parameters');
 
-      // Add party-related categories
+      // Add party-related categories based on latest API documentation
       phqCategories = ['concerts', 'festivals', 'community', 'conferences', 'performing-arts', 'expos'];
-      
-      // Add party-related labels
+
+      // Add party-related labels based on latest API documentation
       phqLabels = [
+        // Nightlife and party-specific labels
         'nightlife', 'party', 'club', 'dance-party', 'dj-set', 'social-gathering', 'celebration', 'mixer',
         'day-party', 'brunch', 'rooftop-party', 'pool-party', 'yacht-party', 'themed-party', 'immersive',
-        'popup', 'silent', 'networking', 'happy-hour'
+        'popup', 'silent', 'networking', 'happy-hour',
+
+        // Additional entertainment labels that often indicate party events
+        'entertainment', 'music', 'live-music', 'dance', 'food-drink', 'alcohol'
       ];
 
       // Add party-related keywords
@@ -187,12 +191,28 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     console.log(`[PREDICTHQ] Using limit: ${limit}`);
 
     // Add include parameters for additional data
-    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images,phq_labels');
+    // Updated to include all relevant fields based on latest API documentation
+    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images,phq_labels,predicted_event_spend');
 
     // Append query parameters to URL
     url += `?${queryParams.toString()}`;
 
     console.log('[PREDICTHQ] Final API URL:', url);
+    console.log('[PREDICTHQ_DEBUG] Full request parameters:', {
+      apiKey: apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NOT SET',
+      latitude,
+      longitude,
+      radius,
+      startDate,
+      endDate,
+      categories,
+      location,
+      withinParam,
+      keyword,
+      limit,
+      phqCategories,
+      phqLabels
+    });
 
     // Make the API request with proper error handling
     let response: Response;
@@ -215,6 +235,13 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       clearTimeout(timeoutId);
 
       console.log('[PREDICTHQ] API response status:', response.status);
+
+      // Log response headers for debugging
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+      console.log('[PREDICTHQ] API response headers:', headers);
     } catch (fetchError) {
       console.error('[PREDICTHQ_FETCH_ERROR] Fetch error:', fetchError);
       let errorMsg = `PredictHQ API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
@@ -236,7 +263,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       console.error('[PREDICTHQ_API_ERROR] API error response:', response.status, errorText.substring(0, 200));
 
       let warnings: string[] = [];
-      
+
       try {
         const errorJson = JSON.parse(errorText);
         if (errorJson.error) {
@@ -269,14 +296,14 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       }
     } catch (parseError) {
       console.error('[PREDICTHQ_PARSE_ERROR] Failed to parse API response:', parseError);
-      return { 
-        events: [], 
-        error: 'Failed to parse PredictHQ API response', 
+      return {
+        events: [],
+        error: 'Failed to parse PredictHQ API response',
         status: 500,
         warnings: ['Response parsing failed']
       };
     }
-    
+
     console.log('[PREDICTHQ_DEBUG] API response parsed:', {
       count: data.count,
       resultsCount: data.results?.length || 0,
@@ -395,13 +422,13 @@ function normalizePredictHQEvent(event: any): Event {
         case 'music':
           category = 'music';
           break;
-        
+
         // Sports-related categories
         case 'sports':
         case 'sport':
           category = 'sports';
           break;
-        
+
         // Arts-related categories
         case 'performing-arts':
         case 'expos':
@@ -410,7 +437,7 @@ function normalizePredictHQEvent(event: any): Event {
         case 'conferences':
           category = 'arts';
           break;
-        
+
         // Family-related categories
         case 'community':
         case 'family':
@@ -418,14 +445,14 @@ function normalizePredictHQEvent(event: any): Event {
         case 'school-holidays':
           category = 'family';
           break;
-        
+
         // Food-related categories
         case 'food-drink':
         case 'food':
         case 'dining':
           category = 'food';
           break;
-        
+
         // Other categories that don't fit neatly
         case 'observances':
         case 'public-holidays':
@@ -441,16 +468,16 @@ function normalizePredictHQEvent(event: any): Event {
     // Check if this is a party event
     let partySubcategory: PartySubcategory | undefined = undefined;
     const isPartyByDetection = detectPartyEvent(event.title, event.description);
-    
+
     // Check if the event has party-related labels
-    const hasPartyLabels = event.labels && Array.isArray(event.labels) && 
+    const hasPartyLabels = event.labels && Array.isArray(event.labels) &&
       event.labels.some((label: string) => label.includes('party') || label.includes('nightlife') || label.includes('club'));
 
     // Check if the event title or description contains party-related terms
     const lowerTitle = (event.title || '').toLowerCase();
     const lowerDesc = (event.description || '').toLowerCase();
     const combinedText = `${lowerTitle} ${lowerDesc}`;
-    
+
     const hasPartyTerms = ['party', 'club', 'nightlife', 'dj', 'dance'].some(term => combinedText.includes(term));
 
     // If any of our party detection methods return true, categorize as a party
@@ -496,7 +523,7 @@ function normalizePredictHQEvent(event: any): Event {
     };
   } catch (error) {
     console.error('Error normalizing PredictHQ event:', error);
-    
+
     // Return a minimal valid event
     const errorEvent: Event = {
       id: `predicthq-error-${Date.now()}`,

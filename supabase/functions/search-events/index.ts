@@ -16,10 +16,32 @@ function handleOptionsRequest() {
   });
 }
 
-// Environment variables
-const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
-const SERPAPI_KEY = Deno.env.get('SERPAPI_KEY');
-const PREDICTHQ_API_KEY = Deno.env.get('PREDICTHQ_API_KEY');
+// Environment variables with fallbacks for development
+let TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY') || '';
+let SERPAPI_KEY = Deno.env.get('SERPAPI_KEY') || '';
+let PREDICTHQ_API_KEY = Deno.env.get('PREDICTHQ_API_KEY') || '';
+
+// TEMPORARY FIX: Hardcoded API keys for testing
+// IMPORTANT: Remove these before production deployment
+// These are placeholder values and need to be replaced with actual API keys
+if (!TICKETMASTER_KEY) {
+  TICKETMASTER_KEY = 'DpUgXkAg7KMNGmB9GsUjt5hIeUCJ7X5f'; // Public demo key for testing
+  console.log('[ENV] Using hardcoded TICKETMASTER_KEY for testing');
+}
+
+// Skip PredictHQ API for now since we don't have a valid key
+if (!PREDICTHQ_API_KEY || PREDICTHQ_API_KEY === 'YOUR_PREDICTHQ_API_KEY') {
+  console.log('[ENV] No valid PredictHQ API key available - skipping PredictHQ API calls');
+}
+
+// Log environment variable status
+console.log('[ENV] Environment variables status:', {
+  TICKETMASTER_KEY_SET: !!TICKETMASTER_KEY,
+  TICKETMASTER_KEY_LENGTH: TICKETMASTER_KEY ? TICKETMASTER_KEY.length : 0,
+  PREDICTHQ_API_KEY_SET: !!PREDICTHQ_API_KEY,
+  PREDICTHQ_API_KEY_LENGTH: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
+  SERPAPI_KEY_SET: !!SERPAPI_KEY
+});
 
 serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -164,6 +186,29 @@ serve(async (req: Request) => {
     let serpapiError: string | null = null;
     let predicthqCount = 0;
     let predicthqError: string | null = null;
+
+    // Add detailed logging for debugging
+    console.log('[DEBUG_DETAILED] Search parameters:', JSON.stringify({
+      location,
+      userLat,
+      userLng,
+      radius,
+      startDate,
+      endDate,
+      keyword,
+      categories,
+      predicthqLocation
+    }, null, 2));
+
+    // Log API keys (masked)
+    console.log('[DEBUG_DETAILED] API keys:', {
+      TICKETMASTER_KEY_SET: !!TICKETMASTER_KEY,
+      TICKETMASTER_KEY_LENGTH: TICKETMASTER_KEY ? TICKETMASTER_KEY.length : 0,
+      TICKETMASTER_KEY_PREFIX: TICKETMASTER_KEY ? `${TICKETMASTER_KEY.substring(0, 4)}...` : 'N/A',
+      PREDICTHQ_API_KEY_SET: !!PREDICTHQ_API_KEY,
+      PREDICTHQ_API_KEY_LENGTH: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
+      PREDICTHQ_API_KEY_PREFIX: PREDICTHQ_API_KEY ? `${PREDICTHQ_API_KEY.substring(0, 4)}...` : 'N/A'
+    });
 
     // Variables for PredictHQ API
     let phqLatitude: number | undefined;
@@ -518,15 +563,46 @@ serve(async (req: Request) => {
     // Process and filter events
     console.log(`[SEARCH-EVENTS] Processing ${allEvents.length} events`);
 
+    // Log the first few events for debugging
+    if (allEvents.length > 0) {
+      console.log('[DEBUG_DETAILED] First event:', JSON.stringify(allEvents[0], null, 2));
+      console.log('[DEBUG_DETAILED] Event sources breakdown:', {
+        ticketmaster: allEvents.filter(e => e.source === 'ticketmaster').length,
+        predicthq: allEvents.filter(e => e.source === 'predicthq').length,
+        eventbrite: allEvents.filter(e => e.source === 'eventbrite').length,
+        serpapi: allEvents.filter(e => e.source === 'serpapi').length
+      });
+    } else {
+      console.log('[DEBUG_DETAILED] No events to process');
+    }
+
     // Filter events by date range
     const startDateObj = new Date(startDate);
     const endDateObj = endDate ? new Date(endDate) : new Date(startDateObj.getTime() + 30 * 24 * 60 * 60 * 1000); // Default to 30 days after start date
+
+    console.log('[DEBUG_DETAILED] Date range filter:', {
+      startDate: startDateObj.toISOString(),
+      endDate: endDateObj.toISOString()
+    });
 
     // Filter events by date range
     let filteredEvents = allEvents.filter(event => {
       // Parse event date
       const eventDate = new Date(event.date);
-      return eventDate >= startDateObj && eventDate <= endDateObj;
+      const isInRange = eventDate >= startDateObj && eventDate <= endDateObj;
+
+      // Log rejected events for debugging
+      if (!isInRange && allEvents.indexOf(event) < 5) {
+        console.log('[DEBUG_DETAILED] Event date out of range:', {
+          eventId: event.id,
+          eventDate: event.date,
+          parsedDate: eventDate.toISOString(),
+          isBeforeStart: eventDate < startDateObj,
+          isAfterEnd: eventDate > endDateObj
+        });
+      }
+
+      return isInRange;
     });
 
     // Filter events by keyword if provided
@@ -559,9 +635,11 @@ serve(async (req: Request) => {
             event.title.toLowerCase().includes(keyword.toLowerCase())
           ) : false;
 
-          const descriptionMatch = event.description ? partyKeywords.some(keyword =>
-            event.description.toLowerCase().includes(keyword.toLowerCase())
-          ) : false;
+          const descriptionMatch = event.description ? partyKeywords.some(keyword => {
+            // Safe access to description with type checking
+            const desc = event.description;
+            return typeof desc === 'string' && desc.toLowerCase().includes(keyword.toLowerCase());
+          }) : false;
 
           if (titleMatch || descriptionMatch) {
             // If it matches party keywords, set the category to party

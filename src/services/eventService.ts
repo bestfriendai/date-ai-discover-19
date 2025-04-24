@@ -72,24 +72,30 @@ export async function searchEvents(params: SearchParams): Promise<{
     // Add a dedicated field so only the backend PredictHQ handler uses it
     searchParams['predicthqLocation'] = predictHQLocation;
 
-    console.log('[DEBUG] Sending search params to search-events function:', searchParams);
+    console.log('[DEBUG] Sending search params to simple-events function:', searchParams);
 
     try {
       // Call Supabase function to fetch events from multiple sources
-      console.log('[DEBUG] About to call supabase.functions.invoke("search-events")'); // Corrected function name
-      
+      console.log('[DEBUG] About to call supabase.functions.invoke("simple-events")');
+
+      // Log the Supabase function URL
+      console.log('[DEBUG] Supabase function URL:', {
+        functionName: 'simple-events',
+        hasClient: !!supabase
+      });
+
       // Add timeout handling for the function call
       const timeoutMs = 30000; // 30 seconds timeout
-      const functionPromise = supabase.functions.invoke('search-events', { // Corrected function name
+      const functionPromise = supabase.functions.invoke('simple-events', { // Use simple-events function
         body: searchParams,
         headers: { 'Content-Type': 'application/json' }
       });
-      
+
       // Create a timeout promise
       const timeoutPromise = new Promise((_, reject) => {
         setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
       });
-      
+
       // Race the function call against the timeout
       const { data, error } = await Promise.race([
         functionPromise,
@@ -101,9 +107,9 @@ export async function searchEvents(params: SearchParams): Promise<{
         // Return a structured error response instead of throwing
         return {
           events: [],
-          sourceStats: { 
-            ticketmaster: { count: 0, error: error.message || String(error) }, 
-            eventbrite: { count: 0 }, 
+          sourceStats: {
+            ticketmaster: { count: 0, error: error.message || String(error) },
+            eventbrite: { count: 0 },
             serpapi: { count: 0 },
             error: { message: error.message || String(error), status: error.status || 500 }
           },
@@ -206,9 +212,9 @@ export async function searchEvents(params: SearchParams): Promise<{
       // Return empty array with structured error information
       return {
         events: [],
-        sourceStats: { 
-          ticketmaster: { count: 0, error: String(error) }, 
-          eventbrite: { count: 0 }, 
+        sourceStats: {
+          ticketmaster: { count: 0, error: String(error) },
+          eventbrite: { count: 0 },
           serpapi: { count: 0 },
           error: { message: String(error), status: 500 }
         },
@@ -224,7 +230,9 @@ export async function searchEvents(params: SearchParams): Promise<{
 }
 
 // Helper function to get mock data around the provided coordinates
-function getMockEvents(params: any): {
+// This function is kept for reference but not used in production
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _getMockEvents(params: any): {
   events: Event[];
   sourceStats?: any;
   totalEvents?: number;
@@ -320,12 +328,12 @@ export async function getEventById(id: string): Promise<Event | null> {
       body: { id }, // Use object directly instead of JSON.stringify
       headers: { 'Content-Type': 'application/json' }
     });
-    
+
     // Create a timeout promise
     const timeoutPromise = new Promise((_, reject) => {
       setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
     });
-    
+
     // Race the function call against the timeout
     const { data, error } = await Promise.race([
       functionPromise,
