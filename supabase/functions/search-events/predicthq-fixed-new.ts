@@ -90,7 +90,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       queryParams.append('within', withinParam);
       console.log(`[PREDICTHQ] Using provided 'within' parameter: ${withinParam}`);
     } else if (latitude && longitude) {
-      const radiusKm = Math.round(radius * 1.60934);
+      const radiusKm = Math.round(Number(radius) * 1.60934); // Convert miles to km, ensure radius is a number
       queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
       console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${radiusKm}km.`);
     } else if (location) {
@@ -127,291 +127,152 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       console.log('[PARTY_DEBUG] Party category requested - enhancing PredictHQ parameters');
 
       // Add party-related categories based on latest API documentation
-      phqCategories = ['concerts', 'festivals', 'community', 'conferences', 'performing-arts', 'expos'];
-
-      // Add party-related labels based on latest API documentation
-      phqLabels = [
-        // Nightlife and party-specific labels
-        'nightlife', 'party', 'club', 'dance-party', 'dj-set', 'social-gathering', 'celebration', 'mixer',
-        'day-party', 'brunch', 'rooftop-party', 'pool-party', 'yacht-party', 'themed-party', 'immersive',
-        'popup', 'silent', 'networking', 'happy-hour',
-
-        // Additional entertainment labels that often indicate party events
-        'entertainment', 'music', 'live-music', 'dance', 'food-drink', 'alcohol'
-      ];
-
-      // Add party-related keywords
-      if (!phqKeyword || !phqKeyword.toLowerCase().includes('party')) {
-        const partyKeywords = 'party OR club OR nightlife OR dj OR dance OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
-        phqKeyword = phqKeyword ? `${phqKeyword} OR ${partyKeywords}` : partyKeywords;
+      phqCategories = ['concerts', 'festivals', 'performing-arts', 'community', 'expos', 'conferences'];
+      
+      // Add party-related labels
+      phqLabels = ['nightlife', 'music', 'entertainment'];
+      
+      // Enhance keyword search for parties if no keyword is provided
+      if (!phqKeyword) {
+        phqKeyword = 'party OR club OR nightlife OR festival OR dance OR dj';
+      } else {
+        // Add party-related terms to existing keyword
+        phqKeyword = `${phqKeyword} OR party OR club OR nightlife OR festival OR dance OR dj`;
       }
-    } else {
-      // Map our categories to PredictHQ categories
-      const categoryMap: Record<string, string[]> = {
-        'music': ['concerts', 'festivals', 'performing-arts'],
-        'sports': ['sports'],
-        'arts': ['performing-arts', 'expos', 'community'],
-        'family': ['community', 'expos'],
-        'food': ['community']
-      };
-
-      // Collect PHQ categories based on requested frontend categories
-      categories.forEach(cat => {
-        const mapped = categoryMap[cat.toLowerCase()];
-        if (mapped) {
-          phqCategories.push(...mapped);
-        }
+      
+      console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
+        categories: phqCategories,
+        labels: phqLabels,
+        keyword: phqKeyword
       });
+    } else {
+      // Use provided categories or default to all categories
+      phqCategories = categories.length > 0 ? categories : [
+        'concerts', 'conferences', 'expos', 'festivals', 'performing-arts', 'sports', 'community'
+      ];
     }
 
-    // Add category filters
+    // Add categories parameter
     if (phqCategories.length > 0) {
-      // Remove duplicates
-      phqCategories = Array.from(new Set(phqCategories));
       queryParams.append('category', phqCategories.join(','));
-      console.log(`[PREDICTHQ] Filtering by categories: ${phqCategories.join(',')}`);
     }
 
-    // Add label filters
+    // Add labels parameter
     if (phqLabels.length > 0) {
-      phqLabels = Array.from(new Set(phqLabels));
-      phqLabels.forEach(label => queryParams.append('phq_label', label));
-      queryParams.append('phq_label.op', 'any');
-      console.log(`[PREDICTHQ] Filtering by labels: ${phqLabels.join(',')}`);
+      queryParams.append('label', phqLabels.join(','));
     }
 
-    // Add keyword search
+    // Add keyword parameter
     if (phqKeyword) {
       queryParams.append('q', phqKeyword);
-      console.log(`[PREDICTHQ] Filtering by keyword: "${phqKeyword.substring(0, 50)}..."`);
     }
 
     // Add limit parameter
     queryParams.append('limit', limit.toString());
-    console.log(`[PREDICTHQ] Using limit: ${limit}`);
 
-    // Add include parameters for additional data
-    // Updated to include all relevant fields based on latest API documentation
-    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images,phq_labels,predicted_event_spend');
+    // Build the complete URL
+    const apiUrl = `${url}?${queryParams.toString()}`;
+    console.log(`[PREDICTHQ] API URL: ${apiUrl}`);
 
-    // Append query parameters to URL
-    url += `?${queryParams.toString()}`;
-
-    console.log('[PREDICTHQ] Final API URL:', url);
-    console.log('[PREDICTHQ_DEBUG] Full request parameters:', {
-      apiKey: apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'NOT SET',
-      latitude,
-      longitude,
-      radius,
-      startDate,
-      endDate,
-      categories,
-      location,
-      withinParam,
-      keyword,
-      limit,
-      phqCategories,
-      phqLabels
-    });
-
-    // Make the API request with proper error handling
-    let response: Response;
-    try {
-      // Create a controller for the timeout
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        controller.abort('PredictHQ API call timed out after 15 seconds');
-      }, 15000);
-
-      response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Accept': 'application/json'
-        },
-        signal: controller.signal
-      });
-
-      clearTimeout(timeoutId);
-
-      console.log('[PREDICTHQ] API response status:', response.status);
-
-      // Log response headers for debugging
-      const headers: Record<string, string> = {};
-      response.headers.forEach((value, key) => {
-        headers[key] = value;
-      });
-      console.log('[PREDICTHQ] API response headers:', headers);
-    } catch (fetchError) {
-      console.error('[PREDICTHQ_FETCH_ERROR] Fetch error:', fetchError);
-      let errorMsg = `PredictHQ API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
-      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-        errorMsg = fetchError.message;
+    // Make the API request
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${apiKey}`,
+        'Accept': 'application/json'
       }
-
-      return {
-        events: [],
-        error: errorMsg,
-        status: 500,
-        warnings: ['API request failed or timed out']
-      };
-    }
+    });
 
     // Check for HTTP errors
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[PREDICTHQ_API_ERROR] API error response:', response.status, errorText.substring(0, 200));
-
-      let warnings: string[] = [];
-
-      try {
-        const errorJson = JSON.parse(errorText);
-        if (errorJson.error) {
-          console.error('[PREDICTHQ_API_ERROR] Error details:', errorJson.error);
-          warnings.push(String(errorJson.error));
-        }
-        if (errorJson.warnings) {
-          console.warn('[PREDICTHQ_API_WARN] API warnings:', errorJson.warnings);
-          warnings = warnings.concat(errorJson.warnings);
-        }
-      } catch (e) {
-        // If not JSON, include the raw text
-        console.error('[PREDICTHQ_API_ERROR] Raw error text:', errorText.substring(0, 200));
-      }
-
+      console.error(`[PREDICTHQ] API error: ${response.status} ${errorText}`);
       return {
         events: [],
-        error: `PredictHQ API error: ${response.status}`,
+        error: `PredictHQ API error: ${response.status} ${errorText}`,
         status: response.status,
-        warnings
+        warnings: []
       };
     }
 
-    // Parse the response with error handling
-    let data: any;
-    try {
-      data = await response.json();
-      if (!data || typeof data !== 'object') {
-        throw new Error('Invalid API response format');
-      }
-    } catch (parseError) {
-      console.error('[PREDICTHQ_PARSE_ERROR] Failed to parse API response:', parseError);
+    // Parse the response
+    const data = await response.json();
+    console.log(`[PREDICTHQ] API response: ${data.count} events found`);
+
+    // Check if results were returned
+    if (!data.results || !Array.isArray(data.results)) {
+      console.log('[PREDICTHQ] No events found or invalid response format');
       return {
         events: [],
-        error: 'Failed to parse PredictHQ API response',
-        status: 500,
-        warnings: ['Response parsing failed']
+        error: null,
+        status: 200,
+        warnings: ['No events found or invalid response format']
       };
     }
 
-    console.log('[PREDICTHQ_DEBUG] API response parsed:', {
-      count: data.count,
-      resultsCount: data.results?.length || 0,
-      next: !!data.next,
-      previous: !!data.previous,
-      warnings: data.warnings
-    });
-
-    // Transform PredictHQ events to our format
-    const events = data.results?.map((event: any) => {
+    // Transform PredictHQ events to our Event format
+    const events: Event[] = [];
+    for (const result of data.results) {
       try {
-        return normalizePredictHQEvent(event);
-      } catch (e) {
-        console.error('[PREDICTHQ_NORM_ERROR] Failed to normalize PredictHQ event:', event?.id, e);
-        // Return a minimal error event instead of null
-        return {
-          id: `predicthq-norm-error-${event?.id || Date.now()}`,
-          source: 'predicthq',
-          title: event?.title || 'Error Normalizing Event',
-          description: `Failed to process event data from PredictHQ (ID: ${event?.id}).`,
-          date: event?.start?.split('T')[0] || new Date().toISOString().split('T')[0],
-          time: event?.start?.split('T')[1]?.substring(0, 5) || '00:00',
-          location: event?.location_name || event?.place?.name || 'Unknown location',
-          category: 'error',
-          image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop',
-          rank: event?.rank || 0,
-          localRelevance: event?.local_rank || 0,
-          attendance: { forecast: event?.phq_attendance, actual: event?.actual_attendance },
-          demandSurge: event?.labels?.includes('demand_surge') ? 1 : 0,
-        };
+        const event = normalizePredictHQEvent(result);
+        events.push(event);
+      } catch (error) {
+        console.error('[PREDICTHQ] Error normalizing event:', error);
       }
-    }) || [];
+    }
 
-    // Filter out any normalization error events if they exist
-    const successfullyNormalizedEvents = events.filter((event: any) => event.category !== 'error');
+    console.log(`[PREDICTHQ] Transformed ${events.length} events`);
 
     return {
-      events: successfullyNormalizedEvents,
+      events,
       error: null,
-      status: response.status,
-      warnings: data.warnings || []
+      status: 200,
+      warnings: []
     };
   } catch (error) {
-    let errorMessage = 'Unknown error';
-    if (error instanceof Error) {
-      errorMessage = error.message;
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else {
-      errorMessage = JSON.stringify(error);
-    }
-    console.error('[PREDICTHQ] Error fetching events:', errorMessage);
-
+    console.error('[PREDICTHQ] Error fetching events:', error);
     return {
       events: [],
-      error: errorMessage,
+      error: `Error fetching PredictHQ events: ${error instanceof Error ? error.message : String(error)}`,
       status: 500,
-      warnings: []
+      warnings: ['Error processing API response']
     };
   }
 }
 
-/**
- * Normalize a PredictHQ event to our standard format
- */
+// Normalize a PredictHQ event to our standard format
 function normalizePredictHQEvent(event: any): Event {
   try {
+    // Extract basic event information
+    const id = event.id;
+    const title = event.title;
+    const description = event.description || '';
+
     // Extract date and time
-    const startDate = event.start || new Date().toISOString();
-    const date = startDate.split('T')[0];
-    const time = startDate.split('T')[1]?.substring(0, 5) || '00:00';
+    const start = event.start ? new Date(event.start) : new Date();
+    const date = start.toISOString().split('T')[0];
+    const time = start.toISOString().split('T')[1].substring(0, 5);
 
-    // Extract location
-    let location = 'Location not specified';
-    const locationParts: string[] = [];
+    // Extract location information
+    const location = event.entities && event.entities.length > 0
+      ? event.entities.map((e: any) => e.name).join(', ')
+      : event.place_hierarchies && event.place_hierarchies.length > 0 && event.place_hierarchies[0].length > 0
+        ? event.place_hierarchies[0].slice(-2).join(', ')
+        : 'Location unavailable';
 
-    // Add venue name if available
-    const venueEntity = event.entities?.find((e: any) => e.type === 'venue');
-    const venueName = venueEntity?.name || event.phq_venue?.name;
-    if (venueName) {
-      locationParts.push(String(venueName));
-    }
-
-    // Add place name if available
-    if (event.place?.name) {
-      locationParts.push(String(event.place.name));
-    }
-
-    // Add state if available
-    if (event.state) {
-      locationParts.push(String(event.state));
-    }
-
-    // Build final location string
-    if (locationParts.length > 0) {
-      location = locationParts.join(', ');
-    }
-
-    // Extract venue
-    const venue = venueName || event.title;
+    // Extract venue information
+    const venue = event.entities && event.entities.length > 0
+      ? event.entities[0].name
+      : '';
 
     // Extract coordinates
     let coordinates: [number, number] | undefined = undefined;
-    if (event.location && Array.isArray(event.location) && event.location.length === 2) {
+    if (event.location && Array.isArray(event.location)) {
+      // PredictHQ returns coordinates as [longitude, latitude]
       coordinates = [event.location[0], event.location[1]];
     }
 
-    // Map category
+    // Determine category
     let category = 'other';
     if (event.category) {
       // Improved category mapping based on PredictHQ categories

@@ -70,13 +70,13 @@ serve(async (req: Request) => {
     // Add API key
     queryParams.append('apikey', TICKETMASTER_KEY);
 
-    // Add location parameter
+    // Add location parameter - use keyword search instead of city for better results
     if (location) {
-      queryParams.append('city', location);
+      queryParams.append('keyword', location);
     }
 
-    // Add radius parameter
-    queryParams.append('radius', radius.toString());
+    // Add radius parameter - use a larger radius to ensure we get results
+    queryParams.append('radius', (radius * 2).toString());
     queryParams.append('unit', 'miles');
 
     // Add date range parameters
@@ -89,7 +89,8 @@ serve(async (req: Request) => {
 
     // Add keyword parameter
     if (keyword) {
-      queryParams.append('keyword', keyword);
+      const currentKeyword = queryParams.get('keyword') || '';
+      queryParams.set('keyword', currentKeyword ? `${currentKeyword} ${keyword}` : keyword);
     }
 
     // Add category parameter - improved to handle multiple categories
@@ -104,22 +105,21 @@ serve(async (req: Request) => {
       'community': 'Miscellaneous'
     };
 
-    // Check if we have any categories that map to Ticketmaster segments
-    if (categories && categories.length > 0) {
+    // If searching for parties, add party-related keywords
+    if (categories && categories.includes('party')) {
+      const partyKeyword = 'party OR club OR nightlife OR dance OR dj OR festival';
+      const currentKeyword = queryParams.get('keyword') || '';
+      queryParams.set('keyword', currentKeyword ? `${currentKeyword} ${partyKeyword}` : partyKeyword);
+    }
+
+    // Only add category if not searching for parties (to get more results)
+    else if (categories && categories.length > 0) {
       // Find the first matching category
       for (const category of categories) {
         if (categoryMapping[category]) {
           queryParams.append('segmentName', categoryMapping[category]);
           break; // Ticketmaster only supports one segment at a time
         }
-      }
-
-      // If searching for parties, add party-related keywords
-      if (categories.includes('party')) {
-        const partyKeyword = keyword
-          ? `${keyword} OR party OR club OR nightlife OR dance`
-          : 'party OR club OR nightlife OR dance OR dj OR festival';
-        queryParams.append('keyword', partyKeyword);
       }
     }
 

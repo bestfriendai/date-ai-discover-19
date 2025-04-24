@@ -88,181 +88,135 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
 
       // Social gatherings
       'day celebration', 'afternoon celebration', 'daytime celebration',
-      'day social', 'afternoon social', 'daytime social', 'day mixer',
-      'bbq party', 'barbecue party', 'cookout', 'picnic', 'outdoor social',
+      'day social', 'afternoon social', 'daytime social',
+      'day mixer', 'afternoon mixer', 'daytime mixer',
+      'day gathering', 'afternoon gathering', 'daytime gathering',
 
-      // Modern day party concepts
-      'day rave', 'sunshine social', 'sunset party', 'sunset social',
-      'poolside social', 'poolside party', 'beach club', 'beach social',
-      'yacht day', 'boat day', 'cruise day', 'harbor party',
-      'garden social', 'outdoor lounge', 'lawn party', 'park social',
-      'day festival', 'afternoon festival', 'day carnival',
-      'outdoor experience', 'outdoor celebration', 'sunshine celebration',
-      'daytime popup', 'day popup', 'popup pool party',
-      'rooftop brunch', 'rooftop social', 'skyline social',
-      'terrace social', 'patio social', 'courtyard party',
-      'outdoor silent disco', 'day silent disco', 'outdoor headphone party'
-    ],
+      // Specific venues
+      'pool bar', 'beach bar', 'outdoor bar', 'garden bar', 'patio bar',
+      'pool lounge', 'beach lounge', 'outdoor lounge', 'garden lounge', 'patio lounge',
+      'pool club', 'beach club', 'outdoor club', 'garden club', 'patio club',
 
-    // Brunch event terms - expanded for better detection
-    brunch: [
-      // Core brunch terms
-      'brunch', 'breakfast', 'morning', 'mimosa', 'bottomless',
-      'champagne brunch', 'sunday brunch', 'brunch party',
-      'brunch & bubbles', 'brunch and bubbles', 'brunch social',
+      // Activities
+      'sun bathing', 'swimming', 'outdoor games', 'outdoor activities',
+      'outdoor music', 'outdoor dj', 'outdoor dancing', 'outdoor entertainment',
+      'day drinking', 'afternoon drinking', 'daytime drinking',
+      'day dancing', 'afternoon dancing', 'daytime dancing',
 
-      // Event types
-      'breakfast party', 'morning party', 'morning social',
-      'brunch event', 'breakfast event', 'morning event',
-      'brunch celebration', 'breakfast celebration',
+      // Time indicators
+      'afternoon', 'daytime', 'day time', 'midday', 'mid-day',
+      'morning', 'noon', 'early', 'sunrise', 'sunset',
+      'brunch', 'lunch', 'day', 'sunshine', 'sunny',
 
-      // Venue & atmosphere
-      'brunch club', 'breakfast club', 'morning mixer',
-      'bloody mary', 'mimosas', 'bellini', 'breakfast cocktails',
-      'brunch buffet', 'breakfast buffet', 'morning buffet',
-      'weekend brunch', 'saturday brunch', 'sunday breakfast'
-    ],
-
-    // Club event terms - expanded for better detection
-    club: [
-      // Core club terms
-      'nightclub', 'night club', 'club night', 'dance club', 'disco',
-      'DJ', 'dance night', 'nightlife', 'night life', 'clubbing',
-      'dance floor', 'dancing', 'bottle service', 'vip table',
-
-      // Activities & atmosphere
-      'vip section', 'bar crawl', 'pub crawl', 'open bar',
-      'lounge', 'venue', 'live music', 'concert', 'performance',
-
-      // Music genres
-      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music',
-      'techno', 'trance', 'dubstep', 'drum and bass', 'dnb',
-      'rave', 'raving', 'club music', 'dance music', 'dj set',
-
-      // DJ & performance
-      'dj night', 'dj party', 'dj event', 'live dj', 'resident dj',
-      'guest dj', 'featured dj', 'headliner', 'main room',
-
-      // VIP & service
-      'vip room', 'vip area', 'vip entrance', 'vip access',
-      'bottle package', 'table service', 'table reservation',
-
-      // Time & event types
-      'club event', 'night event', 'evening event', 'late night',
-      'after hours', 'after party', 'late party', 'weekend party'
-    ],
-
-    // Social gathering terms - expanded for better detection
-    social: [
-      // Core networking terms
-      'networking', 'mixer', 'mingle', 'social gathering', 'business mixer',
-      'professional', 'industry', 'entrepreneur', 'startup',
-      'business social', 'career', 'professionals', 'business networking',
-
-      // Event types
-      'social event', 'social mixer', 'social night', 'social club',
-      'meetup', 'meet-up', 'meet and greet', 'networking event',
-      'networking opportunity', 'professional mixer', 'industry mixer',
-
-      // Industry & business
-      'industry night', 'industry event', 'business event',
-      'business gathering', 'professional gathering', 'professional social',
-      'career networking', 'career social', 'career mixer',
-      'entrepreneur event', 'entrepreneur social', 'entrepreneur mixer',
-      'startup event', 'startup social', 'startup mixer',
-
-      // Community
-      'community gathering', 'community social', 'community mixer'
+      // Seasonal
+      'summer day', 'spring day', 'fall day', 'winter day',
+      'summer afternoon', 'spring afternoon', 'fall afternoon', 'winter afternoon',
+      'summer daytime', 'spring daytime', 'fall daytime', 'winter daytime',
+      'summer pool', 'spring pool', 'summer beach', 'spring beach',
+      'summer garden', 'spring garden', 'summer patio', 'spring patio',
+      'summer outdoor', 'spring outdoor', 'fall outdoor', 'winter outdoor'
     ]
   };
 
-  const combinedText = `${title.toLowerCase()} ${description.toLowerCase()}`;
+  // Normalize inputs
+  const titleLower = (title || '').toLowerCase();
+  const descLower = (description || '').toLowerCase();
+  const combinedText = `${titleLower} ${descLower}`;
 
-  // Check each category of keywords
-  const strongMatch = partyKeywords.strong.find(keyword => combinedText.includes(keyword));
-  const dayPartyMatch = partyKeywords.dayParty.find(keyword => combinedText.includes(keyword));
-  const brunchMatch = partyKeywords.brunch.find(keyword => combinedText.includes(keyword));
-  const clubMatch = partyKeywords.club.find(keyword => combinedText.includes(keyword));
-  const socialMatch = partyKeywords.social.find(keyword => combinedText.includes(keyword));
+  // Check for strong party indicators
+  const hasStrongPartyIndicator = partyKeywords.strong.some(keyword => combinedText.includes(keyword));
 
-  // Log the detection result for debugging
-  console.log(`[PARTY_DETECTION] Event: "${title}", Matches: Strong=${strongMatch || 'none'}, DayParty=${dayPartyMatch || 'none'}, Brunch=${brunchMatch || 'none'}, Club=${clubMatch || 'none'}, Social=${socialMatch || 'none'}`);
+  // Check for day party indicators
+  const hasDayPartyIndicator = partyKeywords.dayParty.some(keyword => combinedText.includes(keyword));
 
-  // If any category matches, it's a party event
-  // Also check for common venue types that typically host parties
-  const venueTypes = ['club', 'lounge', 'bar', 'venue', 'hall', 'ballroom', 'terrace', 'rooftop'];
-  const hasPartyVenue = venueTypes.some(venue => combinedText.includes(venue));
-
-  // Check for music genres that are common at parties
-  const musicGenres = ['dj', 'electronic', 'hip hop', 'hip-hop', 'edm', 'house', 'techno', 'dance', 'disco'];
-  const hasPartyMusic = musicGenres.some(genre => combinedText.includes(genre));
-
-  // Check for time-based indicators that suggest a party
-  let isPartyTime = false;
-  if (combinedText.includes('night') || combinedText.includes('evening') ||
-      combinedText.includes('pm') || combinedText.includes('tonight') ||
-      combinedText.includes('weekend')) {
-    isPartyTime = true;
-  }
-
-  // Check for event types that are often parties
-  const eventTypes = ['concert', 'show', 'performance', 'festival', 'fest', 'event'];
-  const isEventType = eventTypes.some(type => combinedText.includes(type));
-
-  // Super aggressive detection - return true if any match is found
-  // This ensures we catch as many party events as possible
-  return !!(strongMatch || dayPartyMatch || brunchMatch || clubMatch || socialMatch ||
-           hasPartyVenue || hasPartyMusic || isPartyTime || isEventType);
+  // Return true if any party indicators are found
+  return hasStrongPartyIndicator || hasDayPartyIndicator;
 }
 
 /**
  * Helper function to determine party subcategory
  */
 export function detectPartySubcategory(title: string = '', description: string = '', time: string = ''): PartySubcategory {
-  const combinedText = `${title.toLowerCase()} ${description.toLowerCase()}`;
+  // Normalize inputs
+  const titleLower = (title || '').toLowerCase();
+  const descLower = (description || '').toLowerCase();
+  const combinedText = `${titleLower} ${descLower}`;
 
-  // Use the same keyword categories from detectPartyEvent for consistency
+  // Define subcategory keywords
   const subcategoryKeywords = {
+    // Day party specific terms
     dayParty: [
-      'day party', 'day-party', 'pool party', 'afternoon party', 'daytime',
-      'day time', 'outdoor party', 'garden party', 'patio party', 'beach party',
-      'pool', 'day club', 'dayclub', 'rooftop party', 'terrace party',
-      'day rave', 'sunshine social', 'sunset party', 'sunset social',
-      'poolside social', 'poolside party', 'beach club', 'beach social',
-      'yacht day', 'boat day', 'cruise day', 'harbor party',
-      'garden social', 'outdoor lounge', 'lawn party', 'park social'
+      'day party', 'day-party', 'pool party', 'daytime', 'day time',
+      'outdoor party', 'garden party', 'patio party', 'beach party',
+      'pool', 'day club', 'dayclub', 'afternoon party', 'rooftop party',
+      'daytime event', 'afternoon event', 'day event', 'pool event', 'beach event',
+      'outdoor event', 'rooftop event', 'terrace party', 'terrace event'
     ],
 
+    // Brunch specific terms
     brunch: [
-      'brunch', 'breakfast', 'morning', 'mimosa', 'bottomless',
-      'champagne brunch', 'sunday brunch', 'brunch party',
-      'brunch & bubbles', 'brunch and bubbles'
+      'brunch', 'breakfast', 'morning', 'mimosa', 'bloody mary',
+      'brunch party', 'breakfast party', 'morning party',
+      'brunch social', 'breakfast social', 'morning social',
+      'brunch event', 'breakfast event', 'morning event',
+      'brunch club', 'breakfast club', 'morning club',
+      'brunch lounge', 'breakfast lounge', 'morning lounge',
+      'brunch bar', 'breakfast bar', 'morning bar',
+      'brunch venue', 'breakfast venue', 'morning venue',
+      'brunch celebration', 'breakfast celebration', 'morning celebration',
+      'brunch mixer', 'breakfast mixer', 'morning mixer',
+      'brunch gathering', 'breakfast gathering', 'morning gathering',
+      'bottomless', 'unlimited', 'all you can drink', 'buffet'
     ],
 
+    // Club specific terms
     club: [
-      'nightclub', 'night club', 'club night', 'dance club', 'disco',
-      'rave', 'DJ', 'dance night', 'dance party', 'nightlife',
-      'night life', 'clubbing', 'dance floor', 'bottle service',
-      'vip table', 'vip section', 'bar crawl', 'pub crawl',
-      'lounge', 'venue', 'live music', 'concert', 'performance',
-      'electronic', 'hip hop', 'hip-hop', 'edm', 'house music',
-      'underground club', 'secret club', 'hidden venue',
-      'speakeasy club', 'warehouse club', 'industrial venue',
-      'boutique club', 'intimate venue', 'exclusive club',
-      'members club', 'private club', 'curated night'
+      'club', 'nightclub', 'night club', 'dance club', 'disco',
+      'rave', 'dj', 'dance night', 'dance party', 'edm',
+      'house music', 'techno', 'electronic', 'hip hop', 'rap',
+      'bottle service', 'vip table', 'dance floor', 'after party',
+      'afterparty', 'late night', 'nightlife', 'night life',
+      'club night', 'dance night', 'party night', 'night out',
+      'dancing', 'dance', 'dj set', 'live dj', 'resident dj',
+      'guest dj', 'featured dj', 'headliner', 'performer',
+      'performance', 'show', 'concert', 'live music',
+      'vip', 'exclusive', 'premium', 'luxury', 'upscale',
+      'high-end', 'trendy', 'popular', 'hot spot', 'hotspot'
     ],
 
+    // Immersive experience terms
     immersive: [
-      'immersive experience', 'immersive art', 'immersive music',
-      'immersive party', 'experiential event', 'interactive party',
-      'art party', 'creative social', 'themed social',
-      'themed party', 'concept party', 'multi-room venue',
-      'art space', 'creative venue', 'immersive club'
+      'immersive', 'interactive', 'experience', 'experiential',
+      'multi-sensory', 'sensory', 'art installation', 'installation',
+      'immersive art', 'immersive music', 'immersive party',
+      'immersive event', 'immersive social', 'immersive celebration',
+      'immersive mixer', 'immersive gathering', 'immersive club',
+      'immersive lounge', 'immersive bar', 'immersive venue',
+      'art party', 'creative social', 'creative event',
+      'creative party', 'creative celebration', 'creative mixer',
+      'creative gathering', 'creative club', 'creative lounge',
+      'creative bar', 'creative venue', 'art social', 'art event',
+      'art celebration', 'art mixer', 'art gathering', 'art club',
+      'art lounge', 'art bar', 'art venue', 'experiential event',
+      'experiential social', 'experiential party', 'experiential celebration',
+      'experiential mixer', 'experiential gathering', 'experiential club',
+      'experiential lounge', 'experiential bar', 'experiential venue'
     ],
 
+    // Popup event terms
     popup: [
-      'pop-up party', 'popup bar', 'popup club', 'popup venue',
-      'secret party', 'secret location', 'hidden venue',
+      'popup', 'pop-up', 'pop up', 'temporary', 'limited time',
+      'one night only', 'exclusive', 'secret', 'hidden',
+      'popup party', 'pop-up party', 'pop up party',
+      'popup social', 'pop-up social', 'pop up social',
+      'popup event', 'pop-up event', 'pop up event',
+      'popup celebration', 'pop-up celebration', 'pop up celebration',
+      'popup mixer', 'pop-up mixer', 'pop up mixer',
+      'popup gathering', 'pop-up gathering', 'pop up gathering',
+      'popup club', 'pop-up club', 'pop up club',
+      'popup lounge', 'pop-up lounge', 'pop up lounge',
+      'popup bar', 'pop-up bar', 'pop up bar',
+      'popup venue', 'pop-up venue', 'pop up venue',
       'underground party', 'warehouse party', 'industrial space',
       'temporary venue', 'limited time', 'exclusive popup',
       'one night only', 'special venue'

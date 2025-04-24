@@ -75,21 +75,21 @@ export async function searchEvents(params: SearchParams): Promise<{
     // Add a dedicated field so only the backend PredictHQ handler uses it
     searchParams['predicthqLocation'] = predictHQLocation;
 
-    console.log('[DEBUG] Sending search params to simple-events function:', searchParams);
+    console.log('[DEBUG] Sending search params to search-events function:', searchParams);
 
     try {
       // Call Supabase function to fetch events from multiple sources
-      console.log('[DEBUG] About to call supabase.functions.invoke("simple-events")');
+      console.log('[DEBUG] About to call supabase.functions.invoke("search-events")');
 
       // Log the Supabase function URL
       console.log('[DEBUG] Supabase function URL:', {
-        functionName: 'simple-events',
+        functionName: 'search-events',
         hasClient: !!supabase
       });
 
       // Add timeout handling for the function call
       const timeoutMs = 30000; // 30 seconds timeout
-      const functionPromise = supabase.functions.invoke('simple-events', { // Use simple-events function
+      const functionPromise = supabase.functions.invoke('search-events', { // Use search-events function
         body: searchParams,
         headers: { 'Content-Type': 'application/json' }
       });
