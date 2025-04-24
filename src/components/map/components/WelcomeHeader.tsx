@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { motion } from 'framer-motion';
-import { CompassIcon } from '@/lib/icons'; // Updated to use icon from our utility
+import { CompassIcon } from '@/lib/icons'; // Import from our icons utility
 
 const WelcomeHeader = () => {
   return (

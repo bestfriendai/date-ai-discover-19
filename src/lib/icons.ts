@@ -70,5 +70,6 @@ export const {
   Dot: DotIcon,
   MoreHorizontal: MoreHorizontalIcon,
   SlidersHorizontal: SlidersHorizontalIcon,
+  PanelLeft: PanelLeftIcon,
+  GripVertical: GripVerticalIcon
 } = LucideIcons;
-
