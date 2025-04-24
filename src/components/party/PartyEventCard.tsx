@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Event } from '@/types';
-import { Calendar, MapPin, Clock, Music, Users, Star, Ticket } from 'lucide-react';
+import { CalendarIcon, MapPinIcon, ClockIcon, MusicIcon, UsersIcon, StarIcon, TicketIcon } from '@/lib/icons';
 import PartySubcategoryBadge from './PartySubcategoryBadge';
 import { motion } from 'framer-motion';
 

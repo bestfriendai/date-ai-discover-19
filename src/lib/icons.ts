@@ -59,5 +59,9 @@ export const {
   Building: BuildingIcon,
   Layers: LayersIcon,
   Globe: GlobeIcon,
-  Mountain: MountainIcon
+  Mountain: MountainIcon,
+  MountainSnow: MountainSnowIcon,
+  CheckCircle: CheckCircleIcon,
+  MinusCircle: MinusCircleIcon,
+  Theater: TheaterIcon,
 } = LucideIcons;

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { DollarSign, PlusCircle, MinusCircle } from 'lucide-react';
+import { DollarSignIcon, PlusCircleIcon, MinusCircleIcon } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -46,7 +46,7 @@ export function PriceRangeFilter({
       <div className="w-full max-w-sm bg-background/80 backdrop-blur rounded-lg shadow-lg border border-border/50 p-4">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <DollarSign className="h-4 w-4" />
+            <DollarSignIcon className="h-4 w-4" />
             <span className="text-sm font-medium">Price Filter</span>
           </div>
           <div className="flex items-center space-x-2">
@@ -84,7 +84,7 @@ export function PriceRangeFilter({
                 }}
                 disabled={showFreeOnly}
               >
-                <MinusCircle className="h-3 w-3" />
+                <MinusCircleIcon className="h-3 w-3" />
                 <div className="text-primary">{formatPrice(value[0])}</div>
               </button>
             </TooltipTrigger>
@@ -105,7 +105,7 @@ export function PriceRangeFilter({
                 disabled={showFreeOnly}
               >
                 <div className="text-primary text-right">{formatPrice(value[1])}</div>
-                <PlusCircle className="h-3 w-3" />
+                <PlusCircleIcon className="h-3 w-3" />
               </button>
             </TooltipTrigger>
             <TooltipContent>

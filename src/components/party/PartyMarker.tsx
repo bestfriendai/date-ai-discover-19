@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Calendar, MapPin, Ticket, Music, Users, Star, Clock } from 'lucide-react';
+import { CalendarIcon, MapPinIcon, TicketIcon, MusicIcon, UsersIcon, StarIcon, ClockIcon } from '@/lib/icons';
 import { cn } from '@/lib/utils';
 import type { Event } from '@/types';
 import PartySubcategoryBadge from './PartySubcategoryBadge';
@@ -124,12 +124,12 @@ export const PartyMarker: React.FC<PartyMarkerProps> = ({
                 {/* Date and Time */}
                 {event.date && (
                   <div className="flex items-center text-xs text-card-foreground">
-                    <Calendar className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                    <CalendarIcon className="h-3 w-3 mr-1.5 text-muted-foreground" />
                     <span>{event.date}</span>
                     {event.time && (
                       <>
                         <span className="mx-1.5">•</span>
-                        <Clock className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                        <ClockIcon className="h-3 w-3 mr-1.5 text-muted-foreground" />
                         <span>{event.time}</span>
                       </>
                     )}
@@ -139,7 +139,7 @@ export const PartyMarker: React.FC<PartyMarkerProps> = ({
                 {/* Location */}
                 {event.venue && (
                   <div className="flex items-center text-xs text-card-foreground">
-                    <MapPin className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                    <MapPinIcon className="h-3 w-3 mr-1.5 text-muted-foreground" />
                     <span className="truncate">{event.venue}</span>
                   </div>
                 )}
@@ -147,7 +147,7 @@ export const PartyMarker: React.FC<PartyMarkerProps> = ({
                 {/* Price */}
                 {event.price && (
                   <div className="flex items-center text-xs text-card-foreground">
-                    <Ticket className="h-3 w-3 mr-1.5 text-muted-foreground" />
+                    <TicketIcon className="h-3 w-3 mr-1.5 text-muted-foreground" />
                     <span>{event.price}</span>
                   </div>
                 )}
