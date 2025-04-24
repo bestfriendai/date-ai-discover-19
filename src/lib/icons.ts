@@ -1,75 +1,91 @@
 
 import * as LucideIcons from 'lucide-react';
 
-// Re-export all icons with the Icon suffix to avoid conflicts
+// Navigation and UI Controls
 export const {
-  Loader2: Loader2Icon,
-  Mail: MailIcon,
-  Lock: LockIcon,
+  ChevronLeft: ChevronLeftIcon,
+  ChevronRight: ChevronRightIcon,
+  ChevronDown: ChevronDownIcon,
+  ChevronUp: ChevronUpIcon,
+  ArrowLeft: ArrowLeftIcon,
+  ArrowRight: ArrowRightIcon,
+  Search: SearchIcon,
+  Filter: FilterIcon,
+  X: XIcon,
+  MoreHorizontal: MoreHorizontalIcon,
+  SlidersHorizontal: SlidersHorizontalIcon,
+  PanelLeft: PanelLeftIcon,
+  GripVertical: GripVerticalIcon,
+  Check: CheckIcon,
+  Circle: CircleIcon,
+  Dot: DotIcon,
+} = LucideIcons;
+
+// User Interface
+export const {
   User: UserIcon,
+  LogOut: LogOutIcon,
+  Lock: LockIcon,
+  Mail: MailIcon,
   ExternalLink: ExternalLinkIcon,
+  Plus: PlusIcon,
+  PlusCircle: PlusCircleIcon,
+  Loader2: Loader2Icon,
+  Trash2: Trash2Icon,
+  Edit: EditIcon,
+  AlertCircle: AlertCircleIcon,
+  Info: InfoIcon,
+  Share2: Share2Icon,
+} = LucideIcons;
+
+// Location and Navigation
+export const {
   MapPin: MapPinIcon,
+  Locate: LocateIcon,
+  Navigation: NavigationIcon,
+  Car: CarIcon,
+  Map: MapIcon,
+  Compass: CompassIcon,
+  Globe: GlobeIcon,
+  Satellite: SatelliteIcon,
+} = LucideIcons;
+
+// Date and Time
+export const {
+  Calendar: CalendarIcon,
   CalendarDays: CalendarDaysIcon,
   Clock: ClockIcon,
-  Heart: HeartIcon,
-  Plus: PlusIcon,
-  Share2: Share2Icon,
-  Ticket: TicketIcon,
-  Star: StarIcon,
-  Users: UsersIcon,
-  TrendingUp: TrendingUpIcon,
+} = LucideIcons;
+
+// Event Categories and Types
+export const {
   PartyPopper: PartyPopperIcon,
   Music: MusicIcon,
   Palette: PaletteIcon,
   Trophy: TrophyIcon,
+  Users: UsersIcon,
   Utensils: UtensilsIcon,
-  Calendar: CalendarIcon,
-  Check: CheckIcon,
-  Info: InfoIcon,
+  Heart: HeartIcon,
+  Star: StarIcon,
   Sparkles: SparklesIcon,
-  PlusCircle: PlusCircleIcon,
-  Trash2: Trash2Icon,
-  Edit: EditIcon,
-  AlertCircle: AlertCircleIcon,
-  LogOut: LogOutIcon,
-  X: XIcon,
-  Send: SendIcon,
-  Bot: BotIcon,
-  ChevronUp: ChevronUpIcon,
-  ChevronDown: ChevronDownIcon,
-  Car: CarIcon,
-  Navigation: NavigationIcon,
-  Filter: FilterIcon,
-  Locate: LocateIcon,
-  Search: SearchIcon,
-  Moon: MoonIcon,
-  Sun: SunIcon,
-  Satellite: SatelliteIcon,
-  Map: MapIcon,
-  Compass: CompassIcon,
-  ChevronLeft: ChevronLeftIcon,
-  ChevronRight: ChevronRightIcon,
-  DollarSign: DollarSignIcon,
-  Settings: SettingsIcon,
-  Headphones: HeadphonesIcon,
-  Package: PackageIcon,
-  Coffee: CoffeeIcon,
-  Network: NetworkIcon,
-  Wine: WineIcon,
+  Ticket: TicketIcon,
+} = LucideIcons;
+
+// Venue and Location Types
+export const {
   Building: BuildingIcon,
-  Layers: LayersIcon,
-  Globe: GlobeIcon,
+  Coffee: CoffeeIcon,
+  Wine: WineIcon,
+  Network: NetworkIcon,
+  Package: PackageIcon,
+  Headphones: HeadphonesIcon,
   Mountain: MountainIcon,
   MountainSnow: MountainSnowIcon,
-  CheckCircle: CheckCircleIcon,
-  MinusCircle: MinusCircleIcon,
   Theater: TheaterIcon,
-  ArrowLeft: ArrowLeftIcon,
-  ArrowRight: ArrowRightIcon,
-  Circle: CircleIcon,
-  Dot: DotIcon,
-  MoreHorizontal: MoreHorizontalIcon,
-  SlidersHorizontal: SlidersHorizontalIcon,
-  PanelLeft: PanelLeftIcon,
-  GripVertical: GripVerticalIcon
+  Bot: BotIcon,
+  Send: SendIcon,
+  Sun: SunIcon,
+  Moon: MoonIcon,
+  Layers: LayersIcon,
 } = LucideIcons;
+
