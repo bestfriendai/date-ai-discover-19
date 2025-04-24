@@ -24,6 +24,9 @@ export async function searchEvents(params: SearchParams): Promise<{
   totalEvents?: number;
   pageSize?: number;
   page?: number;
+  totalPages?: number;
+  hasMore?: boolean;
+  meta?: any;
 }> {
   try {
     // Prepare parameters for API calls
@@ -96,22 +99,43 @@ export async function searchEvents(params: SearchParams): Promise<{
         setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
       });
 
+      // Loading state is handled by the component
+
       // Race the function call against the timeout
       const { data, error } = await Promise.race([
         functionPromise,
         timeoutPromise.then(() => ({ data: null, error: { message: 'Timeout exceeded', status: 408 } }))
       ]) as any;
 
+      // Log the result for debugging
+      console.log('[DEBUG] Function result:', {
+        hasData: !!data,
+        hasError: !!error,
+        eventCount: data?.events?.length || 0,
+        meta: data?.meta
+      });
+
       if (error) {
         console.error('[ERROR] Supabase function error:', error);
-        // Return a structured error response instead of throwing
+
+        // Check if it's a timeout error
+        const isTimeout = error.message?.includes('timeout') || error.status === 408;
+        const errorMessage = isTimeout
+          ? 'The request took too long to complete. Please try again or refine your search criteria.'
+          : error.message || String(error);
+
+        // Return a structured error response with user-friendly message
         return {
           events: [],
           sourceStats: {
-            ticketmaster: { count: 0, error: error.message || String(error) },
+            ticketmaster: { count: 0, error: errorMessage },
             eventbrite: { count: 0 },
             serpapi: { count: 0 },
-            error: { message: error.message || String(error), status: error.status || 500 }
+            error: {
+              message: errorMessage,
+              status: error.status || 500,
+              isTimeout
+            }
           },
           totalEvents: 0,
           pageSize: params.limit || 200,
@@ -200,12 +224,53 @@ export async function searchEvents(params: SearchParams): Promise<{
           )
       );
 
+      console.log(`[DEBUG] Filtered ${filteredEvents.length} events with valid coordinates and content`);
+
+      // Process the response with improved metadata handling
+      const sourceStats = data.sourceStats || {};
+      const meta = data.meta || {};
+
+      // Use meta data if available, otherwise fallback to legacy format
+      const totalEvents = meta.totalEvents || data.totalEvents || filteredEvents.length;
+      const pageSize = meta.pageSize || data.pageSize || params.limit || 20;
+      const page = meta.page || data.page || params.page || 1;
+      const totalPages = meta.totalPages || Math.ceil(totalEvents / pageSize) || 1;
+      const hasMore = meta.hasMore !== undefined ? meta.hasMore : (page * pageSize < totalEvents);
+
+      console.log(`[DEBUG] Event metadata: page ${page}/${totalPages}, hasMore: ${hasMore}, total: ${totalEvents}`);
+
+      // Enhance events with additional data if needed
+      const enhancedEvents = filteredEvents.map((event: Event) => {
+        // Create a copy of the event to avoid mutating the original
+        const enhancedEvent = { ...event };
+
+        // Make sure all events have a valid category
+        if (!enhancedEvent.category) {
+          enhancedEvent.category = 'other';
+        }
+
+        // Make sure all events have a valid date
+        if (!enhancedEvent.date) {
+          enhancedEvent.date = 'Date TBA';
+        }
+
+        // Make sure all events have a valid location
+        if (!enhancedEvent.location) {
+          enhancedEvent.location = 'Location TBA';
+        }
+
+        return enhancedEvent;
+      });
+
       return {
-        events: filteredEvents,
-        sourceStats: data?.sourceStats,
-        totalEvents: filteredEvents.length,
-        pageSize: params.limit || 200,
-        page: params.page || 1
+        events: enhancedEvents,
+        sourceStats,
+        totalEvents,
+        pageSize,
+        page,
+        totalPages,
+        hasMore,
+        meta
       };
     } catch (error) {
       console.error('[ERROR] Error calling Supabase function:', error);
@@ -219,8 +284,14 @@ export async function searchEvents(params: SearchParams): Promise<{
           error: { message: String(error), status: 500 }
         },
         totalEvents: 0,
-        pageSize: params.limit || 200,
-        page: params.page || 1
+        pageSize: params.limit || 20,
+        page: params.page || 1,
+        totalPages: 0,
+        hasMore: false,
+        meta: {
+          error: String(error),
+          timestamp: new Date().toISOString()
+        }
       };
     }
   } catch (error) {
@@ -229,16 +300,15 @@ export async function searchEvents(params: SearchParams): Promise<{
   }
 }
 
-// Helper function to get mock data around the provided coordinates
-// This function is kept for reference but not used in production
+// REMOVE THIS FUNCTION LATER - KEPT FOR REFERENCE ONLY
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-function _getMockEvents(params: any): {
+export const getMockEvents = (params: any): {
   events: Event[];
   sourceStats?: any;
   totalEvents?: number;
   pageSize?: number;
   page?: number;
-} {
+} => {
   console.log('[DEBUG] Generating mock events around', params.lat, params.lng);
 
   // Generate mock events around the specified coordinates
