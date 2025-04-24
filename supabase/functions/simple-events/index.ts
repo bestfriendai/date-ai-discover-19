@@ -70,14 +70,33 @@ serve(async (req: Request) => {
     // Add API key
     queryParams.append('apikey', TICKETMASTER_KEY);
 
-    // Add location parameter - use keyword search instead of city for better results
-    if (location) {
-      queryParams.append('keyword', location);
-    }
+    // Add location parameters - prioritize lat/long for more accurate results
+    const userLat = params.latitude || params.lat;
+    const userLng = params.longitude || params.lng;
 
-    // Add radius parameter - use a larger radius to ensure we get results
-    queryParams.append('radius', (radius * 2).toString());
-    queryParams.append('unit', 'miles');
+    if (userLat && userLng) {
+      console.log(`[TICKETMASTER] Using lat/lng ${userLat},${userLng} with radius ${radius} miles.`);
+      queryParams.append('latlong', `${userLat},${userLng}`);
+      queryParams.append('radius', radius.toString());
+      queryParams.append('unit', 'miles');
+
+      // Still include the location name as a keyword for better results
+      if (location) {
+        queryParams.append('keyword', location);
+      }
+    } else if (location) {
+      console.log(`[TICKETMASTER] Using city name: "${location}" with radius ${radius} miles.`);
+      // Use both city and keyword for better results
+      queryParams.append('city', location);
+      queryParams.append('keyword', location);
+      queryParams.append('radius', radius.toString());
+      queryParams.append('unit', 'miles');
+    } else {
+      console.log(`[TICKETMASTER] No location info provided, using default radius ${radius} miles.`);
+      // Even without location, we still want to limit the radius
+      queryParams.append('radius', radius.toString());
+      queryParams.append('unit', 'miles');
+    }
 
     // Add date range parameters
     if (startDate) {

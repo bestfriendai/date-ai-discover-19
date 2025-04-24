@@ -162,14 +162,23 @@ async function fetchTicketmasterEvents(apiKey: string, params: any): Promise<Eve
   // Add API key
   queryParams.append('apikey', apiKey);
 
-  // Add location parameter
-  if (params.location) {
+  // Add location parameter - prioritize lat/long for more accurate results
+  if (params.latitude && params.longitude) {
+    console.log(`[TICKETMASTER] Using lat/lng ${params.latitude},${params.longitude} with radius ${params.radius} miles.`);
+    queryParams.append('latlong', `${params.latitude},${params.longitude}`);
+    queryParams.append('radius', params.radius.toString());
+    queryParams.append('unit', 'miles');
+  } else if (params.location) {
+    console.log(`[TICKETMASTER] Using city name: "${params.location}" with radius ${params.radius} miles.`);
     queryParams.append('city', params.location);
+    queryParams.append('radius', params.radius.toString());
+    queryParams.append('unit', 'miles');
+  } else {
+    console.log(`[TICKETMASTER] No location info provided, using default radius ${params.radius} miles.`);
+    // Even without location, we still want to limit the radius
+    queryParams.append('radius', params.radius.toString());
+    queryParams.append('unit', 'miles');
   }
-
-  // Add radius parameter
-  queryParams.append('radius', params.radius.toString());
-  queryParams.append('unit', 'miles');
 
   // Add date range parameters
   if (params.startDate) {

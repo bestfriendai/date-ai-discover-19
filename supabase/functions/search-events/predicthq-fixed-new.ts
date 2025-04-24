@@ -118,20 +118,45 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Add sort parameter
     queryParams.append('sort', 'start');
 
-    // Handle party category specially
+    // Map application categories to valid PredictHQ categories
     let phqCategories: string[] = [];
     let phqLabels: string[] = [];
     let phqKeyword = keyword;
 
+    // Define a mapping from application categories to valid PredictHQ categories
+    const categoryMapping: Record<string, string[]> = {
+      'music': ['concerts', 'festivals'],
+      'sports': ['sports'],
+      'arts': ['performing-arts', 'expos', 'conferences'],
+      'family': ['community', 'school-holidays'],
+      'food': ['community', 'expos'],
+      'party': ['concerts', 'festivals', 'performing-arts', 'community', 'expos', 'conferences'],
+      'conference': ['conferences'],
+      'community': ['community']
+    };
+
+    // Define a mapping from application categories to PredictHQ labels
+    const labelMapping: Record<string, string[]> = {
+      'music': ['music', 'entertainment'],
+      'sports': ['sport'],
+      'arts': ['entertainment', 'arts'],
+      'family': ['family-friendly'],
+      'food': ['food'],
+      'party': ['nightlife', 'music', 'entertainment'],
+      'conference': ['business'],
+      'community': ['community']
+    };
+
+    // Special handling for party category
     if (categories.includes('party')) {
       console.log('[PARTY_DEBUG] Party category requested - enhancing PredictHQ parameters');
 
       // Add party-related categories based on latest API documentation
-      phqCategories = ['concerts', 'festivals', 'performing-arts', 'community', 'expos', 'conferences'];
-      
+      phqCategories = categoryMapping['party'];
+
       // Add party-related labels
-      phqLabels = ['nightlife', 'music', 'entertainment'];
-      
+      phqLabels = labelMapping['party'];
+
       // Enhance keyword search for parties if no keyword is provided
       if (!phqKeyword) {
         phqKeyword = 'party OR club OR nightlife OR festival OR dance OR dj';
@@ -139,15 +164,37 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         // Add party-related terms to existing keyword
         phqKeyword = `${phqKeyword} OR party OR club OR nightlife OR festival OR dance OR dj`;
       }
-      
+
       console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
         categories: phqCategories,
         labels: phqLabels,
         keyword: phqKeyword
       });
+    } else if (categories.length > 0) {
+      // Map application categories to valid PredictHQ categories
+      const mappedCategories = new Set<string>();
+      const mappedLabels = new Set<string>();
+
+      categories.forEach(category => {
+        if (categoryMapping[category]) {
+          categoryMapping[category].forEach(phqCategory => mappedCategories.add(phqCategory));
+        }
+        if (labelMapping[category]) {
+          labelMapping[category].forEach(label => mappedLabels.add(label));
+        }
+      });
+
+      phqCategories = Array.from(mappedCategories);
+      phqLabels = Array.from(mappedLabels);
+
+      console.log('[PREDICTHQ] Mapped categories:', {
+        originalCategories: categories,
+        mappedCategories: phqCategories,
+        mappedLabels: phqLabels
+      });
     } else {
-      // Use provided categories or default to all categories
-      phqCategories = categories.length > 0 ? categories : [
+      // Use default categories if none provided
+      phqCategories = [
         'concerts', 'conferences', 'expos', 'festivals', 'performing-arts', 'sports', 'community'
       ];
     }
