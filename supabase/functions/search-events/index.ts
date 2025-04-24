@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchPredictHQEvents, PredictHQResponse } from "./predicthq-fixed-new.ts"
+import { fetchTicketmasterEvents } from "./ticketmaster.ts"
 import { Event, SearchParams } from "./types.ts"
 
 // Handle CORS preflight requests
@@ -25,6 +26,11 @@ serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return handleOptionsRequest();
   }
+
+  // Log request details for debugging
+  console.log('[SEARCH-EVENTS] Request method:', req.method);
+  console.log('[SEARCH-EVENTS] Request headers:', Object.fromEntries(req.headers.entries()));
+  console.log('[SEARCH-EVENTS] Request URL:', req.url);
 
   // Add CORS headers to all responses
   const responseHeaders = {
@@ -68,16 +74,29 @@ serve(async (req: Request) => {
 
     // Parse request parameters with error handling
     let params: SearchParams;
-    try {
-      params = await req.json();
-      console.log('[SEARCH-EVENTS] Received request with parameters:', JSON.stringify(params, null, 2));
-    } catch (jsonError) {
-      console.error('[SEARCH-EVENTS] Error parsing request JSON:', jsonError);
+
+    // Check if the request has a body by examining content-length header
+    const contentLength = req.headers.get('content-length');
+    console.log('[SEARCH-EVENTS] Content-Length:', contentLength);
+
+    if (!contentLength || parseInt(contentLength) === 0) {
+      console.warn('[SEARCH-EVENTS] Empty request body detected, using default parameters');
+      // Use default parameters if no body is provided
+      params = {
+        location: 'New York',
+        radius: 10,
+        startDate: new Date().toISOString().split('T')[0], // Today
+        endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
+        categories: ['party', 'music', 'community', 'performing-arts', 'sports', 'conference']
+      };
+      console.log('[SEARCH-EVENTS] Using default parameters:', JSON.stringify(params, null, 2));
+
+      // Return a successful response with empty events for empty requests
+      // This prevents the client from showing error messages during initialization
       return safeResponse({
-        error: 'Invalid JSON in request body',
         events: [],
         sourceStats: {
-          ticketmaster: { count: 0, error: 'Invalid request format' },
+          ticketmaster: { count: 0, error: null },
           eventbrite: { count: 0, error: null },
           serpapi: { count: 0, error: null },
           predicthq: { count: 0, error: null }
@@ -88,7 +107,31 @@ serve(async (req: Request) => {
           eventsWithCoordinates: 0,
           timestamp: new Date().toISOString()
         }
-      }, 400);
+      }, 200);
+    } else {
+      try {
+        // Only try to parse JSON if we have a non-empty body
+        params = await req.json();
+        console.log('[SEARCH-EVENTS] Parsed request parameters:', JSON.stringify(params, null, 2));
+      } catch (jsonError) {
+        console.error('[SEARCH-EVENTS] Error parsing request JSON:', jsonError);
+        return safeResponse({
+          error: 'Invalid JSON in request body',
+          events: [],
+          sourceStats: {
+            ticketmaster: { count: 0, error: 'Invalid request format' },
+            eventbrite: { count: 0, error: null },
+            serpapi: { count: 0, error: null },
+            predicthq: { count: 0, error: null }
+          },
+          meta: {
+            executionTime: Date.now() - startTime,
+            totalEvents: 0,
+            eventsWithCoordinates: 0,
+            timestamp: new Date().toISOString()
+          }
+        }, 400);
+      }
     }
 
     // If startDate is missing, use today's date
@@ -127,6 +170,109 @@ serve(async (req: Request) => {
     let phqLongitude: number | undefined;
     let phqLocation: string | undefined;
     let phqWithinParam: string = '';
+
+    // Ticketmaster API integration
+    // Docs: https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
+    try {
+      console.log('[TICKETMASTER_DEBUG] Using Ticketmaster API to fetch events');
+      console.log('[TICKETMASTER_DEBUG] Ticketmaster API Key available:', !!TICKETMASTER_KEY);
+      console.log('[TICKETMASTER_DEBUG] Ticketmaster API Key prefix:', TICKETMASTER_KEY ? TICKETMASTER_KEY.substring(0, 4) + '...' : 'N/A');
+
+      try {
+        // Add a timeout to the Ticketmaster API call to prevent hanging
+        const timeoutPromise = new Promise<{events: [], error: string, status: number}>((_, reject) => {
+          setTimeout(() => reject(new Error('Ticketmaster API call timed out after 10 seconds')), 10000);
+        });
+
+        // Enhance parameters for party events
+        let enhancedKeyword = keyword;
+        let enhancedClassificationName = params.classificationName;
+        let enhancedSegmentName = params.segmentName;
+
+        // If searching for parties, enhance the parameters
+        if (categories && categories.includes('party')) {
+          console.log('[TICKETMASTER_PARTY_DEBUG] Enhancing Ticketmaster parameters for party search');
+
+          // Add party-related keywords if not already present
+          if (!enhancedKeyword || enhancedKeyword.toLowerCase().indexOf('party') === -1) {
+            enhancedKeyword = enhancedKeyword ?
+              `${enhancedKeyword} party club nightlife festival dance dj` :
+              'party club nightlife festival dance dj lounge bar venue mixer gathering gala reception meetup "happy hour" cocktail rave "live music"';
+          }
+
+          // Set segment to music, arts, or miscellaneous for parties
+          if (!enhancedSegmentName) {
+            enhancedSegmentName = 'Music,Arts & Theatre,Miscellaneous';
+          }
+
+          console.log('[TICKETMASTER_PARTY_DEBUG] Enhanced parameters:', {
+            enhancedKeyword,
+            enhancedSegmentName,
+            enhancedClassificationName
+          });
+        }
+
+        // Create the actual API call promise
+        const apiCallPromise = fetchTicketmasterEvents({
+          apiKey: TICKETMASTER_KEY,
+          latitude: userLat ? Number(userLat) : undefined,
+          longitude: userLng ? Number(userLng) : undefined,
+          radius: Number(radius),
+          startDate,
+          endDate,
+          keyword: enhancedKeyword,
+          segmentName: enhancedSegmentName,
+          classificationName: enhancedClassificationName,
+          size: 100
+        });
+
+        // Race the API call against the timeout
+        const ticketmasterResult = await Promise.race([apiCallPromise, timeoutPromise]);
+
+        const ticketmasterEvents = ticketmasterResult.events || [];
+        ticketmasterCount = ticketmasterEvents.length;
+        ticketmasterError = ticketmasterResult.error;
+
+        console.log('[TICKETMASTER_DEBUG] Ticketmaster API response:', {
+          eventCount: ticketmasterCount,
+          hasError: !!ticketmasterError,
+          error: ticketmasterError,
+          status: ticketmasterResult.status || 0
+        });
+
+        if (ticketmasterError) {
+          console.error('[TICKETMASTER_ERROR] Ticketmaster API error:', ticketmasterError);
+        } else {
+          console.log(`[TICKETMASTER_DEBUG] Ticketmaster API returned ${ticketmasterCount} events`);
+
+          if (ticketmasterCount > 0) {
+            console.log('[TICKETMASTER_DEBUG] First Ticketmaster event:', ticketmasterEvents[0]);
+          } else {
+            console.log('[TICKETMASTER_DEBUG] No events returned from Ticketmaster API');
+          }
+
+          allEvents = [...allEvents, ...ticketmasterEvents];
+        }
+      } catch (error) {
+        ticketmasterError = error instanceof Error ? error.message : String(error);
+        console.error('[TICKETMASTER_ERROR] Exception calling Ticketmaster API:', error);
+
+        // Log detailed error information
+        if (error instanceof Error) {
+          console.error('[TICKETMASTER_ERROR] Error name:', error.name);
+          console.error('[TICKETMASTER_ERROR] Error message:', error.message);
+          console.error('[TICKETMASTER_ERROR] Error stack:', error.stack);
+        } else {
+          console.error('[TICKETMASTER_ERROR] Non-Error object thrown:', error);
+        }
+
+        // Continue execution without failing the entire function
+        console.log('[TICKETMASTER_ERROR] Continuing execution despite Ticketmaster API error');
+      }
+    } catch (error) {
+      ticketmasterError = error instanceof Error ? error.message : String(error);
+      console.error('[TICKETMASTER_ERROR] Critical error in Ticketmaster integration:', error);
+    }
 
     // PredictHQ API integration with improved error handling
     // Docs: https://docs.predicthq.com/
@@ -245,6 +391,7 @@ serve(async (req: Request) => {
           // Enhance parameters for party events
           let enhancedKeyword = keyword;
           let enhancedLimit = 300; // Default increased limit
+          let enhancedCategories = [...(categories || [])];
 
           // If searching for parties, enhance the parameters
           if (categories && categories.includes('party')) {
@@ -253,15 +400,24 @@ serve(async (req: Request) => {
             // Add party-related keywords if not already present
             if (!enhancedKeyword || enhancedKeyword.toLowerCase().indexOf('party') === -1) {
               enhancedKeyword = enhancedKeyword ?
-                `${enhancedKeyword} OR party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR social OR gathering OR mixer OR celebration` :
-                'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
+                `${enhancedKeyword} OR party OR club OR nightlife OR festival OR dance OR dj OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"` :
+                'party OR club OR nightlife OR festival OR dance OR dj OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event" OR social OR gathering OR mixer OR networking OR meetup OR singles OR dating OR "speed dating" OR mingling OR celebration OR gala OR reception OR "cocktail party" OR "happy hour"';
             }
 
-            // Use a higher limit for party searches (Reduced from 500)
-            enhancedLimit = 150;
+            // Add relevant categories for parties if not already included
+            const partyCategories = ['concerts', 'festivals', 'performing-arts', 'community'];
+            partyCategories.forEach(cat => {
+              if (!enhancedCategories.includes(cat)) {
+                enhancedCategories.push(cat);
+              }
+            });
+
+            // Use a higher limit for party searches
+            enhancedLimit = 200;
 
             console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
               enhancedKeyword,
+              enhancedCategories,
               enhancedLimit
             });
           }
@@ -295,7 +451,7 @@ serve(async (req: Request) => {
               radius: Number(radius),
               startDate,
               endDate,
-              categories,
+              categories: enhancedCategories, // Use enhanced categories for party events
               location: phqLocation,
               withinParam: phqWithinParam, // Pass the pre-formatted within parameter if available
               keyword: enhancedKeyword,
@@ -387,6 +543,34 @@ serve(async (req: Request) => {
     if (categories && categories.length > 0) {
       filteredEvents = filteredEvents.filter(event => {
         if (!event.category) return false;
+
+        // Special handling for party category
+        if (categories.includes('party')) {
+          // Check if the event is explicitly categorized as a party
+          if (event.category.toLowerCase().includes('party')) {
+            return true;
+          }
+
+          // Check if the title or description contains party-related keywords
+          const partyKeywords = ['party', 'club', 'nightlife', 'dance', 'dj', 'festival', 'mixer',
+                                'gala', 'reception', 'happy hour', 'cocktail', 'rave', 'live music'];
+
+          const titleMatch = event.title ? partyKeywords.some(keyword =>
+            event.title.toLowerCase().includes(keyword.toLowerCase())
+          ) : false;
+
+          const descriptionMatch = event.description ? partyKeywords.some(keyword =>
+            event.description.toLowerCase().includes(keyword.toLowerCase())
+          ) : false;
+
+          if (titleMatch || descriptionMatch) {
+            // If it matches party keywords, set the category to party
+            event.category = 'party';
+            return true;
+          }
+        }
+
+        // Standard category matching
         return categories.some(category =>
           event.category.toLowerCase().includes(category.toLowerCase())
         );
