@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'framer-motion';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { Calendar, MapPin, Ticket, Music, Users, Star } from 'lucide-react';
+import { Calendar, MapPin, Ticket, Music, Users, Star, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import type { Event } from '@/types';
 import PartySubcategoryBadge from './PartySubcategoryBadge';
