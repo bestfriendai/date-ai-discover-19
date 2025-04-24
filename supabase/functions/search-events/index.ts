@@ -160,30 +160,9 @@ serve(async (req: Request) => {
     const allEvents: Event[] = [];
     let ticketmasterCount = 0;
     let ticketmasterError: string | null = null;
-    let eventbriteCount = 0;
-    let eventbriteError: string | null = null;
-    let serpapiCount = 0;
-    let serpapiError: string | null = null;
-    let predicthqCount = 0;
-    let predicthqError: string | null = null;
 
-    // Extract parameters for PredictHQ
-    let phqLatitude = params.latitude;
-    let phqLongitude = params.longitude;
-    let phqLocation = params.location;
-    let phqWithinParam = params.predicthqLocation || ''; // Use the predicthqLocation parameter if provided
-    let categories = params.categories || [];
     // Ensure radius is a number
     const radiusNumber = typeof params.radius === 'string' ? parseInt(params.radius, 10) : params.radius || 30;
-
-    console.log('[SEARCH-EVENTS] PredictHQ params:', {
-      phqLatitude,
-      phqLongitude,
-      phqLocation,
-      phqWithinParam,
-      radiusNumber,
-      categories
-    });
 
     // Fetch events from Ticketmaster
     try {
