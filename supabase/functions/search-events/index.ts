@@ -104,10 +104,10 @@ serve(async (req: Request) => {
       // Use default parameters if no body is provided
       params = {
         location: 'New York',
-        radius: 10,
+        radius: 50, // Increased default radius to 50 miles
         startDate: new Date().toISOString().split('T')[0], // Today
         endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
-        categories: ['music', 'sports', 'arts', 'family', 'food']
+        categories: ['music', 'sports', 'arts', 'family', 'food', 'party'] // Added party category by default
       };
     } else {
       try {
@@ -121,7 +121,7 @@ serve(async (req: Request) => {
           location: requestBody.location || '',
           latitude: requestBody.lat || requestBody.latitude || requestBody.userLat,
           longitude: requestBody.lng || requestBody.longitude || requestBody.userLng,
-          radius: requestBody.radius || 30,
+          radius: requestBody.radius || 50, // Increased default radius to 50 miles
           startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
           endDate: requestBody.endDate,
           categories: requestBody.categories || [],
@@ -133,6 +133,16 @@ serve(async (req: Request) => {
         };
 
         console.log('[SEARCH-EVENTS] Parsed parameters:', params);
+
+        // Add detailed logging for location parameters
+        console.log('[SEARCH-EVENTS] Location parameters:', {
+          latitude: params.latitude,
+          longitude: params.longitude,
+          radius: params.radius,
+          location: params.location,
+          hasValidCoordinates: !!(params.latitude && params.longitude),
+          radiusInKm: params.radius ? Math.round(Number(params.radius) * 1.60934) : 'N/A'
+        });
       } catch (error) {
         console.error('[SEARCH-EVENTS] Error parsing request body:', error);
         return safeResponse({
@@ -164,7 +174,7 @@ serve(async (req: Request) => {
     let serpapiError: string | null = null;
     let predicthqCount = 0;
     let predicthqError: string | null = null;
-    
+
     // Extract parameters for PredictHQ
     let phqLatitude = params.latitude;
     let phqLongitude = params.longitude;
@@ -219,7 +229,7 @@ serve(async (req: Request) => {
     if (PREDICTHQ_API_KEY && PREDICTHQ_API_KEY !== 'YOUR_PREDICTHQ_API_KEY') {
       try {
         console.log('[SEARCH-EVENTS] Fetching PredictHQ events...');
-        
+
         // Prepare PredictHQ parameters
         const predicthqParams = {
           apiKey: PREDICTHQ_API_KEY,
@@ -234,7 +244,7 @@ serve(async (req: Request) => {
           keyword: params.keyword,
           limit: params.limit
         };
-        
+
         console.log('[SEARCH-EVENTS] PredictHQ params:', {
           ...predicthqParams,
           apiKey: predicthqParams.apiKey ? `${predicthqParams.apiKey.substring(0, 4)}...` : 'NOT SET'
@@ -276,6 +286,37 @@ serve(async (req: Request) => {
     const filteredEvents = validEvents.filter(event => {
       return !params.excludeIds?.includes(event.id);
     });
+
+    // Log events with and without coordinates
+    const eventsWithCoords = filteredEvents.filter(event => {
+      return !!event.coordinates || (!!event.latitude && !!event.longitude);
+    });
+
+    const eventsWithoutCoords = filteredEvents.filter(event => {
+      return !event.coordinates && (!event.latitude || !event.longitude);
+    });
+
+    console.log(`[SEARCH-EVENTS] Events with coordinates: ${eventsWithCoords.length}, without coordinates: ${eventsWithoutCoords.length}`);
+
+    // If we have very few events with coordinates, add some default coordinates to events without them
+    // This ensures events show up on the map even if their exact location is unknown
+    if (eventsWithCoords.length < 5 && eventsWithoutCoords.length > 0 && params.latitude && params.longitude) {
+      console.log(`[SEARCH-EVENTS] Adding default coordinates to events without coordinates`);
+
+      // Add slightly randomized coordinates near the user's location
+      eventsWithoutCoords.forEach(event => {
+        // Add a small random offset (up to ~5 miles) to prevent all events from stacking
+        const latOffset = (Math.random() - 0.5) * 0.1;  // ~5 miles in latitude
+        const lngOffset = (Math.random() - 0.5) * 0.1;  // ~5 miles in longitude
+
+        event.coordinates = [
+          Number(params.longitude) + lngOffset,
+          Number(params.latitude) + latOffset
+        ];
+
+        console.log(`[SEARCH-EVENTS] Added default coordinates to event: ${event.id} - ${event.title}`);
+      });
+    }
 
     // Count events with coordinates for debugging
     const eventsWithCoords = filteredEvents.filter(event => {

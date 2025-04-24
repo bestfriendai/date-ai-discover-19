@@ -89,11 +89,23 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     // Add API key (required)
     queryParams.append('apikey', apiKey);
 
-    // Add location parameters
+    // Add location parameters with improved handling
     if (latitude && longitude) {
       queryParams.append('latlong', `${latitude},${longitude}`);
-      queryParams.append('radius', radius.toString());
+
+      // Ensure radius is a number and use a minimum of 25 miles
+      const finalRadius = Math.max(Number(radius), 25);
+      queryParams.append('radius', finalRadius.toString());
       queryParams.append('unit', 'miles');
+
+      console.log(`[TICKETMASTER] Using lat/lng ${latitude},${longitude} with radius ${finalRadius} miles.`);
+    } else {
+      // If no coordinates are provided, use a default radius of 50 miles
+      // This helps ensure we get enough events even without precise coordinates
+      queryParams.append('radius', '50');
+      queryParams.append('unit', 'miles');
+
+      console.log(`[TICKETMASTER] No coordinates provided, using default radius of 50 miles.`);
     }
 
     // Add date range parameters

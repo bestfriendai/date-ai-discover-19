@@ -85,21 +85,33 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Build query parameters
     const queryParams = new URLSearchParams();
 
-    // Add location parameters
+    // Add location parameters with improved handling
     if (withinParam) {
       queryParams.append('within', withinParam);
       console.log(`[PREDICTHQ] Using provided 'within' parameter: ${withinParam}`);
     } else if (latitude && longitude) {
-      const radiusKm = Math.round(Number(radius) * 1.60934); // Convert miles to km, ensure radius is a number
-      queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
-      console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${radiusKm}km.`);
+      // Ensure radius is a number and convert to km
+      const radiusKm = Math.round(Number(radius) * 1.60934);
+      // Use a minimum radius of 40km (approximately 25 miles) to ensure we get enough events
+      const finalRadiusKm = Math.max(radiusKm, 40);
+      queryParams.append('within', `${finalRadiusKm}km@${latitude},${longitude}`);
+      console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${finalRadiusKm}km (original: ${radiusKm}km).`);
     } else if (location) {
+      // If we have a location string but no coordinates, use place.name and a larger radius
       queryParams.append('place.name', location.trim());
       console.log(`[PREDICTHQ] Using location string as place name: "${location}"`);
+
+      // Add a default radius around the place name to ensure we get enough events
+      queryParams.append('within', '80km@place.name');
+      console.log(`[PREDICTHQ] Adding default 80km radius around place name.`);
     } else {
       const defaultLocation = 'New York';
       queryParams.append('place.name', defaultLocation);
       console.log(`[PREDICTHQ] No location info provided, using default place name: "${defaultLocation}".`);
+
+      // Add a default radius around the default location
+      queryParams.append('within', '80km@place.name');
+      console.log(`[PREDICTHQ] Adding default 80km radius around default place.`);
     }
 
     // Add date range
