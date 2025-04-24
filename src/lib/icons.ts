@@ -64,4 +64,11 @@ export const {
   CheckCircle: CheckCircleIcon,
   MinusCircle: MinusCircleIcon,
   Theater: TheaterIcon,
+  ArrowLeft: ArrowLeftIcon,
+  ArrowRight: ArrowRightIcon,
+  Circle: CircleIcon,
+  Dot: DotIcon,
+  MoreHorizontal: MoreHorizontalIcon,
+  SlidersHorizontal: SlidersHorizontalIcon,
 } = LucideIcons;
+

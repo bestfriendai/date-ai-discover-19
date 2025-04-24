@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Mountain, MountainSnow } from 'lucide-react';
+import { MountainIcon, MountainSnowIcon } from '@/lib/icons';
 import mapboxgl from 'mapbox-gl';
 
 interface TerrainToggleProps {
@@ -32,9 +32,9 @@ const TerrainToggle: React.FC<TerrainToggleProps> = ({
     >
       <div className="w-8 h-8 flex items-center justify-center">
         {enabled ? (
-          <MountainSnow className="h-5 w-5 text-primary animate-pulse" />
+          <MountainSnowIcon className="h-5 w-5 text-primary animate-pulse" />
         ) : (
-          <Mountain className="h-5 w-5" />
+          <MountainIcon className="h-5 w-5" />
         )}
       </div>
     </button>

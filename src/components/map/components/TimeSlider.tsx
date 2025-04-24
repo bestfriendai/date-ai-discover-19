@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { Slider } from '@/components/ui/slider';
-import { Clock, Calendar } from 'lucide-react';
+import { ClockIcon, CalendarIcon } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -32,13 +33,13 @@ export function TimeSlider({ onTimeRangeChange, defaultValue = [0, 24] }: TimeSl
       <div className="w-full max-w-sm bg-background/80 backdrop-blur rounded-lg shadow-lg border border-border/50 p-4">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <Clock className="h-4 w-4" />
+            <ClockIcon className="h-4 w-4" />
             <span className="text-sm font-medium">Time Filter</span>
           </div>
           <Tooltip>
             <TooltipTrigger asChild>
               <button className="rounded-full bg-slate-800/50 p-1.5 hover:bg-slate-800/80 transition-colors">
-                <Calendar className="h-3.5 w-3.5" />
+                <CalendarIcon className="h-3.5 w-3.5" />
               </button>
             </TooltipTrigger>
             <TooltipContent>

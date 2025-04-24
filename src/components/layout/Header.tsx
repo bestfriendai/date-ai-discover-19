@@ -1,9 +1,10 @@
+
 import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
-import { User, LogOut, Heart, Calendar, Sparkles } from 'lucide-react';
+import { UserIcon, LogOutIcon, HeartIcon, CalendarIcon, SparklesIcon } from '@/lib/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import AuthModal from '@/components/auth/AuthModal';
 import FeaturesModal from '@/components/features/FeaturesModal';

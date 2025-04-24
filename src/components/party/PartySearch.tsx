@@ -1,5 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { Search, X, Calendar, MapPin, Filter, Music, Users, Clock, Sparkles } from 'lucide-react';
+import { 
+  SearchIcon, 
+  XIcon, 
+  CalendarIcon, 
+  MapPinIcon, 
+  FilterIcon, 
+  MusicIcon, 
+  UsersIcon, 
+  ClockIcon, 
+  SparklesIcon 
+} from '@/lib/icons';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
@@ -26,17 +36,15 @@ interface PartySearchProps {
   loading?: boolean;
 }
 
-// Party-specific categories with icons
 const partyTypes = [
-  { id: 'club', label: 'Club Events', icon: <Music className="h-3.5 w-3.5" /> },
+  { id: 'club', label: 'Club Events', icon: <MusicIcon className="h-3.5 w-3.5" /> },
   { id: 'day-party', label: 'Day Parties', icon: <span className="text-sm">☀️</span> },
   { id: 'celebration', label: 'Celebrations', icon: <span className="text-sm">🎉</span> },
-  { id: 'networking', label: 'Networking Events', icon: <Users className="h-3.5 w-3.5" /> },
+  { id: 'networking', label: 'Networking Events', icon: <UsersIcon className="h-3.5 w-3.5" /> },
   { id: 'brunch', label: 'Brunch Parties', icon: <span className="text-sm">🍳</span> },
   { id: 'social', label: 'Social Gatherings', icon: <span className="text-sm">👥</span> }
 ];
 
-// Popular search terms
 const popularSearches = [
   { term: 'DJ Night', icon: '🎧' },
   { term: 'Rooftop Party', icon: '🏙️' },
@@ -57,7 +65,6 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
 
   const [showFilters, setShowFilters] = useState(false);
 
-  // Handle input changes
   const handleInputChange = (field: keyof SearchFilters, value: any) => {
     setFilters(prev => ({
       ...prev,
@@ -65,20 +72,16 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
     }));
   };
 
-  // Handle search submission
   const handleSearch = () => {
-    // Always include 'party' category
     const searchParams = {
       ...filters,
       categories: ['party'],
-      // Add party-specific keywords based on selected party types
       keyword: filters.keyword || 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival'
     };
 
     onSearch(searchParams);
   };
 
-  // Toggle party type selection
   const togglePartyType = (partyTypeId: string) => {
     setFilters(prev => {
       const partyTypes = [...prev.partyTypes];
@@ -97,14 +100,12 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
     });
   };
 
-  // Add a function to apply popular search term
   const applyPopularSearch = (term: string) => {
     setFilters(prev => ({
       ...prev,
       keyword: term
     }));
 
-    // Auto-search after selecting a popular term
     setTimeout(() => {
       handleSearch();
     }, 100);
@@ -118,10 +119,9 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
       className="w-full bg-card/95 backdrop-blur-sm border border-border rounded-lg shadow-lg overflow-hidden"
     >
       <div className="p-4 flex flex-col space-y-4">
-        {/* Main search bar */}
         <div className="flex items-center space-x-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
               type="text"
               placeholder="DJs, clubs, rooftop parties, celebrations..."
@@ -134,7 +134,7 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
                 onClick={() => handleInputChange('keyword', '')}
                 className="absolute right-3 top-1/2 transform -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
               >
-                <X className="h-4 w-4" />
+                <XIcon className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -145,7 +145,7 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
             onClick={() => setShowFilters(!showFilters)}
             className={`transition-colors ${showFilters ? 'bg-purple-500/20 border-purple-500/50 text-purple-500' : 'hover:border-purple-500/30 hover:text-purple-500'}`}
           >
-            <Filter className="h-4 w-4" />
+            <FilterIcon className="h-4 w-4" />
           </Button>
 
           <Button
@@ -153,12 +153,11 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
             disabled={loading}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white shadow-md hover:shadow-lg transition-all"
           >
-            {loading ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></div> : <Sparkles className="h-4 w-4 mr-2" />}
+            {loading ? <div className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin mr-2"></div> : <SparklesIcon className="h-4 w-4 mr-2" />}
             Find Hot Parties
           </Button>
         </div>
 
-        {/* Popular searches */}
         <div className="flex flex-wrap gap-2">
           <span className="text-xs font-medium text-muted-foreground mr-1 flex items-center">
             <span className="mr-1">Popular:</span>
@@ -175,7 +174,6 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
           ))}
         </div>
 
-        {/* Advanced filters */}
         <AnimatePresence>
           {showFilters && (
             <motion.div
@@ -213,7 +211,7 @@ const PartySearch = ({ onSearch, initialFilters, initialParams, loading = false 
                   <TabsContent value="location" className="mt-0">
                     <div className="space-y-3">
                       <div className="relative">
-                        <MapPin className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        <MapPinIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                         <Input
                           type="text"
                           placeholder="Enter location..."
