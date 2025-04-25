@@ -121,3 +121,25 @@ export function applyCoordinateJitter(
     coordinates[1] + jitterLat
   ];
 }
+
+/**
+ * Apply jitter to multiple features' coordinates
+ * @param features Array of events with coordinates
+ * @param amount The maximum amount of jitter to apply (in degrees)
+ * @returns Map of feature IDs to jittered coordinates
+ */
+export function applyJitterToFeatures(
+  features: Array<{ id: string | number; coordinates: [number, number] }>,
+  amount: number = 0.0005
+): Map<string, [number, number]> {
+  const jitteredCoords = new Map<string, [number, number]>();
+  
+  features.forEach(feature => {
+    if (feature.id && feature.coordinates) {
+      const id = String(feature.id);
+      jitteredCoords.set(id, applyCoordinateJitter(feature.coordinates as [number, number], amount));
+    }
+  });
+
+  return jitteredCoords;
+}
