@@ -139,21 +139,29 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Build query parameters
     const queryParams = new URLSearchParams();
 
-    // Add location parameters (either coordinates or place name)
-    if (withinParam) {
-      // Use the pre-formatted within parameter directly
-      queryParams.append('within', withinParam);
-      console.log(`[PREDICTHQ] Using pre-formatted within parameter: ${withinParam}`);
-    } else if (latitude && longitude) {
+    // --- MODIFIED LOCATION LOGIC ---
+    let locationParamSet = false;
+
+    // Priority 1: Use coordinates and user's radius if valid
+    if (typeof latitude === 'number' && typeof longitude === 'number' && typeof radius === 'number' && radius > 0) {
       // Convert radius from miles to km (PredictHQ uses km)
-      // Use the provided radius without increasing it
-      let effectiveRadius = radius;
-      // Log the radius being used
-      console.log(`[PREDICTHQ] Using radius: ${effectiveRadius} miles`);
-      const radiusKm = Math.round(effectiveRadius * 1.60934);
-      queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
-      console.log(`[PREDICTHQ] Using coordinates: ${latitude},${longitude} with radius ${radiusKm}km`);
-    } else if (location) {
+      const radiusKm = Math.round(Number(radius) * 1.60934);
+      // --- REMOVE minimum radius enforcement ---
+      // const finalRadiusKm = Math.max(radiusKm, 40); // REMOVE THIS LINE
+      const finalRadiusKm = radiusKm; // USE THE CALCULATED RADIUS
+
+      queryParams.append('within', `${finalRadiusKm}km@${latitude},${longitude}`);
+      console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${finalRadiusKm}km.`);
+      locationParamSet = true;
+    }
+    // Priority 2: Use 'withinParam' if explicitly provided (often used internally)
+    else if (withinParam) {
+       queryParams.append('within', withinParam);
+       console.log(`[PREDICTHQ] Using provided 'within' parameter: ${withinParam}`);
+       locationParamSet = true;
+    }
+    // Priority 3: Use location string as place name if coordinates are missing
+    else if (location && typeof location === 'string' && location.trim()) {
       // Check if location is a comma-separated lat,lng string
       const latLngMatch = location.match(/^(-?\d+\.?\d*),\s*(-?\d+\.?\d*)$/);
       if (latLngMatch) {
@@ -162,28 +170,36 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         if (!isNaN(lat) && !isNaN(lng) &&
             lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
           // Convert radius from miles to km (PredictHQ uses km)
-          // Use the provided radius without increasing it
-          let effectiveRadius = radius;
-          // Log the radius being used
-          console.log(`[PREDICTHQ] Using radius: ${effectiveRadius} miles`);
-          const radiusKm = Math.round(effectiveRadius * 1.60934);
+          const radiusKm = Math.round(Number(radius) * 1.60934);
           queryParams.append('within', `${radiusKm}km@${lat},${lng}`);
           console.log(`[PREDICTHQ] Parsed coordinates from location string: ${lat},${lng} with radius ${radiusKm}km`);
+          locationParamSet = true;
         } else {
           console.log(`[PREDICTHQ] Invalid coordinates in location string: ${location}, using as place name`);
           queryParams.append('place.name', location);
+          locationParamSet = true;
         }
       } else {
         // Try to clean up the location string to improve matching
         const cleanLocation = location.replace(/\s+/g, ' ').trim();
-        console.log(`[PREDICTHQ] Using location as place name: ${cleanLocation}`);
+        console.log(`[PREDICTHQ] Using location as place name: "${cleanLocation}"`);
         queryParams.append('place.name', cleanLocation);
+        locationParamSet = true;
       }
-    } else {
-      // Default to a popular location if none provided
-      console.log(`[PREDICTHQ] No location or coordinates provided, using default location`);
-      queryParams.append('place.name', 'New York');
     }
+
+    // If no location parameter could be set, return an error instead of defaulting to New York
+    if (!locationParamSet) {
+        console.error('[PREDICTHQ] No valid location parameter could be determined. Aborting PredictHQ call.');
+        // Return an error or empty results for PredictHQ specifically
+         return {
+           events: [],
+           error: 'No valid location provided for PredictHQ search.',
+           status: 400,
+           warnings: ['Location parameter (coordinates or name) is required.']
+         };
+    }
+    // --- END MODIFIED LOCATION LOGIC ---
 
     // Always filter for future events
     const now = new Date();

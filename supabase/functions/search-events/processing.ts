@@ -117,17 +117,17 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 // New function to filter events by distance from a given point
 export function filterEventsByDistance(events: Event[], latitude: number, longitude: number, radius: number): Event[] {
   if (typeof latitude !== 'number' || typeof longitude !== 'number' || typeof radius !== 'number') {
-    console.warn('[PROCESSING] filterEventsByDistance called without valid location or radius. Returning all events.');
-    return events; // Return all events if location/radius is not valid
+    console.warn('[PROCESSING] filterEventsByDistance called without valid location or radius. Returning empty array.');
+    return []; // Return empty array if location/radius is not valid
   }
 
   console.log(`[PROCESSING] Filtering events within ${radius} km of ${latitude}, ${longitude}`);
 
   return events.filter(event => {
     if (!event.coordinates || event.coordinates.length !== 2) {
-      // Cannot filter events without coordinates, include them for now
-      // They might be filtered out later or get jittered coordinates
-      return true;
+      // Exclude events without coordinates
+      console.log(`[PROCESSING] Excluding event without valid coordinates: ${event.id}`);
+      return false;
     }
 
     const eventLat = event.coordinates[1];
@@ -135,14 +135,14 @@ export function filterEventsByDistance(events: Event[], latitude: number, longit
 
     // Validate event coordinates before calculating distance
     if (typeof eventLat !== 'number' || typeof eventLon !== 'number' || isNaN(eventLat) || isNaN(eventLon)) {
-        console.warn('[PROCESSING] Skipping distance calculation for event with invalid coordinates:', event.id, event.coordinates);
-        return true; // Include events with invalid coordinates for now
+        console.warn('[PROCESSING] Excluding event with invalid coordinates:', event.id, event.coordinates);
+        return false; // Exclude events with invalid coordinates
     }
 
     const distance = calculateDistance(latitude, longitude, eventLat, eventLon);
 
     // Log distance for debugging
-    // console.log(`[PROCESSING] Event ${event.id} at ${eventLat}, ${eventLon} is ${distance.toFixed(2)} km away.`);
+    console.log(`[PROCESSING] Event ${event.id} at ${eventLat}, ${eventLon} is ${distance.toFixed(2)} km away. Within radius: ${distance <= radius}`);
 
     return distance <= radius;
   });

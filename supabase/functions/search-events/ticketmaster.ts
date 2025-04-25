@@ -76,18 +76,24 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     // Add API key (required)
     queryParams.append('apikey', apiKey);
 
-    // Add location parameters with improved handling
-    if (latitude && longitude) {
-      // Ticketmaster API uses latlong parameter with comma-separated values
+    // --- MODIFIED LOCATION LOGIC ---
+    // Priority 1: Use coordinates if available
+    if (typeof latitude === 'number' && typeof longitude === 'number' && typeof radius === 'number' && radius > 0) {
       queryParams.append('latlong', `${latitude},${longitude}`);
-
-      // Use the validated radius from the parameters
-      // The radius is already guaranteed to be a number between 5-100 by the validation
       queryParams.append('radius', radius.toString());
       queryParams.append('unit', 'miles');
-
-      console.log(`[TICKETMASTER] Using lat/lng ${latitude},${longitude} with radius ${radius} miles.`);
+      console.log(`[TICKETMASTER] Using coordinates: ${latitude},${longitude} with radius ${radius} miles.`);
+    } else {
+      // If no valid coordinates are provided, return an error
+      console.error('[TICKETMASTER] No valid location parameters provided. Aborting Ticketmaster call.');
+      return {
+        events: [],
+        error: 'No valid location provided for Ticketmaster search.',
+        status: 400,
+        warnings: ['Valid latitude, longitude, and radius are required.']
+      };
     }
+    // --- END MODIFIED LOCATION LOGIC ---
 
     // Add date range parameters (using underscore naming as per v2 docs)
     if (startDate) {
