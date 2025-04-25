@@ -7,7 +7,7 @@ import type { Event } from '../../types';
 import type { EventFilters } from './components/MapControls';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
 import { MapDebugOverlay } from './components/MapDebugOverlay';
-import MapMarkers from './components/MapMarkers';
+import { MapMarkers } from './components/MapMarkers';
 import WelcomeHeader from './components/WelcomeHeader';
 import DebugOverlay from './overlays/DebugOverlay';
 import { MapControlsContainer } from './components/MapControlsContainer';
