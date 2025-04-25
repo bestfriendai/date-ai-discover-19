@@ -182,22 +182,50 @@ export function validateCategories(categories: string[] | undefined): Validation
 export function validateAndParseSearchParams(requestBody: any): SearchParams {
   const errors: ValidationError[] = [];
 
-  // Extract location parameters
-  const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat;
-  const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng;
-  const location = requestBody.location || '';
+  // Extract location parameters - support all possible formats
+  const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat ||
+                  (requestBody.coordinates && requestBody.coordinates[1]) ||
+                  (requestBody.predicthqLocation && parsePredicthqLocation(requestBody.predicthqLocation).lat);
+  
+  const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng ||
+                   (requestBody.coordinates && requestBody.coordinates[0]) ||
+                   (requestBody.predicthqLocation && parsePredicthqLocation(requestBody.predicthqLocation).lng);
+  
+  const location = requestBody.location || requestBody.predicthqLocation || '';
 
-  // Validate location parameters
+  // Log extracted location parameters
+  console.log('[VALIDATION] Extracted location parameters:', {
+    latitude,
+    longitude,
+    location,
+    predicthqLocation: requestBody.predicthqLocation
+  });
+
+  // More lenient location validation - allow empty location for initial load
   if ((!latitude && !longitude) && !location) {
-    errors.push({
-      message: 'Missing location parameters',
-      details: 'Either coordinates (latitude/longitude) or location string is required'
-    });
+    console.log('[VALIDATION] No location parameters provided, will use default');
   }
 
-  // Validate coordinates if provided
-  if (latitude !== undefined || longitude !== undefined) {
-    errors.push(...validateLatLng(latitude, longitude));
+  // Helper function to parse PredictHQ location string (e.g., "24km@38.89,-76.94")
+  function parsePredicthqLocation(locString: string): { lat: number | undefined; lng: number | undefined } {
+    if (!locString) return { lat: undefined, lng: undefined };
+    
+    const match = locString.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    if (match) {
+      return {
+        lat: parseFloat(match[1]),
+        lng: parseFloat(match[2])
+      };
+    }
+    return { lat: undefined, lng: undefined };
+  }
+
+  // Validate coordinates if provided, but don't error if they're undefined
+  if (latitude !== undefined && longitude !== undefined) {
+    const coordErrors = validateLatLng(latitude, longitude);
+    if (coordErrors.length > 0) {
+      errors.push(...coordErrors);
+    }
   }
 
   // Validate and normalize radius

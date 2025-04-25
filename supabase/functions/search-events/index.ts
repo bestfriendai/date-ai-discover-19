@@ -164,9 +164,40 @@ serve(async (req: Request) => {
     }
 
     // Process events
+    // Process and filter events
     const normalizedEvents = normalizeAndFilterEvents(allEvents, params);
-    const sortedEvents = sortEventsByDate(normalizedEvents);
-    const { eventsWithCoords } = filterEventsByCoordinates(sortedEvents);
+    
+    // Ensure all events have valid coordinates
+    const eventsWithCoords = normalizedEvents.map(event => {
+      // If event already has valid coordinates, use them
+      if (event.coordinates &&
+          Array.isArray(event.coordinates) &&
+          event.coordinates.length === 2 &&
+          !isNaN(event.coordinates[0]) &&
+          !isNaN(event.coordinates[1])) {
+        return {
+          ...event,
+          coordinates: event.coordinates as [number, number]
+        };
+      }
+
+      // If no valid coordinates and no search location, return event without coordinates
+      if (typeof params.latitude !== 'number' || typeof params.longitude !== 'number') {
+        return event;
+      }
+
+      // Generate coordinates near the search location
+      const jitterAmount = 0.01; // About 1km
+      const lat = params.latitude + (Math.random() - 0.5) * jitterAmount;
+      const lng = params.longitude + (Math.random() - 0.5) * jitterAmount;
+      
+      return {
+        ...event,
+        coordinates: [lng, lat] as [number, number]
+      };
+    });
+
+    const sortedEvents = sortEventsByDate(eventsWithCoords);
 
     // Generate response
     const sourceStats = generateSourceStats(ticketmasterCount, ticketmasterError, predicthqCount, predicthqError);
