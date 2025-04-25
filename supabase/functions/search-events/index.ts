@@ -12,6 +12,7 @@ import {
   normalizeAndFilterEvents,
   sortEventsByDate,
   filterEventsByCoordinates,
+  filterEventsByDistance,
   generateSourceStats,
   generateMetadata
 } from "./processing.ts";
@@ -174,36 +175,47 @@ serve(async (req: Request) => {
 
     // Process events
     // Process and filter events
+    // Process and filter events
     const normalizedEvents = normalizeAndFilterEvents(allEvents, params);
     
-    // Ensure all events have valid coordinates
-    const eventsWithCoords = normalizedEvents.map(event => {
+    // Filter events by coordinates and radius if location is provided
+    let locationFilteredEvents = normalizedEvents;
+    if (typeof params.latitude === 'number' && typeof params.longitude === 'number' && typeof params.radius === 'number') {
+      console.log(`[SEARCH-EVENTS] Filtering events by distance: ${params.latitude}, ${params.longitude} with radius ${params.radius} km`);
+      locationFilteredEvents = filterEventsByDistance(normalizedEvents, params.latitude, params.longitude, params.radius);
+      console.log(`[SEARCH-EVENTS] Filtered down to ${locationFilteredEvents.length} events by location from original ${normalizedEvents.length}.`);
+    } else {
+      console.log('[SEARCH-EVENTS] No valid location parameters for post-fetch filtering.');
+    }
+
+    // Ensure all events have valid coordinates (add jitter if needed)
+    const eventsWithCoords = locationFilteredEvents.map(event => {
       // If event already has valid coordinates, use them
       if (event.coordinates &&
           Array.isArray(event.coordinates) &&
           event.coordinates.length === 2 &&
-          !isNaN(event.coordinates[0]) &&
-          !isNaN(event.coordinates[1])) {
+          typeof event.coordinates[0] === 'number' &&
+          typeof event.coordinates[1] === 'number') {
         return {
           ...event,
           coordinates: event.coordinates as [number, number]
         };
       }
 
-      // If no valid coordinates and no search location, return event without coordinates
-      if (typeof params.latitude !== 'number' || typeof params.longitude !== 'number') {
-        return event;
+      // If no valid coordinates but search location is available, generate jittered coordinates
+      if (typeof params.latitude === 'number' && typeof params.longitude === 'number') {
+        const jitterAmount = 0.01; // About 1km
+        const lat = params.latitude + (Math.random() - 0.5) * jitterAmount;
+        const lng = params.longitude + (Math.random() - 0.5) * jitterAmount;
+        
+        return {
+          ...event,
+          coordinates: [lng, lat] as [number, number]
+        };
       }
 
-      // Generate coordinates near the search location
-      const jitterAmount = 0.01; // About 1km
-      const lat = params.latitude + (Math.random() - 0.5) * jitterAmount;
-      const lng = params.longitude + (Math.random() - 0.5) * jitterAmount;
-      
-      return {
-        ...event,
-        coordinates: [lng, lat] as [number, number]
-      };
+      // If no valid coordinates and no search location, return event without coordinates
+      return event;
     });
 
     const sortedEvents = sortEventsByDate(eventsWithCoords);

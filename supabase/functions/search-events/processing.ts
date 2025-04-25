@@ -78,7 +78,8 @@ export function sortEventsByDate(events: Event[]): Event[] {
     .map(item => item.event);
 }
 
-export function filterEventsByCoordinates(events: Event[]): {
+// Renamed from filterEventsByCoordinates to separateEventsByCoordinates for clarity
+export function separateEventsByCoordinates(events: Event[]): {
   eventsWithCoords: Event[];
   eventsWithoutCoords: Event[];
 } {
@@ -98,6 +99,57 @@ export function filterEventsByCoordinates(events: Event[]): {
 
   return { eventsWithCoords, eventsWithoutCoords };
 }
+
+// Helper function to calculate distance between two coordinates in kilometers using Haversine formula
+function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  const R = 6371; // Radius of the Earth in kilometers
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  const distance = R * c; // Distance in kilometers
+  return distance;
+}
+
+// New function to filter events by distance from a given point
+export function filterEventsByDistance(events: Event[], latitude: number, longitude: number, radius: number): Event[] {
+  if (typeof latitude !== 'number' || typeof longitude !== 'number' || typeof radius !== 'number') {
+    console.warn('[PROCESSING] filterEventsByDistance called without valid location or radius. Returning all events.');
+    return events; // Return all events if location/radius is not valid
+  }
+
+  console.log(`[PROCESSING] Filtering events within ${radius} km of ${latitude}, ${longitude}`);
+
+  return events.filter(event => {
+    if (!event.coordinates || event.coordinates.length !== 2) {
+      // Cannot filter events without coordinates, include them for now
+      // They might be filtered out later or get jittered coordinates
+      return true;
+    }
+
+    const eventLat = event.coordinates[1];
+    const eventLon = event.coordinates[0];
+
+    // Validate event coordinates before calculating distance
+    if (typeof eventLat !== 'number' || typeof eventLon !== 'number' || isNaN(eventLat) || isNaN(eventLon)) {
+        console.warn('[PROCESSING] Skipping distance calculation for event with invalid coordinates:', event.id, event.coordinates);
+        return true; // Include events with invalid coordinates for now
+    }
+
+    const distance = calculateDistance(latitude, longitude, eventLat, eventLon);
+
+    // Log distance for debugging
+    // console.log(`[PROCESSING] Event ${event.id} at ${eventLat}, ${eventLon} is ${distance.toFixed(2)} km away.`);
+
+    return distance <= radius;
+  });
+}
+
+// For backward compatibility
+export const filterEventsByCoordinates = separateEventsByCoordinates;
 
 export function generateSourceStats(
   ticketmasterCount: number,
