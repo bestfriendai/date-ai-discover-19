@@ -300,93 +300,99 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 }
 
 // Normalize a PredictHQ event to our standard format
-function normalizePredictHQEvent(event: any): Event {
+function normalizePredictHQEvent(event: any): Event | null { // --- FIX 3a: Return null on error ---
   try {
-    // Extract basic event information
-    const id = event.id;
-    const title = event.title;
-    const description = event.description || '';
+    // Validate essential properties
+    if (!event || !event.id || !event.title) {
+       console.warn('[PREDICTHQ_NORM] Skipping event due to missing essential fields:', event);
+       return null; // Skip if missing ID or title
+    }
 
-    // Extract date and time
-    const start = event.start ? new Date(event.start) : new Date();
-    const date = start.toISOString().split('T')[0];
-    const time = start.toISOString().split('T')[1].substring(0, 5);
+    // Extract date and time - use fallback if missing
+    const startDateStr = event.start || new Date().toISOString();
+    const date = startDateStr.split('T')[0] || 'Date TBA';
+    const time = startDateStr.split('T')[1]?.substring(0, 5) || 'Time TBA';
 
-    // Extract location information
-    const location = event.entities && event.entities.length > 0
-      ? event.entities.map((e: any) => e.name).join(', ')
-      : event.place_hierarchies && event.place_hierarchies.length > 0 && event.place_hierarchies[0].length > 0
-        ? event.place_hierarchies[0].slice(-2).join(', ')
-        : 'Location unavailable';
+    // --- FIX 3b: Extract location and venue more robustly ---
+    let location = 'Location not specified';
+    let venue = 'Venue not specified';
 
-    // Extract venue information
-    const venue = event.entities && event.entities.length > 0
-      ? event.entities[0].name
-      : '';
+    const venueEntity = event.entities?.find((e: any) => e.type === 'venue');
 
-    // Extract coordinates
+    // Prioritize venue name from entity or PHQ specific field
+    venue = venueEntity?.name || event.phq_venue?.name || 'Venue not specified';
+
+    // Build location string - prioritize address, then place, then general location name
+    const locationParts: string[] = [];
+
+    if (venueEntity?.formatted_address) {
+       locationParts.push(String(venueEntity.formatted_address));
+    } else if (event.phq_venue?.address) {
+       locationParts.push(String(event.phq_venue.address));
+    } else if (event.location_name) {
+       locationParts.push(String(event.location_name));
+    }
+
+    // Add city, state, country if available and not already covered by formatted_address
+    const city = event.place?.name;
+    const state = event.state;
+    const country = event.country;
+
+    if (city && !locationParts.some(p => p.includes(city))) locationParts.push(String(city));
+    if (state && !locationParts.some(p => p.includes(state))) locationParts.push(String(state));
+    if (country && country !== 'US' && !locationParts.some(p => p.includes(country))) locationParts.push(String(country));
+
+    // Use venue name as location if no other parts found
+    if (locationParts.length === 0 && venue !== 'Venue not specified') {
+        location = venue;
+    } else if (locationParts.length > 0) {
+       // Remove duplicates and build string
+       location = Array.from(new Set(locationParts)).join(', ');
+    }
+
+    // If still 'Location not specified' and we have coordinates, use them as fallback string
+    if (location === 'Location not specified' && event.location && Array.isArray(event.location) && event.location.length === 2) {
+        location = `Coordinates: ${event.location[1].toFixed(4)}, ${event.location[0].toFixed(4)}`;
+    }
+    // --- END FIX 3b ---
+
+
+    // --- FIX 3c: Extract and validate coordinates robustly ---
     let coordinates: [number, number] | undefined = undefined;
-    if (event.location && Array.isArray(event.location)) {
-      // PredictHQ returns coordinates as [longitude, latitude]
+
+    // Prioritize event.location (most reliable for point events)
+    if (event.location && Array.isArray(event.location) && event.location.length === 2 &&
+        typeof event.location[0] === 'number' && typeof event.location[1] === 'number' &&
+        !isNaN(event.location[0]) && !isNaN(event.location[1])) {
+      // PredictHQ returns [longitude, latitude] which matches our format
       coordinates = [event.location[0], event.location[1]];
     }
-
-    // Determine category
-    let category = 'other';
-    if (event.category) {
-      // Improved category mapping based on PredictHQ categories
-      switch (event.category) {
-        // Music-related categories
-        case 'concerts':
-        case 'festivals':
-        case 'music':
-          category = 'music';
-          break;
-
-        // Sports-related categories
-        case 'sports':
-        case 'sport':
-          category = 'sports';
-          break;
-
-        // Arts-related categories
-        case 'performing-arts':
-        case 'expos':
-        case 'exhibitions':
-        case 'arts':
-        case 'conferences':
-          category = 'arts';
-          break;
-
-        // Family-related categories
-        case 'community':
-        case 'family':
-        case 'children':
-        case 'school-holidays':
-          category = 'family';
-          break;
-
-        // Food-related categories
-        case 'food-drink':
-        case 'food':
-        case 'dining':
-          category = 'food';
-          break;
-
-        // Other categories that don't fit neatly
-        case 'observances':
-        case 'public-holidays':
-        case 'politics':
-        case 'health-warnings':
-        case 'daylight-savings':
-        default:
-          category = 'other';
-          break;
-      }
+    // If event.location is not point coordinates, try geo.geometry (e.g., polygons)
+    else if (event.geo?.geometry?.type === 'Point' && event.geo.geometry.coordinates && Array.isArray(event.geo.geometry.coordinates) && event.geo.geometry.coordinates.length === 2 &&
+             typeof event.geo.geometry.coordinates[0] === 'number' && typeof event.geo.geometry.coordinates[1] === 'number' &&
+             !isNaN(event.geo.geometry.coordinates[0]) && !isNaN(event.geo.geometry.coordinates[1])) {
+        coordinates = [event.geo.geometry.coordinates[0], event.geo.geometry.coordinates[1]];
     }
+    // If no coordinates yet, try the venue entity coordinates
+    else if (venueEntity?.coordinates && Array.isArray(venueEntity.coordinates) && venueEntity.coordinates.length === 2 &&
+             typeof venueEntity.coordinates[0] === 'number' && typeof venueEntity.coordinates[1] === 'number' &&
+             !isNaN(venueEntity.coordinates[0]) && !isNaN(venueEntity.coordinates[1])) {
+        coordinates = [venueEntity.coordinates[0], venueEntity.coordinates[1]];
+    }
+    // If no coordinates yet, try the place location
+    else if (event.place?.location && Array.isArray(event.place.location) && event.place.location.length === 2 &&
+             typeof event.place.location[0] === 'number' && typeof event.place.location[1] === 'number' &&
+             !isNaN(event.place.location[0]) && !isNaN(event.place.location[1])) {
+        coordinates = [event.place.location[0], event.place.location[1]];
+    }
+    // --- END FIX 3c ---
 
-    // Check if this is a party event
+    // Determine category and subcategory (Party detection logic remains similar)
+    let category = 'other';
     let partySubcategory: PartySubcategory | undefined = undefined;
+
+    // ... (Keep your existing category and party detection logic here) ...
+    // Check if this is a party event
     const isPartyByDetection = detectPartyEvent(event.title, event.description);
 
     // Check if the event has party-related labels
@@ -406,11 +412,15 @@ function normalizePredictHQEvent(event: any): Event {
       partySubcategory = detectPartySubcategory(event.title, event.description, time);
     }
 
-    // Get image URL
-    let imageUrl = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
-    if (event.images && Array.isArray(event.images) && event.images.length > 0) {
-      imageUrl = event.images[0].url;
-    }
+
+    // Get image URL - use fallback if none found
+    const imageUrl = getEventImage(event) || 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
+
+    // Get description - use fallback if empty after cleaning
+    const description = getEventDescription(event, location) || `Event on ${date} at ${location}`;
+
+    // Get URL
+    const url = getEventUrl(event);
 
     // Add rank and local impact data
     const rank = event.rank || 0;
@@ -425,44 +435,61 @@ function normalizePredictHQEvent(event: any): Event {
       id: `predicthq-${event.id}`,
       source: 'predicthq',
       title: event.title,
-      description: event.description || `Event on ${date} at ${location}`,
+      description,
       date,
       time,
       location,
       venue,
       category,
-      partySubcategory,
+      partySubcategory, // May be undefined
       image: imageUrl,
-      coordinates,
-      url: event.url,
-      price: event.ticket_info?.price,
+      coordinates, // May be undefined
+      url, // May be undefined
+      price: event.ticket_info?.price, // May be undefined
       rank,
       localRelevance,
       attendance,
       demandSurge
     };
   } catch (error) {
-    console.error('Error normalizing PredictHQ event:', error);
-
-    // Return a minimal valid event
-    const errorEvent: Event = {
-      id: `predicthq-error-${Date.now()}`,
-      source: 'predicthq',
-      title: event?.title || 'Unknown Event',
-      description: 'Error processing event details',
-      date: new Date().toISOString().split('T')[0],
-      time: '00:00',
-      location: 'Location unavailable',
-      category: 'other',
-      image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop',
-      rank: 0,
-      localRelevance: 0,
-      attendance: {
-        forecast: undefined,
-        actual: undefined
-      },
-      demandSurge: 0
-    };
-    return errorEvent;
+    // --- FIX 3a (continued): Log error and return null ---
+    console.error('[PREDICTHQ_NORM_ERROR] Failed to normalize PredictHQ event:', event?.id || 'unknown', error);
+    // Log the raw event data causing the error (truncated)
+    console.error('[PREDICTHQ_NORM_ERROR] Problematic event data sample:', JSON.stringify(event || {}, null, 2).substring(0, 500) + '...');
+    return null; // Indicate failure to normalize this specific event
+    // --- END FIX 3a ---
   }
+}
+
+// Helper function to get event image URL
+function getEventImage(event: any): string | undefined {
+  if (event.images && Array.isArray(event.images) && event.images.length > 0) {
+    // Prioritize images with a specific type or size if needed, otherwise take the first one
+    return event.images[0].url;
+  }
+  return undefined;
+}
+
+// Helper function to get event description, with fallback
+function getEventDescription(event: any, location: string): string | undefined {
+  // Use event.description if available and not just a generic placeholder
+  if (event.description && typeof event.description === 'string' && event.description.trim() !== '') {
+    return event.description.trim();
+  }
+  // Fallback to a generated description if no description is available
+  const date = event.start ? new Date(event.start).toISOString().split('T')[0] : 'Date TBA';
+  return `Event on ${date} at ${location}`;
+}
+
+// Helper function to get event URL
+function getEventUrl(event: any): string | undefined {
+  // PredictHQ provides a url field
+  if (event.url && typeof event.url === 'string' && event.url.trim() !== '') {
+    return event.url.trim();
+  }
+  // Check for ticket_info url as a fallback
+  if (event.ticket_info?.url && typeof event.ticket_info.url === 'string' && event.ticket_info.url.trim() !== '') {
+    return event.ticket_info.url.trim();
+  }
+  return undefined;
 }

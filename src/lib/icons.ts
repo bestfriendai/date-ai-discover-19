@@ -3,97 +3,99 @@ import * as LucideIcons from 'lucide-react';
 
 // Navigation and UI Controls
 export const {
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  ChevronUp,
+  ChevronLeft: ChevronLeftIcon,
+  ChevronRight: ChevronRightIcon,
+  ChevronDown: ChevronDownIcon,
+  ChevronUp: ChevronUpIcon,
   ArrowLeft,
   ArrowRight,
-  Search,
-  Filter,
-  X,
+  Search: SearchIcon,
+  Filter: FilterIcon,
+  X: XIcon,
   MoreHorizontal,
   SlidersHorizontal,
   PanelLeft,
   GripVertical,
-  Check,
+  Check: CheckIcon,
   Circle,
   Dot,
 } = LucideIcons;
 
 // User Interface
 export const {
-  User,
-  LogOut,
-  Lock,
-  Mail,
-  ExternalLink,
-  Plus,
-  PlusCircle,
-  Loader2,
-  Trash2,
+  User: UserIcon,
+  LogOut: LogOutIcon,
+  Lock: LockIcon,
+  Mail: MailIcon,
+  ExternalLink: ExternalLinkIcon,
+  Plus: PlusIcon,
+  PlusCircle: PlusCircleIcon, // Already aliased at the end, but keep consistent if used elsewhere
+  Loader2: Loader2Icon,
+  Trash2: Trash2Icon,
   Edit,
   AlertCircle,
-  Info,
-  Share2,
+  Info: InfoIcon,
+  Share2: Share2Icon,
 } = LucideIcons;
 
 // Location and Navigation
 export const {
-  MapPin,
-  Locate,
+  MapPin: MapPinIcon,
+  Locate: LocateIcon,
   Navigation,
   Car,
-  Map,
-  Compass,
-  Globe,
-  Satellite,
+  Map: MapIcon,
+  Compass: CompassIcon,
+  Globe: GlobeIcon,
+  Satellite: SatelliteIcon,
 } = LucideIcons;
 
 // Date and Time
 export const {
-  Calendar,
-  CalendarDays,
-  Clock,
+  Calendar: CalendarIcon,
+  CalendarDays: CalendarDaysIcon,
+  Clock: ClockIcon,
 } = LucideIcons;
 
 // Event Categories and Types
 export const {
   PartyPopper,
-  Music,
+  Music: MusicIcon,
   Palette,
   Trophy,
-  Users,
+  Users: UsersIcon,
   Utensils,
-  Heart,
-  Star,
-  Sparkles,
-  Ticket,
+  Heart: HeartIcon,
+  Star: StarIcon,
+  Sparkles: SparklesIcon,
+  Ticket: TicketIcon,
 } = LucideIcons;
 
 // Venue and Location Types
 export const {
-  Building,
+  Building, // Keep as is, seems correctly imported elsewhere
   Coffee,
   Wine,
   Network,
   Package,
   Headphones,
-  Mountain,
-  MountainSnow,
+  Mountain: MountainIcon,
+  MountainSnow: MountainSnowIcon,
   Theater,
-  Bot,
-  Send,
-  Sun,
-  Moon,
-  Layers,
+  Bot: BotIcon,
+  Send: SendIcon,
+  Sun: SunIcon,
+  Moon: MoonIcon,
+  Layers: LayersIcon,
 } = LucideIcons;
 
 // Additional icons needed for various components
+// Keep existing aliases and ensure no duplicates
 export const {
   DollarSign: DollarSignIcon,
   Settings: SettingsIcon,
   TrendingUp: TrendingUpIcon,
   MinusCircle: MinusCircleIcon,
   CheckCircle: CheckCircleIcon,
+  // Add any missing from above if needed, but avoid re-aliasing
 } = LucideIcons;

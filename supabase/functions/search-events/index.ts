@@ -3,6 +3,9 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchTicketmasterEvents } from "./ticketmaster.ts"
 import { Event, SearchParams } from "./types.ts"
+import { apiKeyManager } from "./apiKeyManager.ts"
+import { ApiKeyError, formatApiError } from "./errors.ts"
+import { logApiKeyUsage } from "./logger.ts"
 
 // Handle CORS preflight requests
 function handleOptionsRequest() {
@@ -14,24 +17,6 @@ function handleOptionsRequest() {
     status: 204,
   });
 }
-
-// Environment variables with fallbacks for development
-// @ts-ignore: Deno is available at runtime
-let TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY') || '';
-
-// TEMPORARY FIX: Hardcoded API keys for testing
-// IMPORTANT: Remove these before production deployment
-// These are placeholder values and need to be replaced with actual API keys
-if (!TICKETMASTER_KEY) {
-  TICKETMASTER_KEY = 'DpUgXkAg7KMNGmB9GsUjt5hIeUCJ7X5f'; // Public demo key for testing
-  console.log('[ENV] Using hardcoded TICKETMASTER_KEY for testing');
-}
-
-// Log environment variable status
-console.log('[ENV] Environment variables status:', {
-  TICKETMASTER_KEY_SET: !!TICKETMASTER_KEY,
-  TICKETMASTER_KEY_LENGTH: TICKETMASTER_KEY ? TICKETMASTER_KEY.length : 0
-});
 
 serve(async (req: Request) => {
   // Handle CORS preflight requests
@@ -50,7 +35,7 @@ serve(async (req: Request) => {
     'Content-Type': 'application/json'
   };
 
-  const startTime: number = Date.now(); // Define startTime before the try block
+  const startTime: number = Date.now();
 
   // Create a safe response function to ensure consistent error handling
   const safeResponse = (data: any, status: number = 200) => {
@@ -63,14 +48,23 @@ serve(async (req: Request) => {
   try {
     console.log('[SEARCH-EVENTS] Received request');
 
-    // Check for required API keys
-    if (!TICKETMASTER_KEY) {
-      console.error('[SEARCH-EVENTS] TICKETMASTER_KEY is not set');
+    // Get and validate API keys using the API Key Manager
+    let ticketmasterKey: string;
+    try {
+      ticketmasterKey = apiKeyManager.getActiveKey('ticketmaster');
+      console.log('[SEARCH-EVENTS] Successfully validated Ticketmaster API key:', apiKeyManager.maskKey(ticketmasterKey));
+    } catch (error) {
+      console.error('[SEARCH-EVENTS] API key validation error:', error);
+      
+      // Format the error response using our error handling utilities
+      const formattedError = formatApiError(error);
       return safeResponse({
-        error: 'TICKETMASTER_KEY is not set',
+        error: formattedError.error,
+        errorType: formattedError.errorType,
+        details: formattedError.details,
         events: [],
         sourceStats: {
-          ticketmaster: { count: 0, error: 'API key missing' },
+          ticketmaster: { count: 0, error: formattedError.error },
           eventbrite: { count: 0, error: null },
           serpapi: { count: 0, error: null },
           predicthq: { count: 0, error: null }
@@ -79,9 +73,12 @@ serve(async (req: Request) => {
           executionTime: Date.now() - startTime,
           totalEvents: 0,
           eventsWithCoordinates: 0,
-          timestamp: new Date().toISOString()
+          timestamp: new Date().toISOString(),
+          keyUsage: {
+            ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+          }
         }
-      }, 500);
+      }, error instanceof ApiKeyError ? 401 : 500);
     }
 
     // Parse request parameters with error handling
@@ -96,10 +93,10 @@ serve(async (req: Request) => {
       // Use default parameters if no body is provided
       params = {
         location: 'New York',
-        radius: 50, // Increased default radius to 50 miles
-        startDate: new Date().toISOString().split('T')[0], // Today
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
-        categories: ['music', 'sports', 'arts', 'family', 'food', 'party'] // Added party category by default
+        radius: 50,
+        startDate: new Date().toISOString().split('T')[0],
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        categories: ['music', 'sports', 'arts', 'family', 'food', 'party']
       };
     } else {
       try {
@@ -113,7 +110,7 @@ serve(async (req: Request) => {
           location: requestBody.location || '',
           latitude: requestBody.lat || requestBody.latitude || requestBody.userLat,
           longitude: requestBody.lng || requestBody.longitude || requestBody.userLng,
-          radius: requestBody.radius || 50, // Increased default radius to 50 miles
+          radius: requestBody.radius || 50,
           startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
           endDate: requestBody.endDate,
           categories: requestBody.categories || [],
@@ -137,6 +134,8 @@ serve(async (req: Request) => {
         console.error('[SEARCH-EVENTS] Error parsing request body:', error);
         return safeResponse({
           error: 'Invalid request body',
+          errorType: 'ValidationError',
+          details: error instanceof Error ? error.message : undefined,
           events: [],
           sourceStats: {
             ticketmaster: { count: 0, error: 'Invalid request' },
@@ -148,7 +147,10 @@ serve(async (req: Request) => {
             executionTime: Date.now() - startTime,
             totalEvents: 0,
             eventsWithCoordinates: 0,
-            timestamp: new Date().toISOString()
+            timestamp: new Date().toISOString(),
+            keyUsage: {
+              ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+            }
           }
         }, 400);
       }
@@ -166,10 +168,10 @@ serve(async (req: Request) => {
     try {
       console.log('[SEARCH-EVENTS] Fetching Ticketmaster events...');
       const ticketmasterResponse = await fetchTicketmasterEvents({
-        apiKey: TICKETMASTER_KEY,
+        apiKey: ticketmasterKey,
         latitude: params.latitude,
         longitude: params.longitude,
-        radius: radiusNumber, // Use the converted number value for Ticketmaster too
+        radius: radiusNumber,
         startDate: params.startDate,
         endDate: params.endDate,
         keyword: params.keyword,
@@ -181,6 +183,16 @@ serve(async (req: Request) => {
         size: params.limit
       });
 
+      // Log API usage
+      logApiKeyUsage('ticketmaster', 'fetch_events', 
+        ticketmasterResponse.error ? 'error' : 'success',
+        Date.now() - startTime,
+        {
+          eventCount: ticketmasterResponse.events?.length || 0,
+          error: ticketmasterResponse.error
+        }
+      );
+
       if (ticketmasterResponse.error) {
         ticketmasterError = ticketmasterResponse.error;
         console.error('[SEARCH-EVENTS] Ticketmaster API error:', ticketmasterError);
@@ -190,8 +202,18 @@ serve(async (req: Request) => {
         console.log(`[SEARCH-EVENTS] Added ${ticketmasterCount} Ticketmaster events`);
       }
     } catch (error) {
-      ticketmasterError = `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
+      const formattedError = formatApiError(error);
+      ticketmasterError = formattedError.error;
       console.error('[SEARCH-EVENTS] Error fetching Ticketmaster events:', error);
+      
+      // Log API error
+      logApiKeyUsage('ticketmaster', 'fetch_events', 'error',
+        Date.now() - startTime,
+        {
+          error: formattedError.error,
+          errorType: formattedError.errorType
+        }
+      );
     }
 
     // Filter out events with missing required fields
@@ -223,16 +245,13 @@ serve(async (req: Request) => {
 
     console.log(`[SEARCH-EVENTS] Events with coordinates: ${eventsWithCoords.length}, without coordinates: ${eventsWithoutCoords.length}`);
 
-    // If we have very few events with coordinates, add some default coordinates to events without them
-    // This ensures events show up on the map even if their exact location is unknown
+    // If we have very few events with coordinates, add some default coordinates
     if (eventsWithCoords.length < 5 && eventsWithoutCoords.length > 0 && params.latitude && params.longitude) {
       console.log(`[SEARCH-EVENTS] Adding default coordinates to events without coordinates`);
 
-      // Add slightly randomized coordinates near the user's location
       eventsWithoutCoords.forEach(event => {
-        // Add a small random offset (up to ~5 miles) to prevent all events from stacking
-        const latOffset = (Math.random() - 0.5) * 0.1;  // ~5 miles in latitude
-        const lngOffset = (Math.random() - 0.5) * 0.1;  // ~5 miles in longitude
+        const latOffset = (Math.random() - 0.5) * 0.1;
+        const lngOffset = (Math.random() - 0.5) * 0.1;
 
         event.coordinates = [
           Number(params.longitude) + lngOffset,
@@ -246,30 +265,25 @@ serve(async (req: Request) => {
     // Helper function to parse event date and time
     function parseEventDate(dateStr: string, timeStr?: string): Date {
       try {
-        // Handle ISO date strings
         if (dateStr.includes('T') && dateStr.includes('Z')) {
           return new Date(dateStr);
         }
 
-        // Otherwise, combine date and time
-        const dateOnly = dateStr.split('T')[0]; // Handle case where date might have a T
+        const dateOnly = dateStr.split('T')[0];
         const timeOnly = timeStr || '00:00';
         const dateTimeStr = `${dateOnly}T${timeOnly}`;
 
         return new Date(dateTimeStr);
       } catch (e) {
         console.warn('Error parsing date:', dateStr, timeStr, e);
-        return new Date(); // Return current date as fallback
+        return new Date();
       }
     }
 
     // Sort events by date (soonest first)
     filteredEvents.sort((a, b) => {
-      // Parse dates
       const dateA = parseEventDate(a.date, a.time);
       const dateB = parseEventDate(b.date, b.time);
-
-      // Sort by date (ascending)
       return dateA.getTime() - dateB.getTime();
     });
 
@@ -280,7 +294,7 @@ serve(async (req: Request) => {
     console.log(`[SEARCH-EVENTS] Returning ${filteredEvents.length} events (${eventsWithCoords.length} with coordinates)`);
     console.log(`[SEARCH-EVENTS] Execution time: ${executionTime}ms`);
 
-    // Return the response using our safe response function
+    // Return the response with key usage statistics
     return safeResponse({
       events: filteredEvents,
       sourceStats: {
@@ -293,54 +307,40 @@ serve(async (req: Request) => {
         executionTime,
         totalEvents,
         eventsWithCoordinates: eventsWithCoords.length,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        keyUsage: {
+          ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+        }
       }
     }, 200);
   } catch (error) {
-    // Improved error reporting: include stack trace if available
     console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
 
-    // Extract error details
-    let errorMessage = 'Unknown error occurred';
-    let errorStack = '';
-    let errorType = 'UnknownError';
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      errorStack = error.stack || '';
-      errorType = error.name;
-      console.error(`[SEARCH-EVENTS] Error: ${errorType} - ${errorMessage}`);
-      console.error(`[SEARCH-EVENTS] Stack: ${errorStack}`);
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-      console.error(`[SEARCH-EVENTS] String Error: ${errorMessage}`);
-    } else {
-      errorMessage = String(error); // Fallback for other types
-      console.error(`[SEARCH-EVENTS] Other Error: ${errorMessage}`);
-    }
-
-    // Calculate execution time safely, as startTime is now defined outside the try block
+    // Format the error using our error handling utilities
+    const formattedError = formatApiError(error);
     const executionTime = Date.now() - startTime;
 
-    // Return a valid JSON response even in case of error using our safe response function
     return safeResponse({
       events: [],
-      error: errorMessage,
-      errorType,
-      stack: errorStack, // Include stack trace in response for easier debugging
+      error: formattedError.error,
+      errorType: formattedError.errorType,
+      details: formattedError.details,
       timestamp: new Date().toISOString(),
-      sourceStats: { // Provide default stats indicating failure
+      sourceStats: {
         ticketmaster: { count: 0, error: 'Function execution failed' },
         eventbrite: { count: 0, error: 'Function execution failed' },
         serpapi: { count: 0, error: 'Function execution failed' },
         predicthq: { count: 0, error: 'Function execution failed' }
       },
       meta: {
-        executionTime, // Include execution time up to the error
+        executionTime,
         totalEvents: 0,
         eventsWithCoordinates: 0,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        keyUsage: {
+          ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+        }
       }
-    }, 500);
+    }, error instanceof ApiKeyError ? 401 : 500);
   }
 });

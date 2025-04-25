@@ -162,18 +162,14 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
 
   // Main effect to manage markers based on the list of features
   useEffect(() => {
-    if (!map) {
-        console.log('[MARKERS] Map not available, skipping marker update.');
-        return;
-    }
-
-    if (!features || features.length === 0) {
-        console.log('[MARKERS] No features to display. Clearing all currently managed markers.');
+    if (!map || !features) {
+        console.log('[MARKERS] Map not available or no features, clearing all markers.');
         // Remove all currently managed markers
-        managedMarkerIdsRef.current.forEach(id => {
+        Array.from(markerMap.keys()).forEach(id => {
             const entry = markerMap.get(id);
             if (entry) {
                 try {
+                     // Use a safe unmounting approach - crucial for cleanup
                     entry.root.unmount();
                     entry.marker.remove();
                 } catch (e) {
@@ -182,232 +178,251 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
                 markerMap.delete(id);
             }
         });
-        // Clear the set of managed markers
-        managedMarkerIdsRef.current = new Set();
+        // No need to track managed IDs separately if we use the global map as the source of truth
+        // managedMarkerIdsRef.current = new Set(); // No longer needed
         return;
     }
 
-    // Skip if already processing a batch
-    if (isProcessing) {
-        console.log('[MARKERS] Still processing previous batch, skipping.');
-        return;
-    }
+    // Apply jittering to all features first
+    const jitteredCoordinates = applyJittering(features); // Keep this utility
 
-    setIsProcessing(true);
-    PerformanceMonitor.startMeasure('markerUpdateCycle', { featuresCount: features.length });
-    console.log(`[MARKERS] Starting marker update cycle for ${features.length} features.`);
-
-    const nextFeatureIds = new Set<string>();
+    // Determine which features are new, still present, or removed
+    const currentFeatureIds = new Set<string>();
     const featuresToProcess: Event[] = [];
     const featuresToUpdate: Event[] = [];
 
-    // Determine which features are new or need updates
     for (const feature of features) {
         const id = String(feature.id);
         if (!id) {
             console.warn('[MARKERS] Skipping feature with no ID:', feature);
             continue;
         }
-        nextFeatureIds.add(id);
+        currentFeatureIds.add(id);
 
-        // Validate coordinates using our utility function
-        if (!validateCoordinates(feature.coordinates)) {
-            console.warn('[MARKERS] Skipping feature with invalid coordinates:', {
-                id,
-                coordinates: feature.coordinates
-            });
-            continue; // Skip features without valid coordinates
-        }
-
-        // Skip features that are likely in the middle of oceans
-        if (!isLikelyOnLand(feature.coordinates as [number, number])) {
-            console.log('[MARKERS] Skipping feature likely in ocean:', {
+        // --- FIX 5a: Validate coordinates and isLikelyOnLand *before* adding to process/update list ---
+        // Assuming coordinates were added by useEventSearch if missing,
+        // validate correctness here just in case, and still skip ocean if desired.
+         if (!validateCoordinates(feature.coordinates)) {
+            console.warn('[MARKERS] Skipping feature with invalid coordinates after processing:', {
                 id,
                 coordinates: feature.coordinates
             });
             continue;
         }
+        // Decide if you want to skip markers in the ocean - current isLikelyOnLand always returns true
+        // If you change that, uncomment this:
+        // if (!isLikelyOnLand(feature.coordinates as [number, number])) {
+        //     console.log('[MARKERS] Skipping feature likely in ocean:', {
+        //         id,
+        //         coordinates: feature.coordinates
+        //     });
+        //     continue;
+        // }
+        // --- END FIX 5a ---
 
-        // Check if the marker already exists
+
         const existingEntry = markerMap.get(id);
         const isSelected = String(selectedFeatureId) === id;
+        const jitteredCoords = jitteredCoordinates.get(id) || feature.coordinates as [number, number]; // Use jittered coords if available
 
         if (existingEntry) {
-            // Marker exists, check if it needs update
-            const currentCoords = existingEntry.marker.getLngLat();
-            const featureCoords = feature.coordinates as [number, number];
+            // Feature still exists, check if it needs update
+            const currentLngLat = existingEntry.marker.getLngLat();
             const coordsChanged = (
-                Math.abs(currentCoords.lng - featureCoords[0]) > 0.0000001 ||
-                Math.abs(currentCoords.lat - featureCoords[1]) > 0.0000001
+                Math.abs(currentLngLat.lng - jitteredCoords[0]) > 0.0000001 ||
+                Math.abs(currentLngLat.lat - jitteredCoords[1]) > 0.0000001
             );
             const selectionChanged = existingEntry.isSelected !== isSelected;
+            // Add check if any relevant event properties for marker rendering have changed (category, price, etc.)
+            // This is more complex and might require hashing/deep comparison if not just selection/coords
+            // For simplicity, let's assume only selection/coords change the *rendering* state of existing markers here.
 
             // Update marker position if needed
             if (coordsChanged) {
-                existingEntry.marker.setLngLat([
-                    featureCoords[0],
-                    featureCoords[1]
-                ]);
+                existingEntry.marker.setLngLat(jitteredCoords);
+                existingEntry.jitteredCoords = jitteredCoords; // Update stored jittered coords
             }
 
-            // If selection state changed, add to update list
-            if (selectionChanged) {
+            // If selection state changed, add to update list (re-render React component)
+            // Also update if coordinates changed, as the tooltip might need update
+            if (selectionChanged || coordsChanged) {
                 featuresToUpdate.push(feature);
             }
+             // --- FIX 5d: Update isSelected state in the map entry ---
+            existingEntry.isSelected = isSelected;
+             // --- END FIX 5d ---
+
+
         } else {
-            // Marker is new, add it to the process list
+            // Feature is new, add it to the process list
             featuresToProcess.push(feature);
         }
     }
 
-    // Remove markers that are no longer in the features list
-    const markersToRemove = Array.from(managedMarkerIdsRef.current as Set<string>).filter(id => !nextFeatureIds.has(id));
+    // --- FIX 5b: Remove markers that are no longer in the features list ---
+    const markersToRemove = Array.from(markerMap.keys()).filter(id => !currentFeatureIds.has(id));
     if (markersToRemove.length > 0) {
-        console.log(`[MARKERS] Removing ${markersToRemove.length} markers that are no longer in the features list.`);
+        console.log(`[MARKERS] Removing ${markersToRemove.length} markers.`);
         markersToRemove.forEach(id => {
             const entry = markerMap.get(id);
             if (entry) {
                 try {
-                    // Use a safe unmounting approach to prevent React warnings
-                    setTimeout(() => {
-                      if (entry && entry.root) {
-                        try {
-                          entry.root.unmount();
-                          entry.marker.remove();
-                        } catch (e) {
-                          console.warn('[MARKERS] Error during delayed unmount:', e);
-                        }
-                      }
-                    }, 0);
+                    // Unmount React root and remove Mapbox marker
+                    entry.root.unmount();
+                    entry.marker.remove();
                 } catch (e) {
                     console.error('[MARKERS] Error cleaning up marker on removal:', id, e);
                 }
                 markerMap.delete(id);
-                managedMarkerIdsRef.current.delete(id);
-            } else {
-                console.warn(`[MARKERS] Marker ${id} not found in markerMap but was in managedMarkerIds.`);
-                managedMarkerIdsRef.current.delete(id);
             }
         });
     }
+    // --- END FIX 5b ---
 
-    // Update existing markers that need selection state changes
-    if (featuresToUpdate.length > 0) {
+    // --- FIX 5c: Update existing markers React component if needed ---
+     if (featuresToUpdate.length > 0) {
         console.log(`[MARKERS] Updating ${featuresToUpdate.length} existing markers.`);
         featuresToUpdate.forEach(feature => {
             const id = String(feature.id);
             const existingEntry = markerMap.get(id);
-            const isSelected = String(selectedFeatureId) === id;
-
             if (existingEntry) {
-                // Re-render the React component to update selection state
-                existingEntry.root.render(
-                    <TooltipProvider delayDuration={0}>
-                        <EventMarker
-                            event={feature}
-                            isSelected={isSelected}
-                            onClick={() => handleMarkerClick(feature)}
-                        />
-                    </TooltipProvider>
-                );
-
-                // Update the stored selection state
-                existingEntry.isSelected = isSelected;
-
-                // Bring selected markers to front
-                if (isSelected) {
-                    existingEntry.marker.remove();
-                    existingEntry.marker.addTo(map);
+                const isSelected = String(selectedFeatureId) === id;
+                 // Re-render the React component to update state/props (e.g., isSelected)
+                try {
+                    existingEntry.root.render(
+                        <TooltipProvider delayDuration={0}>
+                            <EventMarker
+                                event={feature}
+                                isSelected={isSelected}
+                                onClick={() => onMarkerClick(feature)}
+                            />
+                        </TooltipProvider>
+                    );
+                     // Bring selected markers to front by re-adding them
+                     // Check if map still exists before adding
+                     if(map) {
+                         existingEntry.marker.remove(); // Remove old instance
+                         existingEntry.marker.addTo(map); // Add new instance (places it on top)
+                     }
+                } catch (e) {
+                     console.error('[MARKERS] Error rendering update for marker:', id, e);
                 }
             }
         });
     }
+    // --- END FIX 5c ---
 
-    // Process new markers (in batches if needed to avoid jank)
+
+    // --- FIX 5e: Process new markers (in batches) ---
     if (featuresToProcess.length > 0) {
-        console.log(`[MARKERS] Processing ${featuresToProcess.length} new markers.`);
-        // Start the batch processing chain
-        processBatch(map, featuresToProcess, handleMarkerClick, selectedFeatureId, 0);
+        console.log(`[MARKERS] Processing ${featuresToProcess.length} new markers in batches.`);
+        // Start the batch processing chain for adding *new* markers
+        // Pass jittered coordinates and the current onMarkerClick handler
+        processBatch(map, featuresToProcess, onMarkerClick, selectedFeatureId, jitteredCoordinates, 0);
     } else {
         // No new features to process, cycle finished
-        setIsProcessing(false);
-        PerformanceMonitor.endMeasure('markerUpdateCycle', { result: 'no_new_markers' });
-        console.log(`[MARKERS] Marker update cycle finished.`);
-        console.log(`[MARKERS] Total markers now displayed: ${markerMap.size}`);
+        setIsProcessing(false); // Mark processing as complete
+        console.log(`[MARKERS] Marker update cycle finished. Total markers displayed: ${markerMap.size}`);
     }
 
+    // --- FIX 5f: Cleanup function for component unmount ---
     return () => {
-      // Cleanup function - doesn't remove markers, just logs
-      console.log('[MARKERS] Effect cleanup triggered.');
+      console.log('[MARKERS] MapMarkers component unmounting, cleaning up all markers...');
+      // Loop through all markers we've been tracking and remove them
+      Array.from(markerMap.keys()).forEach(id => {
+        const entry = markerMap.get(id);
+        if (entry) {
+          try {
+            // Unmount React root and remove Mapbox marker
+            entry.root.unmount();
+            entry.marker.remove();
+          } catch (e) {
+            console.error('[MARKERS] Error during cleanup on unmount:', id, e);
+          }
+          markerMap.delete(id);
+        }
+      });
+      console.log('[MARKERS] All markers cleaned up.');
     };
-  }, [map, features, selectedFeatureId, handleMarkerClick, isProcessing]);
+    // --- END FIX 5f ---
 
+  }, [map, features, selectedFeatureId, onMarkerClick]); // Dependencies: map, features, selectedFeatureId, onMarkerClick
 
-  // Process features in batches to avoid UI jank
+// File: src/components/map/components/MapMarkers.tsx (Modified processBatch function)
+
   const processBatch = useCallback((
-    currentMap: mapboxgl.Map,
+    currentMap: mapboxgl.Map | null, // Allow null map for safety
     featuresBatch: Event[],
-    currentOnClick: (feature: Event) => void,
+    currentOnClick: (event: Event) => void,
     currentSelectedFeatureId: string | number | null,
+    jitteredCoordinates: Map<string, [number, number]>, // Pass the map of jittered coords
     startIdx = 0
   ) => {
-    // Exit condition: all features processed
-    if (!featuresBatch || startIdx >= featuresBatch.length) {
-      console.log('[MARKERS] Batch processing finished.');
-      setIsProcessing(false); // Mark processing as complete
-      PerformanceMonitor.endMeasure('markerUpdateCycle', {
-        result: 'success',
-        processedMarkers: featuresBatch.length
-      });
+    if (!currentMap || !featuresBatch || startIdx >= featuresBatch.length) {
+      console.log('[MARKERS] Batch processing finished or map/features invalid.');
+      setIsProcessing(false); // Mark processing as complete when done
       return;
     }
 
-    // Calculate batch range
     const endIdx = Math.min(startIdx + MARKER_BATCH_SIZE, featuresBatch.length);
     const batch = featuresBatch.slice(startIdx, endIdx);
 
-    console.log(`[MARKERS] Processing batch from index ${startIdx} to ${endIdx}. Batch size: ${batch.length}`);
+    //console.log(`[MARKERS] Processing batch from index ${startIdx} to ${endIdx}. Batch size: ${batch.length}`);
 
     // Use requestAnimationFrame for smoother rendering
     requestAnimationFrame(() => {
-        // Process each feature in the current batch
-        for (const feature of batch) {
-            const id = String(feature.id);
-            // Apply small jitter to coordinates to prevent overlapping markers
-            const coordinates = applyCoordinateJitter(feature.coordinates as [number, number]);
+        for (const event of batch) {
+            const id = String(event.id);
+            // Ensure coordinates exist before creating marker
+            if (!event.coordinates || event.coordinates.length !== 2) {
+                 console.warn(`[MARKERS] Cannot add marker for event ${id}: Missing coordinates.`);
+                 continue;
+            }
+
+            // Get the jittered coordinates
+            const coords = jitteredCoordinates.get(id) || event.coordinates as [number, number];
             const isSelected = String(currentSelectedFeatureId) === id;
 
             try {
-                // Create a new marker element
+                // Create new marker element and React root
                 const el = document.createElement('div');
-                el.className = 'custom-marker';
-                el.dataset.id = id;
+                el.className = 'custom-marker'; // Add class for potential styling
+                el.setAttribute('aria-label', `Event: ${event.title || 'Unknown event'}`); // Accessibility
 
-                // Create React root and render marker component
                 const root = createRoot(el);
-                const clickHandler = () => currentOnClick(feature);
 
                 root.render(
                   <TooltipProvider delayDuration={0}>
                     <EventMarker
-                      event={feature}
+                      event={event}
                       isSelected={isSelected}
-                      onClick={clickHandler}
+                      onClick={() => currentOnClick(event)} // Pass the event object here
                     />
                   </TooltipProvider>
                 );
 
                 // Create and add the Mapbox marker
-                const marker = new mapboxgl.Marker({
-                  element: el,
-                  anchor: 'center',
-                })
-                  .setLngLat(coordinates)
+                const marker = new mapboxgl.Marker({ element: el, anchor: 'center' })
+                  .setLngLat(coords)
                   .addTo(currentMap);
 
-                // Store the marker and its React root for future management
-                markerMap.set(id, { marker, root, isSelected });
-                managedMarkerIdsRef.current.add(id);
+                // Store the marker and its React root
+                markerMap.set(id, {
+                  marker,
+                  root,
+                  isSelected,
+                  // Add other relevant data needed for updates if any (e.g., original coords, priority)
+                  originalCoords: event.coordinates as [number, number],
+                  jitteredCoords: coords,
+                  priority: 0 // Assuming priority is calculated elsewhere or not needed for this map
+                });
+
+                // Bring selected markers to front immediately after adding if needed
+                if (isSelected) {
+                    marker.remove();
+                    marker.addTo(currentMap);
+                }
+
             } catch (error) {
                 console.error(`[MARKERS] Error creating marker for feature ${id}:`, error);
             }
@@ -415,46 +430,12 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
 
         // Schedule the next batch with a small delay
         setTimeout(() => {
-            processBatch(currentMap, featuresBatch, currentOnClick, currentSelectedFeatureId, endIdx);
+            processBatch(currentMap, featuresBatch, currentOnClick, currentSelectedFeatureId, jitteredCoordinates, endIdx);
         }, MARKER_BATCH_DELAY);
     });
-  }, []);
+  }, [setIsProcessing]); // Dependencies: setIsProcessing. Other dependencies are passed as arguments.
 
-  // Effect to clean up all markers when component unmounts
-  useEffect(() => {
-    return () => {
-      console.log('[MARKERS] Component unmounting, cleaning up all markers...');
-      // Loop through all markers we've been tracking and remove them
-      managedMarkerIdsRef.current.forEach(id => {
-        const entry = markerMap.get(id);
-        if (entry) {
-          try {
-            // Use a safe unmounting approach to prevent React warnings
-            setTimeout(() => {
-              if (entry && entry.root) {
-                try {
-                  entry.root.unmount();
-                  entry.marker.remove();
-                } catch (e) {
-                  console.warn('[MARKERS] Error during delayed unmount:', e);
-                }
-              }
-            }, 0);
-          } catch (e) {
-            console.error('[MARKERS] Error during cleanup of marker on unmount:', id, e);
-          }
-          markerMap.delete(id);
-        }
-      });
-      // Clear our tracking set
-      managedMarkerIdsRef.current.clear();
-      console.log('[MARKERS] All markers cleaned up.');
-    };
-  }, []);
-
-  // Optionally render current stats for debugging
-  return null; // This component renders nothing itself, it manages Mapbox markers
-});
+// --- END FIX 5 ---
 
 
 // EventMarker component with enhanced party subcategory support

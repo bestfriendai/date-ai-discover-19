@@ -268,38 +268,38 @@ export const useEventSearch = () => {
         });
       }
 
-      // Process events to ensure they have valid coordinates
-      console.log('[EVENTS] Raw events before processing:', JSON.stringify(result.events.slice(0, 2)));
-      const processedEvents = result.events.map(event => {
+      // Process events to ensure they have valid coordinates --- FIX 4 ---
+      console.log('[EVENTS] Processing events to ensure coordinates...');
+      const processedEvents = (result.events || []).map(event => {
         // If event already has valid coordinates, use them
         if (event.coordinates &&
             Array.isArray(event.coordinates) &&
             event.coordinates.length === 2 &&
+            typeof event.coordinates[0] === 'number' &&
+            typeof event.coordinates[1] === 'number' &&
             !isNaN(event.coordinates[0]) &&
             !isNaN(event.coordinates[1])) {
-          console.log(`[EVENTS] Event ${event.id} already has valid coordinates:`, event.coordinates);
+          // console.log(`[EVENTS] Event ${event.id} already has valid coordinates:`, event.coordinates);
           return event;
         }
 
         // Otherwise, assign coordinates near the search location with a random offset
         // This ensures events without coordinates still appear on the map
-        const randomLngOffset = (Math.random() * 0.05) - 0.025; // ±0.025 degrees ~ 1-2 miles
-        const randomLatOffset = (Math.random() * 0.05) - 0.025;
-
-        const newCoordinates = [
-          centerCoords.longitude + randomLngOffset,
-          centerCoords.latitude + randomLatOffset
+        const fallbackCoords = [
+          centerCoords.longitude + (Math.random() - 0.5) * 0.1, // ±0.05 degrees (~5 miles)
+          centerCoords.latitude + (Math.random() - 0.5) * 0.1
         ] as [number, number];
 
-        console.warn(`[EVENTS] Event ${event.id} missing or invalid coordinates. Assigning new coordinates:`, newCoordinates, 'Original event:', event);
+        // console.warn(`[EVENTS] Event ${event.id} missing or invalid coordinates. Assigning fallback coordinates:`, fallbackCoords);
 
         return {
           ...event,
-          coordinates: newCoordinates
+          coordinates: fallbackCoords
         };
       });
 
       console.log('[EVENTS] Processed events with coordinates:', processedEvents.length);
+      // ... rest of fetchEvents ...
 
       // Update cache
       eventCacheRef.current[cacheKey] = {
@@ -327,7 +327,7 @@ export const useEventSearch = () => {
     } finally {
       setIsEventsLoading(false);
     }
-  }, [isEventsLoading]);
+  }, [isEventsLoading, centerCoords]); // Added centerCoords to dependencies
 
   // --- FILTER EVENTS LOCALLY BASED ON UI FILTERS (category, date, etc.) ---
   const applyLocalFilters = useCallback((events: Event[], filters: EventFilters) => {

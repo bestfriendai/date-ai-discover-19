@@ -91,6 +91,7 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
 
     // Add location parameters with improved handling
     if (latitude && longitude) {
+      // Ticketmaster API uses latlong parameter with comma-separated values
       queryParams.append('latlong', `${latitude},${longitude}`);
 
       // Ensure radius is a number and use a minimum of 25 miles
@@ -108,7 +109,7 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       console.log(`[TICKETMASTER] No coordinates provided, using default radius of 50 miles.`);
     }
 
-    // Add date range parameters
+    // Add date range parameters (using underscore naming as per v2 docs)
     if (startDate) {
       queryParams.append('startDateTime', `${startDate}T00:00:00Z`);
     }
@@ -121,12 +122,12 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       queryParams.append('keyword', keyword);
     }
 
-    // Add segment parameter (music, sports, arts, etc.)
+    // Add segment parameter (music, sports, arts, etc.) (using underscore naming as per v2 docs)
     if (segmentName) {
       queryParams.append('segmentName', segmentName);
     }
 
-    // Add classification parameter (specific type of event)
+    // Add classification parameter (specific type of event) (using underscore naming as per v2 docs)
     if (classificationName) {
       queryParams.append('classificationName', classificationName);
     }

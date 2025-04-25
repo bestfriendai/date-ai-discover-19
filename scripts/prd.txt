@@ -1,7 +1,46 @@
-# Project Verification Plan
+# Product Requirements Document
 
-This document outlines the plan to verify the functionality of the Date AI Discover application.
+The codebase has several potential issues that need to be addressed:
 
-## Goals
-1. Verify all application pages render correctly.
-2. Verify all API integrations function as expected.
+1. API Key Management and Validation
+- Issue: Hardcoded API keys and insufficient validation in search-events function
+- Impact: Security risks and potential service disruptions
+- Requirements: Remove hardcoded keys, implement proper validation, return clear errors
+
+2. PredictHQ Location Parameter Handling
+- Issue: Complex and potentially buggy location parameter processing
+- Impact: Inconsistent search results and location handling
+- Requirements: Simplify parameter prioritization, improve coordinate validation
+
+3. PredictHQ API Response Normalization
+- Issue: Fragile event normalization with insufficient error handling
+- Impact: Potential crashes and data inconsistencies
+- Requirements: Implement robust error handling, improve location/venue string building
+
+4. Missing Coordinates Fallback
+- Issue: Inconsistent handling of events missing coordinates
+- Impact: Events may not appear on map or appear in wrong locations
+- Requirements: Ensure all events have valid coordinates with proper fallback logic
+
+5. Mapbox Marker Management
+- Issue: Complex marker lifecycle management with React Portals
+- Impact: Potential memory leaks and performance issues
+- Requirements: Refine marker lifecycle handling, improve cleanup
+
+6. Mapbox Events and State Synchronization
+- Issue: Potential state sync issues between Mapbox and React
+- Impact: UI inconsistencies and interaction bugs
+- Requirements: Improve event handling and state management
+
+7. Itinerary Item Editing
+- Issue: Inconsistent state management in EditItinerary component
+- Impact: Potential data loss and UI glitches
+- Requirements: Simplify state management, improve data flow
+
+Each issue requires careful implementation considering:
+- TypeScript type safety
+- React best practices
+- Performance optimization
+- Error handling
+- Testing strategy
+- Documentation updates
