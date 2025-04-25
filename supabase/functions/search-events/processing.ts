@@ -298,3 +298,93 @@ export function generateMetadata(
     }
   };
 }
+
+/**
+ * Deduplicate events based on title, date, and venue
+ * @param events Array of events to deduplicate
+ * @returns Deduplicated events array
+ */
+export function deduplicateEvents(events: Event[]): Event[] {
+  const startTime = performance.now();
+  
+  // Use a Map to track unique events
+  const uniqueEvents = new Map<string, Event>();
+  
+  for (const event of events) {
+    // Create a unique key based on title, date, and venue
+    const title = (event.title || '').toLowerCase().trim();
+    const date = event.date || '';
+    const venue = typeof event.venue === 'string'
+      ? event.venue.toLowerCase().trim()
+      : (event.venue?.name || '').toLowerCase().trim();
+    
+    const key = `${title}|${date}|${venue}`;
+    
+    // If this is a new unique event, or if it's from a preferred source, add/replace it
+    if (!uniqueEvents.has(key) || shouldReplaceEvent(uniqueEvents.get(key)!, event)) {
+      uniqueEvents.set(key, event);
+    }
+  }
+  
+  const result = Array.from(uniqueEvents.values());
+  
+  // Log performance metrics for large datasets
+  if (events.length > 1000) {
+    const processingTime = performance.now() - startTime;
+    console.log(`[PROCESSING] Deduplicated ${events.length} events to ${result.length} in ${processingTime.toFixed(2)}ms`);
+  }
+  
+  return result;
+}
+
+/**
+ * Determine if a new event should replace an existing one
+ * @param existing Existing event
+ * @param newEvent New event
+ * @returns True if the new event should replace the existing one
+ */
+function shouldReplaceEvent(existing: Event, newEvent: Event): boolean {
+  // Prefer events with more complete information
+  const existingScore = getEventCompletionScore(existing);
+  const newScore = getEventCompletionScore(newEvent);
+  
+  if (newScore > existingScore) {
+    return true;
+  }
+  
+  // If scores are equal, prefer certain sources
+  if (newScore === existingScore) {
+    // Source preference order: predicthq > ticketmaster > others
+    const sourcePreference: Record<string, number> = {
+      'predicthq': 3,
+      'ticketmaster': 2
+    };
+    
+    const existingPref = sourcePreference[existing.source || ''] || 1;
+    const newPref = sourcePreference[newEvent.source || ''] || 1;
+    
+    return newPref > existingPref;
+  }
+  
+  return false;
+}
+
+/**
+ * Calculate a score for how complete an event's information is
+ * @param event Event to score
+ * @returns Completion score
+ */
+function getEventCompletionScore(event: Event): number {
+  let score = 0;
+  
+  // Add points for each piece of information
+  if (event.description && event.description.length > 20) score += 1;
+  if (event.image) score += 1;
+  if (event.coordinates) score += 2;
+  if (event.price) score += 1;
+  if (event.venue && typeof event.venue !== 'string') score += 2;
+  if (event.start && event.end) score += 1;
+  if (event.url) score += 1;
+  
+  return score;
+}

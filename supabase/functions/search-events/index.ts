@@ -14,7 +14,8 @@ import {
   separateEventsByCoordinates,
   filterEventsByDistance,
   generateSourceStats,
-  generateMetadata
+  generateMetadata,
+  deduplicateEvents
 } from "./processing.ts";
 import {
   extractTicketmasterParams,
@@ -224,6 +225,9 @@ serve(async (req) => {
     // Apply post-processing
     allEvents = normalizeAndFilterEvents(allEvents, searchParams);
     
+    // Deduplicate events
+    allEvents = deduplicateEvents(allEvents);
+    
     // Filter by coordinates if provided
     if (searchParams.latitude && searchParams.longitude) {
       // Use separateEventsByCoordinates instead of filterEventsByCoordinates
@@ -274,7 +278,7 @@ serve(async (req) => {
       limit,
       hasMore: offset + limit < allEvents.length,
       sourceStats,
-      metadata
+      meta: metadata
     };
     
     // Cache the results
