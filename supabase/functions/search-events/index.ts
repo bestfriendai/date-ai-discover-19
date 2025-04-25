@@ -55,31 +55,23 @@ serve(async (req: Request) => {
   try {
     console.log('[SEARCH-EVENTS] Received request');
 
-    // Validate request body exists and parse it
-    const contentLength = req.headers.get('content-length');
-    if (!contentLength || parseInt(contentLength) === 0) {
-      console.error('[SEARCH-EVENTS] Missing request body');
-      return safeResponse({
-        error: 'Missing request body',
-        errorType: 'ValidationError',
-        details: 'Request body is required',
-        events: [],
-        sourceStats: generateSourceStats(0, 'Missing request body', 0, 'Missing request body'),
-        meta: generateMetadata(startTime, 0, 0, null, null)
-      }, 400);
-    }
-
-    // Parse request body
+    // Parse request body, allowing empty body for default parameters
     let requestBody;
     try {
-      requestBody = await req.json();
-      console.log('[SEARCH-EVENTS] Parsed request body:', requestBody);
+      const contentLength = req.headers.get('content-length');
+      if (contentLength && parseInt(contentLength) > 0) {
+        requestBody = await req.json();
+        console.log('[SEARCH-EVENTS] Parsed request body:', requestBody);
+      } else {
+        requestBody = {}; // Provide an empty object if no body is present
+        console.log('[SEARCH-EVENTS] No request body provided, using empty object.');
+      }
     } catch (error) {
       console.error('[SEARCH-EVENTS] Failed to parse request body:', error);
       return safeResponse({
         error: 'Invalid request body',
         errorType: 'ValidationError',
-        details: 'Request body must be valid JSON',
+        details: 'Request body must be valid JSON if provided',
         events: [],
         sourceStats: generateSourceStats(0, 'Invalid request body', 0, 'Invalid request body'),
         meta: generateMetadata(startTime, 0, 0, null, null)
