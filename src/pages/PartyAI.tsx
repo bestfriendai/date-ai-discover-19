@@ -70,9 +70,18 @@ const PartyAI = () => {
     setEventToAdd(null);
   }, []);
 
+  // Convert mapCenter array to object format
+  const mapCenterObject = useMemo(() => {
+    if (!mapCenter || !mapCenter[0] || !mapCenter[1]) return null;
+    return {
+      longitude: mapCenter[0],
+      latitude: mapCenter[1]
+    };
+  }, [mapCenter]);
+
   // Use extracted handlers for search
   const { handleAdvancedSearch, handleSearchThisArea } = usePartyAIHandlers({
-    mapCenter,
+    mapCenter: mapCenterObject,
     setMapHasMoved,
     fetchEvents,
     filters
@@ -83,8 +92,9 @@ const PartyAI = () => {
     if (mapLoaded && mapCenter && !events.length && !isEventsLoading) {
       console.log('[PartyAI] Initial fetch of party events');
       onCategoriesChange(['party']);
+      
       // Ensure we have map center coordinates
-      if (!mapCenter || !mapCenter[0] || !mapCenter[1]) {
+      if (!mapCenter || !mapCenter.longitude || !mapCenter.latitude) {
         console.warn('[PartyAI] No map center coordinates available');
         return;
       }
@@ -99,8 +109,8 @@ const PartyAI = () => {
           categories: ['party'],
           keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"',
           limit: 500,
-          latitude: mapCenter[1],
-          longitude: mapCenter[0],
+          latitude: mapCenter.latitude,
+          longitude: mapCenter.longitude,
           radius
         },
         mapCenter,

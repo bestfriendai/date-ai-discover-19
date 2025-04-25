@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { corsHeaders } from "../_shared/cors.ts"
 import { fetchTicketmasterEvents } from "./ticketmaster.ts"
+import { fetchPredictHQEvents } from "./predicthq.ts"
 import { Event, SearchParams } from "./types.ts"
 import { apiKeyManager } from "./apiKeyManager.ts"
 import { ApiKeyError, formatApiError } from "./errors.ts"
@@ -50,24 +51,44 @@ serve(async (req: Request) => {
 
     // Get and validate API keys using the API Key Manager
     let ticketmasterKey: string;
+    let predicthqKey: string;
+    let hasValidTicketmasterKey = false;
+    let hasValidPredictHQKey = false;
+
+    // Try to get Ticketmaster API key
     try {
       ticketmasterKey = apiKeyManager.getActiveKey('ticketmaster');
       console.log('[SEARCH-EVENTS] Successfully validated Ticketmaster API key:', apiKeyManager.maskKey(ticketmasterKey));
+      hasValidTicketmasterKey = true;
     } catch (error) {
-      console.error('[SEARCH-EVENTS] API key validation error:', error);
-      
-      // Format the error response using our error handling utilities
-      const formattedError = formatApiError(error);
+      console.warn('[SEARCH-EVENTS] Ticketmaster API key validation error:', error);
+      // We'll continue even without a valid Ticketmaster key
+    }
+
+    // Try to get PredictHQ API key
+    try {
+      predicthqKey = apiKeyManager.getActiveKey('predicthq');
+      console.log('[SEARCH-EVENTS] Successfully validated PredictHQ API key:', apiKeyManager.maskKey(predicthqKey));
+      hasValidPredictHQKey = true;
+    } catch (error) {
+      console.warn('[SEARCH-EVENTS] PredictHQ API key validation error:', error);
+      // We'll continue even without a valid PredictHQ key
+    }
+
+    // If neither key is valid, return an error
+    if (!hasValidTicketmasterKey && !hasValidPredictHQKey) {
+      console.error('[SEARCH-EVENTS] No valid API keys available');
+
       return safeResponse({
-        error: formattedError.error,
-        errorType: formattedError.errorType,
-        details: formattedError.details,
+        error: 'No valid API keys available',
+        errorType: 'ApiKeyError',
+        details: 'Both Ticketmaster and PredictHQ API keys are invalid or missing',
         events: [],
         sourceStats: {
-          ticketmaster: { count: 0, error: formattedError.error },
-          eventbrite: { count: 0, error: null },
-          serpapi: { count: 0, error: null },
-          predicthq: { count: 0, error: null }
+          ticketmaster: { count: 0, error: 'Invalid or missing API key' },
+          eventbrite: { count: 0, error: 'API not implemented' },
+          serpapi: { count: 0, error: 'API not implemented' },
+          predicthq: { count: 0, error: 'Invalid or missing API key' }
         },
         meta: {
           executionTime: Date.now() - startTime,
@@ -75,10 +96,11 @@ serve(async (req: Request) => {
           eventsWithCoordinates: 0,
           timestamp: new Date().toISOString(),
           keyUsage: {
-            ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+            ticketmaster: apiKeyManager.getUsageStats('ticketmaster'),
+            predicthq: apiKeyManager.getUsageStats('predicthq')
           }
         }
-      }, error instanceof ApiKeyError ? 401 : 500);
+      }, 401);
     }
 
     // Parse request parameters with error handling
@@ -195,60 +217,121 @@ serve(async (req: Request) => {
     const allEvents: Event[] = [];
     let ticketmasterCount = 0;
     let ticketmasterError: string | null = null;
+    let predicthqCount = 0;
+    let predicthqError: string | null = null;
 
     // Ensure radius is a number
     const radiusNumber = typeof params.radius === 'string' ? parseInt(params.radius, 10) : params.radius || 30;
 
-    // Fetch events from Ticketmaster
-    try {
-      console.log('[SEARCH-EVENTS] Fetching Ticketmaster events...');
-      const ticketmasterResponse = await fetchTicketmasterEvents({
-        apiKey: ticketmasterKey,
-        latitude: params.latitude,
-        longitude: params.longitude,
-        radius: radiusNumber,
-        startDate: params.startDate,
-        endDate: params.endDate,
-        keyword: params.keyword,
-        segmentName: params.categories?.includes('music') ? 'Music' :
-          params.categories?.includes('sports') ? 'Sports' :
-          params.categories?.includes('arts') ? 'Arts & Theatre' :
-          params.categories?.includes('family') ? 'Family' :
-          undefined,
-        size: params.limit
-      });
+    // Fetch events from Ticketmaster if we have a valid key
+    if (hasValidTicketmasterKey) {
+      try {
+        console.log('[SEARCH-EVENTS] Fetching Ticketmaster events...');
+        const ticketmasterResponse = await fetchTicketmasterEvents({
+          apiKey: ticketmasterKey,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          radius: radiusNumber,
+          startDate: params.startDate,
+          endDate: params.endDate,
+          keyword: params.keyword,
+          segmentName: params.categories?.includes('music') ? 'Music' :
+            params.categories?.includes('sports') ? 'Sports' :
+            params.categories?.includes('arts') ? 'Arts & Theatre' :
+            params.categories?.includes('family') ? 'Family' :
+            undefined,
+          size: params.limit
+        });
 
-      // Log API usage
-      logApiKeyUsage('ticketmaster', 'fetch_events', 
-        ticketmasterResponse.error ? 'error' : 'success',
-        Date.now() - startTime,
-        {
-          eventCount: ticketmasterResponse.events?.length || 0,
-          error: ticketmasterResponse.error
+        // Log API usage
+        logApiKeyUsage('ticketmaster', 'fetch_events',
+          ticketmasterResponse.error ? 'error' : 'success',
+          Date.now() - startTime,
+          {
+            eventCount: ticketmasterResponse.events?.length || 0,
+            error: ticketmasterResponse.error
+          }
+        );
+
+        if (ticketmasterResponse.error) {
+          ticketmasterError = ticketmasterResponse.error;
+          console.error('[SEARCH-EVENTS] Ticketmaster API error:', ticketmasterError);
+        } else {
+          ticketmasterCount = ticketmasterResponse.events.length;
+          allEvents.push(...ticketmasterResponse.events);
+          console.log(`[SEARCH-EVENTS] Added ${ticketmasterCount} Ticketmaster events`);
         }
-      );
+      } catch (error) {
+        const formattedError = formatApiError(error);
+        ticketmasterError = formattedError.error;
+        console.error('[SEARCH-EVENTS] Error fetching Ticketmaster events:', error);
 
-      if (ticketmasterResponse.error) {
-        ticketmasterError = ticketmasterResponse.error;
-        console.error('[SEARCH-EVENTS] Ticketmaster API error:', ticketmasterError);
-      } else {
-        ticketmasterCount = ticketmasterResponse.events.length;
-        allEvents.push(...ticketmasterResponse.events);
-        console.log(`[SEARCH-EVENTS] Added ${ticketmasterCount} Ticketmaster events`);
+        // Log API error
+        logApiKeyUsage('ticketmaster', 'fetch_events', 'error',
+          Date.now() - startTime,
+          {
+            error: formattedError.error,
+            errorType: formattedError.errorType
+          }
+        );
       }
-    } catch (error) {
-      const formattedError = formatApiError(error);
-      ticketmasterError = formattedError.error;
-      console.error('[SEARCH-EVENTS] Error fetching Ticketmaster events:', error);
-      
-      // Log API error
-      logApiKeyUsage('ticketmaster', 'fetch_events', 'error',
-        Date.now() - startTime,
-        {
-          error: formattedError.error,
-          errorType: formattedError.errorType
+    } else {
+      ticketmasterError = 'API key not available';
+      console.warn('[SEARCH-EVENTS] Skipping Ticketmaster API call - no valid API key available');
+    }
+
+    // Fetch events from PredictHQ if we have a valid key
+    if (hasValidPredictHQKey) {
+      try {
+        console.log('[SEARCH-EVENTS] Fetching PredictHQ events...');
+
+        // Prepare PredictHQ parameters
+        const predicthqParams = {
+          apiKey: predicthqKey,
+          latitude: params.latitude,
+          longitude: params.longitude,
+          radius: radiusNumber,
+          startDate: params.startDate,
+          endDate: params.endDate,
+          categories: params.categories,
+          location: params.location,
+          withinParam: params.predicthqLocation,
+          keyword: params.keyword,
+          limit: params.limit
+        };
+
+        console.log('[SEARCH-EVENTS] PredictHQ params:', {
+          ...predicthqParams,
+          apiKey: predicthqParams.apiKey ? `${predicthqParams.apiKey.substring(0, 4)}...` : 'NOT SET'
+        });
+
+        const predicthqResponse = await fetchPredictHQEvents(predicthqParams);
+
+        if (predicthqResponse.error) {
+          predicthqError = predicthqResponse.error;
+          console.error('[SEARCH-EVENTS] PredictHQ API error:', predicthqError);
+        } else {
+          predicthqCount = predicthqResponse.events.length;
+          allEvents.push(...predicthqResponse.events);
+          console.log(`[SEARCH-EVENTS] Added ${predicthqCount} PredictHQ events`);
         }
-      );
+      } catch (error) {
+        const formattedError = formatApiError(error);
+        predicthqError = formattedError.error;
+        console.error('[SEARCH-EVENTS] Error fetching PredictHQ events:', error);
+
+        // Log API error
+        logApiKeyUsage('predicthq', 'fetch_events', 'error',
+          Date.now() - startTime,
+          {
+            error: formattedError.error,
+            errorType: formattedError.errorType
+          }
+        );
+      }
+    } else {
+      predicthqError = 'API key not available';
+      console.warn('[SEARCH-EVENTS] Skipping PredictHQ API call - no valid API key available');
     }
 
     // Filter out events with missing required fields
@@ -334,9 +417,9 @@ serve(async (req: Request) => {
       events: filteredEvents,
       sourceStats: {
         ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
-        eventbrite: { count: 0, error: null },
-        serpapi: { count: 0, error: null },
-        predicthq: { count: 0, error: null }
+        eventbrite: { count: 0, error: 'API not implemented' },
+        serpapi: { count: 0, error: 'API not implemented' },
+        predicthq: { count: predicthqCount, error: predicthqError }
       },
       meta: {
         executionTime,
@@ -344,7 +427,8 @@ serve(async (req: Request) => {
         eventsWithCoordinates: eventsWithCoords.length,
         timestamp: new Date().toISOString(),
         keyUsage: {
-          ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+          ticketmaster: apiKeyManager.getUsageStats('ticketmaster'),
+          predicthq: hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null
         }
       }
     }, 200);
@@ -363,8 +447,8 @@ serve(async (req: Request) => {
       timestamp: new Date().toISOString(),
       sourceStats: {
         ticketmaster: { count: 0, error: 'Function execution failed' },
-        eventbrite: { count: 0, error: 'Function execution failed' },
-        serpapi: { count: 0, error: 'Function execution failed' },
+        eventbrite: { count: 0, error: 'API not implemented' },
+        serpapi: { count: 0, error: 'API not implemented' },
         predicthq: { count: 0, error: 'Function execution failed' }
       },
       meta: {
@@ -373,7 +457,8 @@ serve(async (req: Request) => {
         eventsWithCoordinates: 0,
         timestamp: new Date().toISOString(),
         keyUsage: {
-          ticketmaster: apiKeyManager.getUsageStats('ticketmaster')
+          ticketmaster: apiKeyManager.getUsageStats('ticketmaster'),
+          predicthq: hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null
         }
       }
     }, error instanceof ApiKeyError ? 401 : 500);

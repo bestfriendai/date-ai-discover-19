@@ -98,33 +98,44 @@ const MapComponent = ({
 
   // Map event handling (moveend, deselect on click empty space)
   const { handleMapMoveEnd: handleMapMoveEndFromHook } = useMapEvents(
-     (center) => {
-       if (isMapInitialized && map) {
-          const currentZoom = map.getZoom();
-          onMapMoveEnd(center, currentZoom, true); // Pass user interaction flag
-       }
-     },
-     (zoom) => {
-        if (isMapInitialized && map) {
-           const center = map.getCenter();
-           onMapMoveEnd({ latitude: center.lat, longitude: center.lng }, zoom, true); // Pass user interaction flag
+    (center) => {
+      if (isMapInitialized && map) {
+        const currentZoom = map.getZoom();
+        const centerObj = {
+          latitude: center.latitude,
+          longitude: center.longitude
+        };
+        onMapMoveEnd(centerObj, currentZoom, true);
+      }
+    },
+    (zoom) => {
+      if (isMapInitialized && map) {
+        const center = map.getCenter();
+        const centerObj = {
+          latitude: center.lat,
+          longitude: center.lng
+        };
+        onMapMoveEnd(centerObj, zoom, true);
+      }
+    },
+    // onSearchThisArea logic needs map and filters
+    () => {
+      if (map && isMapInitialized && onFetchEvents) {
+        const center = map.getCenter();
+        if (center) {
+          const centerObj = {
+            latitude: center.lat,
+            longitude: center.lng
+          };
+          toast({
+            title: "Searching this area",
+            description: "Looking for events in the current map view...",
+          });
+          onFetchEvents(filters, centerObj, filters.distance);
         }
-     },
-     // onSearchThisArea logic needs map and filters
-     () => {
-        if (map && isMapInitialized && onFetchEvents) {
-          const center = map.getCenter();
-          if (center) {
-            toast({
-              title: "Searching this area",
-              description: "Looking for events in the current map view...",
-            });
-            onFetchEvents(filters, { latitude: center.lat, longitude: center.lng }, filters.distance);
-            // mapHasMoved state is handled in the parent MapView component
-          }
-        }
-     },
-     isMapInitialized // Depends on map being initialized
+      }
+    },
+    isMapInitialized
   );
 
   // Clustering is disabled - we use custom React markers instead
@@ -264,8 +275,8 @@ const MapComponent = ({
     }
   }, [map, isMapInitialized, terrainEnabled]);
 
-  // Use mapCenter from useMapState hook (if needed for display, but not for map interaction)
-  const { mapCenter: currentMapCenter } = useMapState();
+  // Use mapCenter from useMapState hook for display
+  const { mapCenter } = useMapState();
 
 
   // Custom marker click handler removed - now handled directly in MapMarkers component
@@ -392,7 +403,7 @@ const MapComponent = ({
       )}
 
       {/* Welcome Header - Show only on load if no initial location/events */}
-       {isMapInitialized && !currentMapCenter && !isEventsLoading && events.length === 0 && <WelcomeHeader />}
+       {isMapInitialized && !mapCenter && !isEventsLoading && events.length === 0 && <WelcomeHeader />}
 
     </div>
   );
