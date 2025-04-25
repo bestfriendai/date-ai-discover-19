@@ -102,8 +102,23 @@ const MapView = () => {
   // Effect to load events when map center changes (e.g., after Find My Location)
   useEffect(() => {
     if (mapCenter && mapLoaded) {
-      console.log('[MapView] Map center changed, fetching events for:', mapCenter);
-      fetchEvents(filters, mapCenter);
+      // Validate coordinates before fetching
+      const { latitude, longitude } = mapCenter;
+      const isValidLat = typeof latitude === 'number' && !isNaN(latitude) && latitude >= -90 && latitude <= 90;
+      const isValidLng = typeof longitude === 'number' && !isNaN(longitude) && longitude >= -180 && longitude <= 180;
+
+      if (isValidLat && isValidLng) {
+        console.log('[MapView] Map center changed, fetching events for:', mapCenter);
+        // Set default search parameters if none exist
+        const searchParams = {
+          ...filters,
+          radius: filters.distance || 30, // Default 30 mile radius
+          categories: filters.categories || [], // Empty array if no categories
+        };
+        fetchEvents(searchParams, mapCenter);
+      } else {
+        console.warn('[MapView] Invalid coordinates, skipping event fetch:', mapCenter);
+      }
     }
   }, [mapCenter, mapLoaded, filters, fetchEvents]);
 

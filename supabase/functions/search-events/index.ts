@@ -55,9 +55,10 @@ serve(async (req: Request) => {
   try {
     console.log('[SEARCH-EVENTS] Received request');
 
-    // Validate request body exists
+    // Validate request body exists and parse it
     const contentLength = req.headers.get('content-length');
     if (!contentLength || parseInt(contentLength) === 0) {
+      console.error('[SEARCH-EVENTS] Missing request body');
       return safeResponse({
         error: 'Missing request body',
         errorType: 'ValidationError',
@@ -68,8 +69,24 @@ serve(async (req: Request) => {
       }, 400);
     }
 
-    // Parse and validate request parameters
-    const requestBody = await req.json();
+    // Parse request body
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      console.log('[SEARCH-EVENTS] Parsed request body:', requestBody);
+    } catch (error) {
+      console.error('[SEARCH-EVENTS] Failed to parse request body:', error);
+      return safeResponse({
+        error: 'Invalid request body',
+        errorType: 'ValidationError',
+        details: 'Request body must be valid JSON',
+        events: [],
+        sourceStats: generateSourceStats(0, 'Invalid request body', 0, 'Invalid request body'),
+        meta: generateMetadata(startTime, 0, 0, null, null)
+      }, 400);
+    }
+
+    // Validate and parse search parameters
     let params: SearchParams;
     try {
       params = validateAndParseSearchParams(requestBody);

@@ -146,6 +146,7 @@ export const useEventSearch = () => {
     console.log('[EVENTS] Starting event fetch with coordinates:', centerCoords);
 
     try {
+      // Validate required parameters
       if (!centerCoords) {
         console.warn('[EVENTS] Cannot fetch events: No location coordinates available.');
         toast({
@@ -155,6 +156,35 @@ export const useEventSearch = () => {
         });
         setRawEvents([]);
         setEvents([]);
+        return;
+      }
+
+      // Validate coordinates
+      const { latitude, longitude } = centerCoords;
+      const isValidLat = typeof latitude === 'number' && !isNaN(latitude) && latitude >= -90 && latitude <= 90;
+      const isValidLng = typeof longitude === 'number' && !isNaN(longitude) && longitude >= -180 && longitude <= 180;
+
+      if (!isValidLat || !isValidLng) {
+        console.warn('[EVENTS] Invalid coordinates:', centerCoords);
+        toast({
+          title: "Invalid Location",
+          description: "The provided location coordinates are invalid. Please try again.",
+          variant: "destructive",
+        });
+        setRawEvents([]);
+        setEvents([]);
+        return;
+      }
+
+      // Ensure we have minimum required search parameters
+      const radius = radiusOverride !== undefined ? radiusOverride : filters.distance || 30;
+      if (!radius || isNaN(radius) || radius <= 0) {
+        console.warn('[EVENTS] Invalid search radius:', radius);
+        toast({
+          title: "Invalid Search Area",
+          description: "Please specify a valid search radius.",
+          variant: "destructive",
+        });
         return;
       }
 

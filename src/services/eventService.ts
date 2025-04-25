@@ -89,8 +89,8 @@ export async function searchEvents(params: SearchParams): Promise<{
 
       // Add timeout handling for the function call
       const timeoutMs = 30000; // 30 seconds timeout
-      const functionPromise = supabase.functions.invoke('search-events', { // Use search-events function
-        body: searchParams,
+      const functionPromise = supabase.functions.invoke('search-events', {
+        body: JSON.stringify(searchParams), // Explicitly stringify the body
         headers: { 'Content-Type': 'application/json' }
       });
 
