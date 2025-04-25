@@ -24,44 +24,76 @@ export function usePartyAIHandlers({
   // Handler for advanced search
   const handleAdvancedSearch = useCallback((searchParams: any) => {
     console.log('[PartyAI] Advanced search with params:', searchParams);
+    
+    if (!mapCenter) {
+      toast({
+        title: "Location required",
+        description: "Please allow location access or set a location on the map",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Enforce radius limits (10-30km)
+    const radius = Math.min(Math.max(searchParams.distance || 20, 10), 30);
+
     const paramsWithPartyCategory = {
       ...searchParams,
       categories: ['party'],
       keyword: searchParams.keyword
         ? `${searchParams.keyword} party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music`
         : 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
-      limit: 500
+      limit: 500,
+      latitude: mapCenter.latitude,
+      longitude: mapCenter.longitude,
+      radius
     };
-    if (mapCenter) {
-      toast({
-        title: "Finding the best parties",
-        description: "PartyAI is searching for the hottest events matching your criteria",
-      });
-      fetchEvents(
-        { ...filters, ...paramsWithPartyCategory },
-        mapCenter,
-        searchParams.distance || filters.distance
-      );
-    }
+
+    toast({
+      title: "Finding the best parties",
+      description: "PartyAI is searching for the hottest events matching your criteria",
+    });
+
+    fetchEvents(
+      { ...filters, ...paramsWithPartyCategory },
+      mapCenter,
+      radius
+    );
   }, [fetchEvents, filters, mapCenter]);
 
   // Handler for "Search This Area" button
   const handleSearchThisArea = useCallback(() => {
     console.log('[PartyAI] Search this area clicked');
-    if (mapCenter) {
-      const filtersWithPartyCategory = {
-        ...filters,
-        categories: ['party'],
-        keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
-        limit: 500
-      };
+    
+    if (!mapCenter) {
       toast({
-        title: "Searching for parties in this area",
-        description: "PartyAI is finding the best events in the current map view",
+        title: "Location required",
+        description: "Please allow location access or set a location on the map",
+        variant: "destructive"
       });
-      fetchEvents(filtersWithPartyCategory, mapCenter, filters.distance);
-      setMapHasMoved(false);
+      return;
     }
+
+    // Use a reasonable radius for area search (20km default)
+    const radius = Math.min(Math.max(filters.distance || 20, 10), 30);
+
+    const filtersWithPartyCategory = {
+      ...filters,
+      categories: ['party'],
+      keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
+      limit: 500,
+      latitude: mapCenter.latitude,
+      longitude: mapCenter.longitude,
+      radius
+    };
+
+    toast({
+      title: "Searching for parties in this area",
+      description: "PartyAI is finding the best events in the current map view",
+    });
+
+    fetchEvents(filtersWithPartyCategory, mapCenter, radius);
+    setMapHasMoved(false);
   }, [fetchEvents, filters, mapCenter, setMapHasMoved]);
 
   return {

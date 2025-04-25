@@ -89,28 +89,63 @@ serve(async (req: Request) => {
     console.log('[SEARCH-EVENTS] Content-Length:', contentLength);
 
     if (!contentLength || parseInt(contentLength) === 0) {
-      console.warn('[SEARCH-EVENTS] Empty request body detected, using default parameters');
-      // Use default parameters if no body is provided
-      params = {
-        location: 'New York',
-        radius: 50,
-        startDate: new Date().toISOString().split('T')[0],
-        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-        categories: ['music', 'sports', 'arts', 'family', 'food', 'party']
-      };
+      console.warn('[SEARCH-EVENTS] Empty request body detected');
+      return safeResponse({
+        error: 'Missing request body',
+        errorType: 'ValidationError',
+        details: 'Location parameters are required',
+        events: [],
+        sourceStats: {
+          ticketmaster: { count: 0, error: 'Missing location parameters' }
+        },
+        meta: {
+          executionTime: Date.now() - startTime,
+          totalEvents: 0,
+          eventsWithCoordinates: 0,
+          timestamp: new Date().toISOString()
+        }
+      }, 400);
     } else {
       try {
         // Parse the request body as JSON
         const requestBody = await req.json();
         console.log('[SEARCH-EVENTS] Request body:', requestBody);
 
+        // Extract location parameters
+        const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat;
+        const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng;
+        const location = requestBody.location || '';
+
+        // Validate location parameters
+        if ((!latitude || !longitude) && !location) {
+          return safeResponse({
+            error: 'Missing location parameters',
+            errorType: 'ValidationError',
+            details: 'Either coordinates (latitude/longitude) or location string is required',
+            events: [],
+            sourceStats: {
+              ticketmaster: { count: 0, error: 'Missing location parameters' }
+            },
+            meta: {
+              executionTime: Date.now() - startTime,
+              totalEvents: 0,
+              eventsWithCoordinates: 0,
+              timestamp: new Date().toISOString()
+            }
+          }, 400);
+        }
+
+        // Validate and normalize radius
+        let radius = requestBody.radius || 50;
+        radius = Math.min(Math.max(radius, 5), 100); // Enforce minimum 5km and maximum 100km radius
+
         // Validate and extract parameters
         params = {
           keyword: requestBody.keyword || '',
-          location: requestBody.location || '',
-          latitude: requestBody.lat || requestBody.latitude || requestBody.userLat,
-          longitude: requestBody.lng || requestBody.longitude || requestBody.userLng,
-          radius: requestBody.radius || 50,
+          location,
+          latitude,
+          longitude,
+          radius,
           startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
           endDate: requestBody.endDate,
           categories: requestBody.categories || [],
