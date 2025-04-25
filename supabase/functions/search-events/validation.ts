@@ -15,7 +15,7 @@ export class RequestValidationError extends Error {
 
 export function validateLatLng(lat: number | undefined, lng: number | undefined): ValidationError[] {
   const errors: ValidationError[] = [];
-  
+
   if (lat !== undefined) {
     if (isNaN(Number(lat)) || Number(lat) < -90 || Number(lat) > 90) {
       errors.push({
@@ -76,7 +76,7 @@ export function validateAndNormalizeRadius(radius: number | string | undefined):
 
 export function validateDates(startDate?: string, endDate?: string): ValidationError[] {
   const errors: ValidationError[] = [];
-  
+
   if (startDate) {
     const start = new Date(startDate);
     if (isNaN(start.getTime())) {
@@ -115,7 +115,7 @@ export function validateDates(startDate?: string, endDate?: string): ValidationE
 
 export function validateLimit(limit: number | undefined): ValidationError[] {
   const errors: ValidationError[] = [];
-  
+
   if (limit !== undefined) {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100) {
       errors.push({
@@ -131,7 +131,7 @@ export function validateLimit(limit: number | undefined): ValidationError[] {
 
 export function validatePage(page: number | undefined): ValidationError[] {
   const errors: ValidationError[] = [];
-  
+
   if (page !== undefined) {
     if (!Number.isInteger(page) || page < 1) {
       errors.push({
@@ -148,11 +148,11 @@ export function validatePage(page: number | undefined): ValidationError[] {
 export function validateCategories(categories: string[] | undefined): ValidationError[] {
   const errors: ValidationError[] = [];
   const validCategories = ['music', 'sports', 'arts', 'family', 'food', 'business'];
-  
+
   if (categories && Array.isArray(categories)) {
     // Create a copy of the categories array to modify
     const processedCategories = [...categories];
-    
+
     // Handle special categories
     if (processedCategories.includes('party')) {
       // Remove 'party' and add 'music' if not already present
@@ -186,11 +186,11 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
   const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat ||
                   (requestBody.coordinates && requestBody.coordinates[1]) ||
                   (requestBody.predicthqLocation && parsePredicthqLocation(requestBody.predicthqLocation).lat);
-  
+
   const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng ||
                    (requestBody.coordinates && requestBody.coordinates[0]) ||
                    (requestBody.predicthqLocation && parsePredicthqLocation(requestBody.predicthqLocation).lng);
-  
+
   const location = requestBody.location || requestBody.predicthqLocation || '';
 
   // Log extracted location parameters
@@ -201,15 +201,29 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
     predicthqLocation: requestBody.predicthqLocation
   });
 
-  // More lenient location validation - allow empty location for initial load
+  // Default location parameters for New York City if none provided
+  // This ensures we always have a location to search near
+  const defaultLatitude = 40.7128; // NYC latitude
+  const defaultLongitude = -74.0060; // NYC longitude
+  const defaultLocation = 'New York, NY';
+
+  // Use default location if no location parameters provided
+  const finalLatitude = latitude !== undefined ? Number(latitude) : defaultLatitude;
+  const finalLongitude = longitude !== undefined ? Number(longitude) : defaultLongitude;
+  const finalLocation = location || defaultLocation;
+
   if ((!latitude && !longitude) && !location) {
-    console.log('[VALIDATION] No location parameters provided, will use default');
+    console.log('[VALIDATION] No location parameters provided, using default location:', {
+      latitude: defaultLatitude,
+      longitude: defaultLongitude,
+      location: defaultLocation
+    });
   }
 
   // Helper function to parse PredictHQ location string (e.g., "24km@38.89,-76.94")
   function parsePredicthqLocation(locString: string): { lat: number | undefined; lng: number | undefined } {
     if (!locString) return { lat: undefined, lng: undefined };
-    
+
     const match = locString.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
     if (match) {
       return {
@@ -221,8 +235,8 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
   }
 
   // Validate coordinates if provided, but don't error if they're undefined
-  if (latitude !== undefined && longitude !== undefined) {
-    const coordErrors = validateLatLng(latitude, longitude);
+  if (finalLatitude !== undefined && finalLongitude !== undefined) {
+    const coordErrors = validateLatLng(finalLatitude, finalLongitude);
     if (coordErrors.length > 0) {
       errors.push(...coordErrors);
     }
@@ -250,9 +264,9 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
   // Return validated and normalized parameters
   return {
     keyword: requestBody.keyword || '',
-    location,
-    latitude: latitude ? Number(latitude) : undefined,
-    longitude: longitude ? Number(longitude) : undefined,
+    location: finalLocation,
+    latitude: finalLatitude,
+    longitude: finalLongitude,
     radius: normalizedRadius, // Now guaranteed to be a number
     startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
     endDate: requestBody.endDate,

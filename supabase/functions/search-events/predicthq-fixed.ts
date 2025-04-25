@@ -143,15 +143,15 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     let locationParamSet = false;
 
     // Priority 1: Use coordinates and user's radius if valid
-    if (typeof latitude === 'number' && typeof longitude === 'number' && typeof radius === 'number' && radius > 0) {
-      // Convert radius from miles to km (PredictHQ uses km)
-      const radiusKm = Math.round(Number(radius) * 1.60934);
-      // --- REMOVE minimum radius enforcement ---
-      // const finalRadiusKm = Math.max(radiusKm, 40); // REMOVE THIS LINE
-      const finalRadiusKm = radiusKm; // USE THE CALCULATED RADIUS
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      // Ensure radius is a positive number
+      const finalRadius = typeof radius === 'number' && radius > 0 ? radius : 25; // Default to 25 miles if invalid
 
-      queryParams.append('within', `${finalRadiusKm}km@${latitude},${longitude}`);
-      console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${finalRadiusKm}km.`);
+      // Convert radius from miles to km (PredictHQ uses km)
+      const radiusKm = Math.round(Number(finalRadius) * 1.60934);
+
+      queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
+      console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${radiusKm}km.`);
       locationParamSet = true;
     }
     // Priority 2: Use 'withinParam' if explicitly provided (often used internally)
@@ -188,16 +188,14 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       }
     }
 
-    // If no location parameter could be set, return an error instead of defaulting to New York
+    // If no location parameter could be set, use default location (New York City)
     if (!locationParamSet) {
-        console.error('[PREDICTHQ] No valid location parameter could be determined. Aborting PredictHQ call.');
-        // Return an error or empty results for PredictHQ specifically
-         return {
-           events: [],
-           error: 'No valid location provided for PredictHQ search.',
-           status: 400,
-           warnings: ['Location parameter (coordinates or name) is required.']
-         };
+        console.log('[PREDICTHQ] No valid location parameter could be determined. Using default location (New York City).');
+        // Default to New York City with a 25-mile radius (converted to km)
+        const defaultRadiusKm = Math.round(25 * 1.60934);
+        queryParams.append('within', `${defaultRadiusKm}km@40.7128,-74.0060`);
+        console.log(`[PREDICTHQ] Using default coordinates: 40.7128,-74.0060 with radius ${defaultRadiusKm}km.`);
+        locationParamSet = true;
     }
     // --- END MODIFIED LOCATION LOGIC ---
 
@@ -774,7 +772,7 @@ function normalizePredictHQEvent(event: any): Event {
           'music', 'concert', 'event'
         ]
       },
-      
+
       // Venue types (weighted)
       venueTypes: {
         strong: [
@@ -810,7 +808,7 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Check title and description
     const combinedText = `${event.title || ''} ${event.description || ''}`.toLowerCase();
-    
+
     // Add points for keyword matches with higher weights
     partyScore += partySignals.titleKeywords.strong.some(kw => combinedText.includes(kw)) ? 4 : 0;
     partyScore += partySignals.titleKeywords.medium.some(kw => combinedText.includes(kw)) ? 2.5 : 0;
@@ -993,7 +991,7 @@ function normalizePredictHQEvent(event: any): Event {
     // Determine party subcategory if it's a party
     if (category === 'party') {
       const eventText = `${event.title || ''} ${event.description || ''}`.toLowerCase();
-      
+
       if (eventText.match(/club|nightclub|dj|dance|disco/)) {
         partySubcategory = 'club';
       } else if (eventText.match(/day|afternoon|pool|rooftop|brunch/)) {
@@ -1005,7 +1003,7 @@ function normalizePredictHQEvent(event: any): Event {
       } else {
         partySubcategory = 'general';
       }
-      
+
       console.log(`[PARTY_DEBUG] ✅ Event categorized as ${partySubcategory} party with score ${partyScore}`);
     }
 

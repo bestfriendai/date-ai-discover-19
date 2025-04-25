@@ -117,17 +117,32 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
 // New function to filter events by distance from a given point
 export function filterEventsByDistance(events: Event[], latitude: number, longitude: number, radius: number): Event[] {
   if (typeof latitude !== 'number' || typeof longitude !== 'number' || typeof radius !== 'number') {
-    console.warn('[PROCESSING] filterEventsByDistance called without valid location or radius. Returning empty array.');
-    return []; // Return empty array if location/radius is not valid
+    console.warn('[PROCESSING] filterEventsByDistance called without valid location or radius. Returning all events.');
+    return events; // Return all events if location/radius is not valid instead of empty array
   }
 
   console.log(`[PROCESSING] Filtering events within ${radius} km of ${latitude}, ${longitude}`);
+  console.log(`[PROCESSING] Total events before filtering: ${events.length}`);
 
-  return events.filter(event => {
+  // Count events with and without coordinates
+  const eventsWithCoords = events.filter(event =>
+    event.coordinates &&
+    Array.isArray(event.coordinates) &&
+    event.coordinates.length === 2 &&
+    typeof event.coordinates[0] === 'number' &&
+    typeof event.coordinates[1] === 'number' &&
+    !isNaN(event.coordinates[0]) &&
+    !isNaN(event.coordinates[1])
+  );
+
+  console.log(`[PROCESSING] Events with valid coordinates: ${eventsWithCoords.length}/${events.length}`);
+
+  const filteredEvents = events.filter(event => {
+    // If event doesn't have coordinates, include it anyway
+    // This ensures we don't lose events just because they're missing coordinates
     if (!event.coordinates || event.coordinates.length !== 2) {
-      // Exclude events without coordinates
-      console.log(`[PROCESSING] Excluding event without valid coordinates: ${event.id}`);
-      return false;
+      console.log(`[PROCESSING] Including event without valid coordinates: ${event.id} - ${event.title}`);
+      return true;
     }
 
     const eventLat = event.coordinates[1];
@@ -135,17 +150,22 @@ export function filterEventsByDistance(events: Event[], latitude: number, longit
 
     // Validate event coordinates before calculating distance
     if (typeof eventLat !== 'number' || typeof eventLon !== 'number' || isNaN(eventLat) || isNaN(eventLon)) {
-        console.warn('[PROCESSING] Excluding event with invalid coordinates:', event.id, event.coordinates);
-        return false; // Exclude events with invalid coordinates
+        console.warn('[PROCESSING] Including event with invalid coordinates:', event.id, event.coordinates);
+        return true; // Include events with invalid coordinates instead of excluding them
     }
 
     const distance = calculateDistance(latitude, longitude, eventLat, eventLon);
 
-    // Log distance for debugging
-    console.log(`[PROCESSING] Event ${event.id} at ${eventLat}, ${eventLon} is ${distance.toFixed(2)} km away. Within radius: ${distance <= radius}`);
+    // Only log distance for a sample of events to avoid excessive logging
+    if (Math.random() < 0.1) { // Log approximately 10% of events
+      console.log(`[PROCESSING] Event ${event.id} at ${eventLat}, ${eventLon} is ${distance.toFixed(2)} km away. Within radius: ${distance <= radius}`);
+    }
 
     return distance <= radius;
   });
+
+  console.log(`[PROCESSING] Events after distance filtering: ${filteredEvents.length}/${events.length}`);
+  return filteredEvents;
 }
 
 // For backward compatibility

@@ -40,7 +40,7 @@ serve(async (req: Request) => {
 
   const startTime = Date.now();
   const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
-  
+
   // Helper function for consistent response formatting
   const safeResponse = (data: any, status = 200) =>
     new Response(JSON.stringify(data), { headers: responseHeaders, status });
@@ -133,7 +133,7 @@ serve(async (req: Request) => {
       hasValidTicketmasterKey
         ? fetchTicketmasterEvents(extractTicketmasterParams(params, ticketmasterKey!))
         : Promise.resolve({ events: [], error: 'API key not available' }),
-      
+
       hasValidPredictHQKey
         ? fetchPredictHQEvents(extractPredictHQParams(params, predicthqKey!))
         : Promise.resolve({ events: [], error: 'API key not available' })
@@ -175,30 +175,45 @@ serve(async (req: Request) => {
 
     // Process events
     // Process and filter events
-    // Process and filter events
     const normalizedEvents = normalizeAndFilterEvents(allEvents, params);
-    
-    // Filter events by coordinates and radius if location is provided
+    console.log(`[SEARCH-EVENTS] Normalized ${normalizedEvents.length} events`);
+
+    // Filter events by coordinates and radius
+    // We should always have location parameters now due to our validation changes
     let locationFilteredEvents = normalizedEvents;
+
+    // Log the location parameters we're using
+    console.log(`[SEARCH-EVENTS] Location parameters for filtering:`, {
+      latitude: params.latitude,
+      longitude: params.longitude,
+      radius: params.radius,
+      hasValidCoordinates: typeof params.latitude === 'number' && typeof params.longitude === 'number'
+    });
+
     if (typeof params.latitude === 'number' && typeof params.longitude === 'number' && typeof params.radius === 'number') {
       console.log(`[SEARCH-EVENTS] Filtering events by distance: ${params.latitude}, ${params.longitude} with radius ${params.radius} km`);
       locationFilteredEvents = filterEventsByDistance(normalizedEvents, params.latitude, params.longitude, params.radius);
       console.log(`[SEARCH-EVENTS] Filtered down to ${locationFilteredEvents.length} events by location from original ${normalizedEvents.length}.`);
     } else {
-      console.log('[SEARCH-EVENTS] No valid location parameters for post-fetch filtering.');
+      console.log('[SEARCH-EVENTS] No valid location parameters for post-fetch filtering. Using all normalized events.');
     }
 
-    // Only include events with valid coordinates
+    // Only include events with valid coordinates for map display
     const eventsWithCoords = locationFilteredEvents.filter(event => {
-      return event.coordinates &&
+      const hasValidCoords = event.coordinates &&
              Array.isArray(event.coordinates) &&
              event.coordinates.length === 2 &&
              typeof event.coordinates[0] === 'number' &&
              typeof event.coordinates[1] === 'number' &&
              !isNaN(event.coordinates[0]) &&
              !isNaN(event.coordinates[1]);
+
+      if (!hasValidCoords) {
+        console.log(`[SEARCH-EVENTS] Event without valid coordinates: ${event.id} - ${event.title}`);
+      }
+      return hasValidCoords;
     });
-    
+
     console.log(`[SEARCH-EVENTS] Filtered to ${eventsWithCoords.length} events with valid coordinates from ${locationFilteredEvents.length} location-filtered events.`);
 
     const sortedEvents = sortEventsByDate(eventsWithCoords);
@@ -222,7 +237,7 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
     const formattedError = formatApiError(error);
-    
+
     return safeResponse({
       events: [],
       error: formattedError.error,

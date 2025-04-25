@@ -77,21 +77,23 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     queryParams.append('apikey', apiKey);
 
     // --- MODIFIED LOCATION LOGIC ---
-    // Priority 1: Use coordinates if available
-    if (typeof latitude === 'number' && typeof longitude === 'number' && typeof radius === 'number' && radius > 0) {
+    // Always use coordinates - they should be provided by validateAndParseSearchParams
+    if (typeof latitude === 'number' && typeof longitude === 'number') {
+      // Ensure radius is a positive number
+      const finalRadius = typeof radius === 'number' && radius > 0 ? radius : 25; // Default to 25 miles if invalid
+
       queryParams.append('latlong', `${latitude},${longitude}`);
-      queryParams.append('radius', radius.toString());
+      queryParams.append('radius', finalRadius.toString());
       queryParams.append('unit', 'miles');
-      console.log(`[TICKETMASTER] Using coordinates: ${latitude},${longitude} with radius ${radius} miles.`);
+      console.log(`[TICKETMASTER] Using coordinates: ${latitude},${longitude} with radius ${finalRadius} miles.`);
     } else {
-      // If no valid coordinates are provided, return an error
-      console.error('[TICKETMASTER] No valid location parameters provided. Aborting Ticketmaster call.');
-      return {
-        events: [],
-        error: 'No valid location provided for Ticketmaster search.',
-        status: 400,
-        warnings: ['Valid latitude, longitude, and radius are required.']
-      };
+      // This should never happen with our updated validation, but just in case
+      console.error('[TICKETMASTER] No valid location parameters provided. Using default location.');
+      // Use default location (New York City)
+      queryParams.append('latlong', '40.7128,-74.0060');
+      queryParams.append('radius', (radius || 25).toString());
+      queryParams.append('unit', 'miles');
+      console.log(`[TICKETMASTER] Using default coordinates: 40.7128,-74.0060 with radius ${radius || 25} miles.`);
     }
     // --- END MODIFIED LOCATION LOGIC ---
 
