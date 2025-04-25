@@ -9,9 +9,11 @@ async function testSearchEventsPartyFixed() {
 
     // Test parameters specifically for party events
     const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    // Simulate user's location (NYC coordinates for testing)
     const params = {
-      location: "New York",
-      radius: 100,
+      latitude: 40.7128,
+      longitude: -74.0060,
+      radius: 25, // Smaller radius since we're using exact coordinates
       categories: ['party'],
       limit: 20,
       page: 1,

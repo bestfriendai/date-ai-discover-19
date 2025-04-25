@@ -27,6 +27,7 @@ export interface Event {
   longitude?: number; // Added for backward compatibility
   url?: string;
   price?: string;
+  rawDate?: string; // Added for storing original date format
 
   // PredictHQ specific fields
   rank?: number;
@@ -36,6 +37,38 @@ export interface Event {
     actual?: number;
   };
   demandSurge?: number;
+}
+
+/**
+ * Base parameters for all API calls
+ */
+export interface BaseApiParams {
+  apiKey: string;
+  latitude?: number;
+  longitude?: number;
+  radius: number; // Now strictly a number after validation
+  startDate?: string;
+  endDate?: string;
+  keyword?: string;
+  limit?: number;
+}
+
+/**
+ * Ticketmaster specific parameters
+ */
+export interface TicketmasterParams extends BaseApiParams {
+  segmentName?: string;
+  classificationName?: string;
+  size?: number;
+}
+
+/**
+ * PredictHQ specific parameters
+ */
+export interface PredictHQParams extends BaseApiParams {
+  categories?: string[];
+  location?: string;
+  withinParam?: string;
 }
 
 /**
@@ -49,19 +82,19 @@ export interface SearchParams {
   userLng?: number; // Added for backward compatibility
   latitude?: number;
   longitude?: number;
-  radius?: number | string;
-  startDate?: string; // Made optional with default handling in the function
+  radius: number; // Now strictly a number after validation
+  startDate?: string;
   endDate?: string;
   categories?: string[];
   location?: string;
-  eventType?: string; // Added for SerpApi htichips
-  serpDate?: string; // Added for SerpApi htichips
+  eventType?: string;
+  serpDate?: string;
   limit?: number;
-  page?: number; // Added for pagination
+  page?: number;
   excludeIds?: string[];
-  predicthqLocation?: string; // Added for specific PredictHQ location
-  segmentName?: string; // Added for Ticketmaster segment filtering
-  classificationName?: string; // Added for Ticketmaster classification filtering
+  predicthqLocation?: string;
+  segmentName?: string;
+  classificationName?: string;
 }
 
 /**
@@ -88,5 +121,12 @@ export interface SearchEventsResponse {
     totalEvents: number;
     eventsWithCoordinates: number;
     timestamp: string;
+    keyUsage?: {
+      ticketmaster: any;
+      predicthq: any | null;
+    };
   };
+  error?: string;
+  errorType?: string;
+  details?: any;
 }

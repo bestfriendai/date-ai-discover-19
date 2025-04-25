@@ -126,7 +126,9 @@ class ApiKeyManager {
     try {
       // Get the key from environment variables
       // @ts-ignore: Deno is available at runtime
-      const key = Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);
+      const key = serviceLower === 'predicthq'
+        ? Deno.env.get('PREDICTHQ_API_KEY')
+        : Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);
       if (!key) {
         throw new MissingApiKeyError(service);
       }

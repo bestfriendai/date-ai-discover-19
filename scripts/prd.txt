@@ -1,46 +1,78 @@
-# Product Requirements Document
+Product Requirements Document: Search Events Function Debugging & Improvement
 
-The codebase has several potential issues that need to be addressed:
+Overview:
+The search-events Supabase Edge Function needs debugging and improvements to enhance reliability, performance, and event discovery capabilities, particularly for party-related events. This PRD outlines the requirements for fixing and enhancing the codebase.
 
-1. API Key Management and Validation
-- Issue: Hardcoded API keys and insufficient validation in search-events function
-- Impact: Security risks and potential service disruptions
-- Requirements: Remove hardcoded keys, implement proper validation, return clear errors
+Core Requirements:
 
-2. PredictHQ Location Parameter Handling
-- Issue: Complex and potentially buggy location parameter processing
-- Impact: Inconsistent search results and location handling
-- Requirements: Simplify parameter prioritization, improve coordinate validation
+1. Location Parameter Handling
+- Fix coordinate handling in PredictHQ integration
+- Improve city/region name handling
+- Add proper validation for location parameters
+- Handle edge cases (missing coordinates, invalid locations)
 
-3. PredictHQ API Response Normalization
-- Issue: Fragile event normalization with insufficient error handling
-- Impact: Potential crashes and data inconsistencies
-- Requirements: Implement robust error handling, improve location/venue string building
+2. API Integration Improvements
+- Implement parallel API calls to Ticketmaster and PredictHQ
+- Add proper error handling for each API
+- Improve API key management and validation
+- Remove mock data fallbacks
 
-4. Missing Coordinates Fallback
-- Issue: Inconsistent handling of events missing coordinates
-- Impact: Events may not appear on map or appear in wrong locations
-- Requirements: Ensure all events have valid coordinates with proper fallback logic
+3. Event Normalization & Processing
+- Standardize event data from different sources
+- Improve party event detection and scoring
+- Handle missing or invalid data gracefully
+- Add proper type checking and validation
 
-5. Mapbox Marker Management
-- Issue: Complex marker lifecycle management with React Portals
-- Impact: Potential memory leaks and performance issues
-- Requirements: Refine marker lifecycle handling, improve cleanup
+4. Performance & Reliability
+- Optimize API response processing
+- Add proper logging for debugging
+- Implement request timeout handling
+- Add performance monitoring
 
-6. Mapbox Events and State Synchronization
-- Issue: Potential state sync issues between Mapbox and React
-- Impact: UI inconsistencies and interaction bugs
-- Requirements: Improve event handling and state management
+5. Code Organization
+- Refactor main function into smaller, manageable pieces
+- Improve type definitions
+- Add proper documentation
+- Implement consistent error handling
 
-7. Itinerary Item Editing
-- Issue: Inconsistent state management in EditItinerary component
-- Impact: Potential data loss and UI glitches
-- Requirements: Simplify state management, improve data flow
+Technical Requirements:
 
-Each issue requires careful implementation considering:
-- TypeScript type safety
-- React best practices
-- Performance optimization
-- Error handling
-- Testing strategy
-- Documentation updates
+1. API Integration
+- Use Promise.allSettled for parallel API calls
+- Implement proper error handling for each API
+- Add timeout handling for API calls
+- Remove hardcoded values and use environment variables
+
+2. Data Processing
+- Implement robust event normalization
+- Add proper validation for required fields
+- Handle missing data gracefully
+- Improve party event scoring algorithm
+
+3. Error Handling
+- Add detailed error messages
+- Implement proper error logging
+- Add request validation
+- Handle API-specific errors
+
+4. Performance
+- Optimize API response processing
+- Implement proper caching where applicable
+- Add performance monitoring
+- Optimize memory usage
+
+5. Code Quality
+- Add proper TypeScript types
+- Implement consistent error handling
+- Add comprehensive logging
+- Remove duplicate code
+
+Success Criteria:
+1. All API calls work reliably with proper error handling
+2. Location parameters are handled correctly
+3. Events are properly normalized and filtered
+4. Party events are accurately identified and scored
+5. Performance is improved with parallel API calls
+6. Code is well-organized and maintainable
+7. Error handling is comprehensive and informative
+8. No mock data is used in production

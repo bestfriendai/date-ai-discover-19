@@ -5,18 +5,21 @@ async function testSearchEventsFixed() {
   try {
     const projectRef = 'akwvmljopucsnorvdwuu';
     const functionName = 'search-events';
-    const url = `https://${projectRef}.supabase.co/functions/v1/${functionName}`;
+    const url = `https://${projectRef}.supabase.co/functions/v1/${functionName}?debug=true`;
 
     // Test parameters specifically for party events
-    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
+    const today = new Date();
+    const nextMonth = new Date(today);
+    nextMonth.setMonth(today.getMonth() + 1);
+    
     const params = {
-      location: "New York",
-      radius: 100,
-      categories: ['party'],
-      limit: 20,
-      page: 1,
-      startDate: today,
-      keyword: "party club nightlife dance dj festival"
+      latitude: 40.7128,  // New York City coordinates
+      longitude: -74.0060,
+      radius: 50,
+      categories: ['music', 'arts'],  // Using valid categories that often contain party events
+      limit: 100,  // Increased limit since we'll filter for parties
+      startDate: today.toISOString().split('T')[0],
+      endDate: nextMonth.toISOString().split('T')[0]
     };
 
     console.log(`Testing deployed function at: ${url}`);
@@ -42,8 +45,11 @@ async function testSearchEventsFixed() {
       return;
     }
 
-    const data = await response.json();
-    console.log(`Success! Received ${data.events?.length || 0} events`);
+    const responseText = await response.text();
+    console.log('Full response:', responseText);
+    
+    const data = JSON.parse(responseText);
+    console.log(`\nSuccess! Received ${data.events?.length || 0} events`);
     console.log(`Source stats: ${JSON.stringify(data.sourceStats, null, 2)}`);
     
     // Count events by category

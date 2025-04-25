@@ -3,25 +3,8 @@
  * Documentation: https://docs.predicthq.com/
  */
 
-import { Event } from './types.ts';
+import { Event, PredictHQParams } from './types.ts';
 import { detectPartyEvent, detectPartySubcategory } from './partyUtils.ts';
-
-/**
- * Fetch events from PredictHQ API with improved error handling
- */
-interface PredictHQParams {
-  apiKey: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  startDate?: string;
-  endDate?: string;
-  categories?: string[];
-  location?: string;
-  withinParam?: string;
-  keyword?: string;
-  limit?: number;
-}
 
 interface PredictHQResponse {
   events: Event[];
@@ -48,14 +31,14 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     apiKey,
     latitude,
     longitude,
-    radius = 50, // Significantly increased default radius for more party events
+    radius = 50,
     startDate,
     endDate,
     categories = [],
     location,
     withinParam,
     keyword,
-    limit = 500 // Significantly increased limit for more party events
+    limit = 100
   } = params;
 
   try {
@@ -115,11 +98,11 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       };
     }
 
-    // Validate radius
-    if (radius && (radius < 0 || radius > 1000)) {
+    // Validate radius (already validated by validateAndNormalizeRadius)
+    if (radius && (radius < 5 || radius > 100)) {
       return {
         events: [],
-        error: 'Invalid radius value. Must be between 0 and 1000 miles',
+        error: 'Invalid radius value. Must be between 5 and 100 miles',
         status: 400
       };
     }
@@ -236,13 +219,26 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       // Force active state for party events
       queryParams.append('state', 'active');
 
-      // Add all party-related PredictHQ categories - only using valid PredictHQ categories
-      // Prioritize categories that are most likely to contain party events
-      const partyCategories = ['concerts', 'festivals', 'community', 'conferences', 'performing-arts', 'expos'];
+      // Add all party-related PredictHQ categories
+      const partyCategories = ['concerts', 'festivals', 'community', 'performing-arts', 'expos', 'conferences'];
       categoriesForQuery = Array.from(new Set([...categoriesForQuery, ...partyCategories]));
 
-      // Force the category parameter to include all party-related categories
+      // Add party-related labels
+      const partyLabels = [
+        'nightlife', 'club', 'dance-club', 'disco', 'dance-party', 'dj-set',
+        'live-music', 'live-performance', 'entertainment', 'music-venue',
+        'bar', 'lounge', 'nightclub', 'party-venue', 'social-gathering'
+      ];
+      partyLabels.forEach(label => {
+        queryParams.append('phq_label', label);
+      });
+      queryParams.append('phq_label.op', 'any');
+
+      // Add party-related categories
       queryParams.append('category', partyCategories.join(','));
+
+      // Remove rank threshold for party events to get more results
+      console.log('[PARTY_DEBUG] Removing rank threshold for party events');
 
       // Add state parameter to ensure we get active events
       queryParams.append('state', 'active');
@@ -299,16 +295,6 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       // Don't set rank.gte for party events to get all results
       console.log(`[PARTY_DEBUG] Removing rank threshold to include all party events`);
 
-      // Use a reasonable limit for party events
-      if (limit < 300) {
-        const newParams = {
-          ...params,
-          limit: 300
-        };
-        console.log(`[PARTY_DEBUG] Adjusting limit from ${params.limit} to ${newParams.limit}`);
-        return fetchPredictHQEvents(newParams);
-      }
-
       console.log('[PARTY_DEBUG] Enhanced PredictHQ filters for party events');
     }
     // --- END enhanced party events prioritization ---
@@ -335,6 +321,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         console.log('[CATEGORY_DEBUG] Party category requested, ensuring party-related categories are included');
       }
 
+      // Always map categories, even if party is included
       const predictHQCategories = categoriesForQuery
         .flatMap(cat => categoryMap[cat] || [])
         .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
@@ -367,9 +354,10 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Append query parameters to URL
     url += `?${queryParams.toString()}`;
 
-    console.log('[PREDICTHQ] API URL:', url);
+    // Log full request details
+    console.log('[PREDICTHQ] Full API URL:', url);
     console.log('[PREDICTHQ] API Key prefix:', apiKey ? apiKey.substring(0, 4) + '...' : 'NOT SET');
-    console.log('[PREDICTHQ] Query parameters:', {
+    console.log('[PREDICTHQ] Full Query parameters:', {
       categories: categoriesForQuery,
       labels: labelsForQuery,
       keyword: keywordForQuery,
@@ -379,7 +367,8 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       radius: radius,
       startDate: startDate,
       endDate: endDate,
-      limit: limit
+      limit: limit,
+      queryParams: Object.fromEntries(queryParams.entries())
     });
 
     // Make the API request with proper error handling
@@ -498,13 +487,30 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
         warnings: ['Response parsing failed']
       };
     }
-    console.log('[PREDICTHQ_DEBUG] API response parsed:', {
+    // Log detailed API response
+    console.log('[PREDICTHQ_DEBUG] Full API response:', {
       count: data.count,
       resultsCount: data.results?.length || 0,
       next: !!data.next,
       previous: !!data.previous,
-      warnings: data.warnings // Log warnings even on success
+      warnings: data.warnings,
+      firstResult: data.results?.[0] ? {
+        id: data.results[0].id,
+        title: data.results[0].title,
+        category: data.results[0].category,
+        labels: data.results[0].labels,
+        start: data.results[0].start,
+        location: data.results[0].location
+      } : null,
+      requestId: data.request_id,
+      status: response.status,
+      headers: Object.fromEntries(response.headers.entries())
     });
+
+    // Log any warnings
+    if (data.warnings && data.warnings.length > 0) {
+      console.warn('[PREDICTHQ_DEBUG] API Warnings:', data.warnings);
+    }
 
     // Log the full response for debugging
     if (data.results && data.results.length > 0) {
@@ -731,12 +737,122 @@ function normalizePredictHQEvent(event: any): Event {
       coordinates = [event.place.location[0], event.place.location[1]];
     }
 
-    // Map category with improved detection
+    // Enhanced category mapping with improved party detection
     let category = 'other';
+    let partyScore = 0;
 
-    // First check the event's category (most reliable source)
+    // Enhanced party signals with more comprehensive keywords and higher weights
+    const partySignals = {
+      // Title/description keywords (weighted)
+      titleKeywords: {
+        strong: [
+          'party', 'club', 'nightclub', 'dance', 'dj', 'rave', 'disco',
+          'nightlife', 'bottle service', 'vip table', 'dance floor'
+        ],
+        medium: [
+          'festival', 'mixer', 'social', 'celebration', 'gala',
+          'lounge', 'bar', 'pub', 'cocktail'
+        ],
+        weak: [
+          'entertainment', 'live', 'show', 'performance',
+          'music', 'concert', 'event'
+        ]
+      },
+      
+      // Venue types (weighted)
+      venueTypes: {
+        strong: [
+          'club', 'nightclub', 'disco', 'lounge', 'dance club',
+          'party venue', 'event space'
+        ],
+        medium: [
+          'bar', 'venue', 'hall', 'ballroom', 'rooftop',
+          'warehouse', 'loft'
+        ],
+        weak: [
+          'restaurant', 'cafe', 'theater', 'pub',
+          'gallery', 'studio'
+        ]
+      },
+
+      // Labels (weighted)
+      labels: {
+        strong: [
+          'nightlife', 'dance-club', 'dj-set', 'dance-party',
+          'club-night', 'party-night', 'nightclub'
+        ],
+        medium: [
+          'live-music', 'entertainment', 'social-gathering',
+          'mixer', 'celebration'
+        ],
+        weak: [
+          'food-and-drink', 'performing-arts', 'community',
+          'culture'
+        ]
+      }
+    };
+
+    // Check title and description
+    const combinedText = `${event.title || ''} ${event.description || ''}`.toLowerCase();
+    
+    // Add points for keyword matches with higher weights
+    partyScore += partySignals.titleKeywords.strong.some(kw => combinedText.includes(kw)) ? 4 : 0;
+    partyScore += partySignals.titleKeywords.medium.some(kw => combinedText.includes(kw)) ? 2.5 : 0;
+    partyScore += partySignals.titleKeywords.weak.some(kw => combinedText.includes(kw)) ? 1 : 0;
+
+    // Check venue type
+    if (event.entities?.some((e: any) => e.type === 'venue' && e.name)) {
+      const venueName = event.entities.find((e: any) => e.type === 'venue').name.toLowerCase();
+      // Give more weight to venue-based signals since they're strong indicators
+      partyScore += partySignals.venueTypes.strong.some(type => venueName.includes(type)) ? 5 : 0;
+      partyScore += partySignals.venueTypes.medium.some(type => venueName.includes(type)) ? 3 : 0;
+      partyScore += partySignals.venueTypes.weak.some(type => venueName.includes(type)) ? 1.5 : 0;
+    }
+
+    // Check labels
+    if (event.labels && Array.isArray(event.labels)) {
+      partyScore += partySignals.labels.strong.some(label =>
+        event.labels.some((l: string) => l.toLowerCase().includes(label))) ? 4 : 0;
+      partyScore += partySignals.labels.medium.some(label =>
+        event.labels.some((l: string) => l.toLowerCase().includes(label))) ? 2.5 : 0;
+      partyScore += partySignals.labels.weak.some(label =>
+        event.labels.some((l: string) => l.toLowerCase().includes(label))) ? 1 : 0;
+    }
+
+    // Give more weight to timing since it's a strong indicator
+    const eventHour = event.start ? new Date(event.start).getHours() : -1;
+    if (eventHour >= 19 || eventHour <= 4) { // 7pm-4am
+      partyScore += 3;
+    } else if (eventHour >= 16 && eventHour < 19) { // 4pm-7pm (happy hour/early evening)
+      partyScore += 1.5;
+    }
+
+    // Check rank (higher ranked events more likely to be significant parties)
+    if (event.rank) {
+      if (event.rank >= 70) partyScore += 3;
+      else if (event.rank >= 50) partyScore += 2;
+      else if (event.rank >= 30) partyScore += 1;
+    }
+
+    // Check local rank for additional context
+    if (event.local_rank) {
+      if (event.local_rank >= 70) partyScore += 2;
+      else if (event.local_rank >= 50) partyScore += 1;
+    }
+
+    // Check attendance if available
+    if (event.phq_attendance) {
+      if (event.phq_attendance >= 500) partyScore += 2;
+      else if (event.phq_attendance >= 200) partyScore += 1;
+    }
+
+    const isLikelyParty = partyScore >= 4; // Lower threshold to catch more potential parties
+
+    // Then check the event's category
     if (event.category) {
-      if (['concerts', 'festivals', 'music'].includes(event.category)) {
+      if (isLikelyParty) {
+        category = 'party';  // Override category if likely a party
+      } else if (['concerts', 'festivals', 'music'].includes(event.category)) {
         category = 'music';
       } else if (['sports', 'sport'].includes(event.category)) {
         category = 'sports';
@@ -779,7 +895,10 @@ function normalizePredictHQEvent(event: any): Event {
     const partyVenueTerms = [
       'club', 'lounge', 'bar', 'nightclub', 'disco', 'party', 'dance', 'dj',
       'venue', 'hall', 'ballroom', 'terrace', 'rooftop', 'warehouse', 'underground',
-      'event space', 'event-space', 'social', 'mixer', 'gathering', 'celebration'
+      'event space', 'event-space', 'social', 'mixer', 'gathering', 'celebration',
+      'tavern', 'pub', 'cabaret', 'speakeasy', 'cocktail', 'hookah', 'karaoke',
+      'brewery', 'distillery', 'winery', 'taproom', 'garden', 'patio', 'deck',
+      'loft', 'studio', 'gallery', 'theater', 'arena', 'stadium', 'pavilion'
     ];
 
     const hasPartyVenue = event.entities && Array.isArray(event.entities) &&
@@ -799,6 +918,9 @@ function normalizePredictHQEvent(event: any): Event {
       'concert', 'lounge', 'vip', 'exclusive', 'pool party', 'day party', 'dance party',
       'after party', 'launch party', 'birthday party', 'singles', 'warehouse', 'underground',
       'rooftop', 'beach party', 'brunch', 'dj set', 'bottle service', 'open bar',
+      'social', 'celebration', 'fiesta', 'bash', 'soiree', 'shindig', 'get-together',
+      'meetup', 'mingle', 'networking', 'mixer', 'social hour', 'happy hour',
+      'karaoke', 'trivia', 'game night', 'comedy', 'show', 'performance',
 
       // Additional party terms
       'night out', 'night life', 'club night', 'dance night', 'party night',
@@ -821,20 +943,11 @@ function normalizePredictHQEvent(event: any): Event {
       'dance music', 'dance floor', 'dancing'
     ];
 
-    const lowerTitle = (event.title || '').toLowerCase();
-    const lowerDesc = (event.description || '').toLowerCase();
-    const combinedText = `${lowerTitle} ${lowerDesc}`;
-
-    const hasPartyTerms = partyTerms.some(term => combinedText.includes(term));
-
-    // 5. Check if the event is in a party-related category
-    const partyCategories = ['concerts', 'festivals', 'community', 'performing-arts', 'expos'];
-    const hasPartyCategory = event.category && partyCategories.includes(event.category);
-
-    // 6. Check event rank (PredictHQ specific) - higher rank events are more significant
-    const eventRank = event.rank || 0;
-    const isHighRankEvent = eventRank >= 60; // High rank threshold
-    const isMediumRankEvent = eventRank >= 40; // Medium rank threshold
+    // Use the previously calculated partyScore to determine if it's a party
+    if (partyScore >= 5) {
+      category = 'party';
+      console.log(`[PARTY_DEBUG] Event categorized as party with score ${partyScore}`);
+    }
 
     // 7. Check for party-related phq_labels
     const partyPhqLabels = [
@@ -851,65 +964,47 @@ function normalizePredictHQEvent(event: any): Event {
     const isPartyRelatedCategory = event.category && partyRelatedCategories.includes(event.category);
 
     // Log party detection for debugging
-    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, Rank: ${eventRank}`);
-    console.log(`[PARTY_DEBUG] Detection results: IsPartyByDetection=${isPartyByDetection}, HasPartyLabels=${hasPartyLabels}, HasPartyVenue=${hasPartyVenue}, HasPartyTerms=${hasPartyTerms}, HasPartyCategory=${hasPartyCategory}, HasPartyPhqLabels=${hasPartyPhqLabels}`);
+    console.log(`[PARTY_DEBUG] PredictHQ Event: ${event.title}, Category: ${category}, Score: ${partyScore}`);
+    console.log(`[PARTY_DEBUG] Detection results: Score=${partyScore}, Category=${event.category}`);
 
-    // DECISION LOGIC: If any of our party detection methods return true, categorize as a party
-    // We're being more aggressive with party detection to compensate for category limitations
-    if (isPartyByDetection || hasPartyLabels || hasPartyVenue || hasPartyTerms ||
-        (hasPartyCategory && (isHighRankEvent || hasPartyPhqLabels)) ||
-        (isPartyRelatedCategory && isHighRankEvent)) {
+    // Use the weighted scoring system to determine if it's a party
+    if (partyScore >= 5) {
       category = 'party';
       partySubcategory = detectPartySubcategory(event.title, event.description, time);
-      console.log(`[PARTY_DEBUG] ✅ PredictHQ event categorized as party with subcategory: ${partySubcategory}`);
+      console.log(`[PARTY_DEBUG] ✅ PredictHQ event categorized as party with score ${partyScore} and subcategory: ${partySubcategory}`);
     }
 
-    // SPECIAL CASE: For music events, use a more sophisticated approach
-    if (category === 'music' || event.category === 'concerts' || event.category === 'festivals' || event.category === 'performing-arts') {
-      // Weighted approach - some terms are stronger indicators than others
-      const strongPartyTerms = [
-        'dj', 'dance', 'club', 'nightclub', 'party', 'nightlife', 'electronic',
-        'hip hop', 'hip-hop', 'edm', 'house', 'techno', 'disco', 'rave'
-      ];
-
-      const mediumPartyTerms = [
-        'festival', 'concert', 'live music', 'performance', 'show', 'night',
-        'venue', 'lounge', 'bar', 'vip', 'exclusive'
-      ];
-
-      // Check for term presence with different weights
-      const hasStrongTerms = strongPartyTerms.some(term => combinedText.includes(term));
-      const hasMediumTerms = mediumPartyTerms.some(term => combinedText.includes(term));
-
-      // Determine if it's a party based on term presence and event rank
-      const isPartyByStrongTerms = hasStrongTerms;
-      const isPartyByMediumTerms = hasMediumTerms && isMediumRankEvent;
-
-      if (isPartyByStrongTerms || isPartyByMediumTerms) {
-        category = 'party';
-
-        // Determine subcategory based on terms if not already set
-        if (!partySubcategory) {
-          if (combinedText.includes('club') || combinedText.includes('nightclub') ||
-              combinedText.includes('dj') || combinedText.includes('dance')) {
-            partySubcategory = 'club';
-          } else if (combinedText.includes('day') || combinedText.includes('afternoon') ||
-                     combinedText.includes('pool') || combinedText.includes('rooftop')) {
-            partySubcategory = 'day-party';
-          } else {
-            partySubcategory = 'general';
-          }
-        }
-
-        console.log(`[PARTY_DEBUG] ✅ PredictHQ music event categorized as party: ${event.title} (Subcategory: ${partySubcategory})`);
+    // Determine party subcategory if it's a party
+    if (category === 'party') {
+      const eventText = `${event.title || ''} ${event.description || ''}`.toLowerCase();
+      
+      if (eventText.match(/club|nightclub|dj|dance|disco/)) {
+        partySubcategory = 'club';
+      } else if (eventText.match(/day|afternoon|pool|rooftop|brunch/)) {
+        partySubcategory = 'day-party';
+      } else if (eventText.match(/festival|concert|live|performance/)) {
+        partySubcategory = 'music';
+      } else if (eventText.match(/social|mixer|networking|gathering/)) {
+        partySubcategory = 'social';
+      } else {
+        partySubcategory = 'general';
       }
+      
+      console.log(`[PARTY_DEBUG] ✅ Event categorized as ${partySubcategory} party with score ${partyScore}`);
+    }
 
-      // For concerts and festivals with high rank, they're likely party-like events
-      if ((event.category === 'concerts' || event.category === 'festivals') &&
-          event.rank && event.rank > 50 && category !== 'party') {
-        category = 'party';
-        partySubcategory = partySubcategory || 'general';
-        console.log(`[PARTY_DEBUG] ✅ PredictHQ high-ranked music event categorized as party: ${event.title}`);
+    // If not a party, determine other categories
+    if (category === 'other') {
+      if (event.category === 'concerts' || event.category === 'festivals') {
+        category = 'music';
+      } else if (event.category === 'sports') {
+        category = 'sports';
+      } else if (event.category === 'performing-arts' || event.category === 'arts') {
+        category = 'arts';
+      } else if (event.category === 'community' || event.category === 'family') {
+        category = 'family';
+      } else if (event.category === 'food-drink' || event.category === 'food') {
+        category = 'food';
       }
     }
 

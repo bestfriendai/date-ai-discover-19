@@ -3,20 +3,7 @@
  * Documentation: https://developer.ticketmaster.com/products-and-docs/apis/discovery-api/v2/
  */
 
-import { Event } from './types.ts';
-
-interface TicketmasterParams {
-  apiKey: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  startDate?: string;
-  endDate?: string;
-  keyword?: string;
-  segmentName?: string;
-  classificationName?: string;
-  size?: number;
-}
+import { Event, TicketmasterParams } from './types.ts';
 
 interface TicketmasterResponse {
   events: Event[];
@@ -94,19 +81,12 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       // Ticketmaster API uses latlong parameter with comma-separated values
       queryParams.append('latlong', `${latitude},${longitude}`);
 
-      // Ensure radius is a number and use a minimum of 25 miles
-      const finalRadius = Math.max(Number(radius), 25);
-      queryParams.append('radius', finalRadius.toString());
+      // Use the validated radius from the parameters
+      // The radius is already guaranteed to be a number between 5-100 by the validation
+      queryParams.append('radius', radius.toString());
       queryParams.append('unit', 'miles');
 
-      console.log(`[TICKETMASTER] Using lat/lng ${latitude},${longitude} with radius ${finalRadius} miles.`);
-    } else {
-      // If no coordinates are provided, use a default radius of 50 miles
-      // This helps ensure we get enough events even without precise coordinates
-      queryParams.append('radius', '50');
-      queryParams.append('unit', 'miles');
-
-      console.log(`[TICKETMASTER] No coordinates provided, using default radius of 50 miles.`);
+      console.log(`[TICKETMASTER] Using lat/lng ${latitude},${longitude} with radius ${radius} miles.`);
     }
 
     // Add date range parameters (using underscore naming as per v2 docs)
