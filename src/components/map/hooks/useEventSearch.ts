@@ -327,7 +327,7 @@ export const useEventSearch = () => {
     } finally {
       setIsEventsLoading(false);
     }
-  }, [isEventsLoading, centerCoords]); // Added centerCoords to dependencies
+  }, [isEventsLoading]); // Removed centerCoords from dependencies since it's a function parameter
 
   // --- FILTER EVENTS LOCALLY BASED ON UI FILTERS (category, date, etc.) ---
   const applyLocalFilters = useCallback((events: Event[], filters: EventFilters) => {
