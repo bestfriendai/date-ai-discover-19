@@ -119,9 +119,7 @@ serve(async (req: Request) => {
           categories: requestBody.categories || [],
           limit: requestBody.limit || 100,
           page: requestBody.page || 1,
-          excludeIds: requestBody.excludeIds || [],
-          // Handle the special predicthqLocation parameter from frontend
-          predicthqLocation: requestBody.predicthqLocation || ''
+          excludeIds: requestBody.excludeIds || []
         };
 
         console.log('[SEARCH-EVENTS] Parsed parameters:', params);
@@ -196,50 +194,6 @@ serve(async (req: Request) => {
       console.error('[SEARCH-EVENTS] Error fetching Ticketmaster events:', error);
     }
 
-    // Fetch events from PredictHQ if API key is available
-    if (PREDICTHQ_API_KEY && PREDICTHQ_API_KEY !== 'YOUR_PREDICTHQ_API_KEY') {
-      try {
-        console.log('[SEARCH-EVENTS] Fetching PredictHQ events...');
-
-        // Prepare PredictHQ parameters
-        const predicthqParams = {
-          apiKey: PREDICTHQ_API_KEY,
-          latitude: phqLatitude,
-          longitude: phqLongitude,
-          radius: radiusNumber, // Use the converted number value
-          startDate: params.startDate,
-          endDate: params.endDate,
-          categories: categories,
-          location: phqLocation,
-          withinParam: phqWithinParam, // Use the dedicated withinParam from predicthqLocation
-          keyword: params.keyword,
-          limit: params.limit
-        };
-
-        console.log('[SEARCH-EVENTS] PredictHQ params:', {
-          ...predicthqParams,
-          apiKey: predicthqParams.apiKey ? `${predicthqParams.apiKey.substring(0, 4)}...` : 'NOT SET'
-        });
-
-        const predicthqResponse = await fetchPredictHQEvents(predicthqParams);
-
-        if (predicthqResponse.error) {
-          predicthqError = predicthqResponse.error;
-          console.error('[SEARCH-EVENTS] PredictHQ API error:', predicthqError);
-        } else {
-          predicthqCount = predicthqResponse.events.length;
-          allEvents.push(...predicthqResponse.events);
-          console.log(`[SEARCH-EVENTS] Added ${predicthqCount} PredictHQ events`);
-        }
-      } catch (error) {
-        predicthqError = `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
-        console.error('[SEARCH-EVENTS] Error fetching PredictHQ events:', error);
-      }
-    } else {
-      predicthqError = 'API key not configured';
-      console.warn('[SEARCH-EVENTS] Skipping PredictHQ API call - no valid API key available');
-    }
-
     // Filter out events with missing required fields
     const validEvents = allEvents.filter(event => {
       const isValid = !!event.id && !!event.title && !!event.date;
@@ -289,11 +243,6 @@ serve(async (req: Request) => {
       });
     }
 
-    // Count events with coordinates for debugging
-    const eventsWithCoords = filteredEvents.filter(event => {
-      return !!event.coordinates || (!!event.latitude && !!event.longitude);
-    });
-
     // Helper function to parse event date and time
     function parseEventDate(dateStr: string, timeStr?: string): Date {
       try {
@@ -336,21 +285,9 @@ serve(async (req: Request) => {
       events: filteredEvents,
       sourceStats: {
         ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
-        eventbrite: { count: eventbriteCount, error: eventbriteError },
-        serpapi: { count: serpapiCount, error: serpapiError },
-        predicthq: {
-          count: predicthqCount,
-          error: predicthqError,
-          details: {
-            apiKeyAvailable: !!PREDICTHQ_API_KEY,
-            apiKeyLength: PREDICTHQ_API_KEY ? PREDICTHQ_API_KEY.length : 0,
-            categories: categories || [],
-            hasCoordinates: !!(phqLatitude !== undefined && phqLongitude !== undefined),
-            hasLocation: !!phqLocation,
-            hasWithin: !!phqWithinParam,
-            withinParam: phqWithinParam || 'none'
-          }
-        }
+        eventbrite: { count: 0, error: null },
+        serpapi: { count: 0, error: null },
+        predicthq: { count: 0, error: null }
       },
       meta: {
         executionTime,
