@@ -1,132 +1,94 @@
-/**
- * Type definitions for the search-events function
- */
-
-import { PartySubcategory } from './partyUtils.ts';
-
-// Re-export PartySubcategory type
-export { PartySubcategory };
-
-/**
- * Event interface matching the frontend type
- */
 export interface Event {
   id: string;
-  source?: string;
   title: string;
-  description?: string;
-  date: string;
-  time: string;
-  location: string;
-  venue?: string;
-  category: string;
-  partySubcategory?: PartySubcategory; // Added for party event subcategorization
-  image: string;
-  coordinates?: [number, number]; // [longitude, latitude]
-  latitude?: number; // Added for backward compatibility
-  longitude?: number; // Added for backward compatibility
-  url?: string;
-  price?: string;
-  rawDate?: string; // Added for storing original date format
-
-  // PredictHQ specific fields
+  description: string;
+  start: string;
+  end?: string;
+  url: string;
+  image?: string;
+  venue?: Venue;
+  category?: string;
+  subcategories?: string[];
+  source: string;
+  priceMin?: number;
+  priceMax?: number;
+  currency?: string;
+  coordinates?: [number, number];
+  attendance?: number | { forecast: any; actual: any; };
+  entities?: Entity[];
+  relevance?: number;
+  date?: string;
+  time?: string;
+  location?: string;
+  partySubcategory?: string;
   rank?: number;
+  price?: number;
   localRelevance?: number;
-  attendance?: {
-    forecast?: number;
-    actual?: number;
-  };
   demandSurge?: number;
 }
 
-/**
- * Base parameters for all API calls
- */
-export interface BaseApiParams {
-  apiKey: string;
-  latitude?: number;
-  longitude?: number;
-  radius: number; // Now strictly a number after validation
-  startDate?: string;
-  endDate?: string;
-  keyword?: string;
-  limit?: number;
+export interface Venue {
+  name: string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  postalCode?: string;
+  coordinates?: [number, number];
 }
 
-/**
- * Ticketmaster specific parameters
- */
-export interface TicketmasterParams extends BaseApiParams {
-  segmentName?: string;
-  classificationName?: string;
-  size?: number;
+export interface Entity {
+  name: string;
+  type: string;
 }
 
-/**
- * PredictHQ specific parameters
- */
-export interface PredictHQParams extends BaseApiParams {
-  categories?: string[];
-  location?: string;
-  withinParam?: string;
-}
-
-/**
- * Search parameters for event APIs
- */
 export interface SearchParams {
-  keyword?: string;
-  lat?: number; // Added for lat/lng support
-  lng?: number; // Added for lat/lng support
-  userLat?: number; // Added for backward compatibility
-  userLng?: number; // Added for backward compatibility
   latitude?: number;
   longitude?: number;
-  radius: number; // Now strictly a number after validation
-  startDate?: string;
-  endDate?: string;
+  radius?: number;
   categories?: string[];
-  location?: string;
-  eventType?: string;
-  serpDate?: string;
+  text?: string;
+  start?: string;
+  end?: string;
   limit?: number;
-  page?: number;
-  excludeIds?: string[];
-  predicthqLocation?: string;
-  segmentName?: string;
-  classificationName?: string;
+  offset?: number;
+  sort?: string;
+  timeout?: number;
 }
 
-/**
- * Source statistics for event APIs
- */
 export interface SourceStats {
-  count: number;
-  error: string | null;
+  ticketmasterCount: number;
+  ticketmasterError?: string;
+  predicthqCount: number;
+  predicthqError?: string;
 }
 
-/**
- * Response format for the search-events function
- */
-export interface SearchEventsResponse {
-  events: Event[];
-  sourceStats: {
-    ticketmaster: SourceStats;
-    eventbrite: SourceStats;
-    serpapi: SourceStats;
-    predicthq: SourceStats;
-  };
-  meta: {
-    executionTime: number;
-    totalEvents: number;
-    eventsWithCoordinates: number;
-    timestamp: string;
-    keyUsage?: {
-      ticketmaster: any;
-      predicthq: any | null;
-    };
-  };
-  error?: string;
-  errorType?: string;
-  details?: any;
+export interface Metadata {
+  startTime: number;
+  totalEvents: number;
+  eventsWithCoords: number;
+  ticketmasterUsage?: ApiUsage;
+  predicthqUsage?: ApiUsage;
+}
+
+export interface ApiUsage {
+  calls: number;
+  errors: number;
+  latency: number;
+}
+
+export interface PredictHQParams {
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+  categories?: string[];
+  text?: string;
+  start?: string;
+  end?: string;
+  limit?: number;
+  offset?: number;
+  sort?: string;
+  q?: string;
+  location_around?: string;
+  within?: string;
 }

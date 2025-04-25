@@ -139,26 +139,67 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     // Build query parameters
     const queryParams = new URLSearchParams();
 
-    // --- MODIFIED LOCATION LOGIC ---
+    // --- ENHANCED LOCATION LOGIC ---
     let locationParamSet = false;
 
-    // Priority 1: Use coordinates and user's radius if valid
-    if (typeof latitude === 'number' && typeof longitude === 'number') {
+    /**
+     * Helper function to validate coordinates
+     * @param lat Latitude value
+     * @param lng Longitude value
+     * @returns True if coordinates are valid, false otherwise
+     */
+    function validateCoordinates(lat: any, lng: any): boolean {
+      // Check if both values are numbers
+      if (typeof lat !== 'number' || typeof lng !== 'number') {
+        return false;
+      }
+      
+      // Check if values are within valid ranges
+      if (isNaN(lat) || isNaN(lng) ||
+          lat < -90 || lat > 90 ||
+          lng < -180 || lng > 180) {
+        return false;
+      }
+      
+      // Check for 0,0 coordinates (often default values)
+      if (lat === 0 && lng === 0) {
+        return false;
+      }
+      
+      return true;
+    }
+
+    /**
+     * Helper function to format the within parameter for PredictHQ API
+     * PredictHQ expects coordinates in the format longitude,latitude (opposite of usual)
+     * @param lat Latitude value
+     * @param lng Longitude value
+     * @param radiusMiles Radius in miles
+     * @returns Formatted within parameter
+     */
+    function formatWithinParameter(lat: number, lng: number, radiusMiles: number): string {
       // Ensure radius is a positive number
-      const finalRadius = typeof radius === 'number' && radius > 0 ? radius : 25; // Default to 25 miles if invalid
-
+      const finalRadius = typeof radiusMiles === 'number' && radiusMiles > 0 ? radiusMiles : 25;
+      
       // Convert radius from miles to km (PredictHQ uses km)
-      const radiusKm = Math.round(Number(finalRadius) * 1.60934);
+      const radiusKm = Math.round(finalRadius * 1.60934);
+      
+      // PredictHQ expects coordinates in the format longitude,latitude (opposite of usual)
+      return `${radiusKm}km@${lng},${lat}`;
+    }
 
-      queryParams.append('within', `${radiusKm}km@${latitude},${longitude}`);
-      console.log(`[PREDICTHQ] Using lat/lng ${latitude},${longitude} with radius ${radiusKm}km.`);
+    // Priority 1: Use coordinates and user's radius if valid
+    if (validateCoordinates(latitude, longitude)) {
+      const withinParam = formatWithinParameter(Number(latitude), Number(longitude), Number(radius));
+      queryParams.append('within', withinParam);
+      console.log(`[PREDICTHQ] Using coordinates ${longitude},${latitude} (lng,lat) with radius ${Math.round(Number(radius) * 1.60934)}km.`);
       locationParamSet = true;
     }
     // Priority 2: Use 'withinParam' if explicitly provided (often used internally)
     else if (withinParam) {
-       queryParams.append('within', withinParam);
-       console.log(`[PREDICTHQ] Using provided 'within' parameter: ${withinParam}`);
-       locationParamSet = true;
+      queryParams.append('within', withinParam);
+      console.log(`[PREDICTHQ] Using provided 'within' parameter: ${withinParam}`);
+      locationParamSet = true;
     }
     // Priority 3: Use location string as place name if coordinates are missing
     else if (location && typeof location === 'string' && location.trim()) {
@@ -167,12 +208,11 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       if (latLngMatch) {
         const lat = parseFloat(latLngMatch[1]);
         const lng = parseFloat(latLngMatch[2]);
-        if (!isNaN(lat) && !isNaN(lng) &&
-            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-          // Convert radius from miles to km (PredictHQ uses km)
-          const radiusKm = Math.round(Number(radius) * 1.60934);
-          queryParams.append('within', `${radiusKm}km@${lat},${lng}`);
-          console.log(`[PREDICTHQ] Parsed coordinates from location string: ${lat},${lng} with radius ${radiusKm}km`);
+        
+        if (validateCoordinates(lat, lng)) {
+          const withinParam = formatWithinParameter(lat, lng, radius);
+          queryParams.append('within', withinParam);
+          console.log(`[PREDICTHQ] Parsed coordinates from location string: ${lng},${lat} (lng,lat) with radius ${Math.round(Number(radius) * 1.60934)}km`);
           locationParamSet = true;
         } else {
           console.log(`[PREDICTHQ] Invalid coordinates in location string: ${location}, using as place name`);
@@ -190,14 +230,15 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
     // If no location parameter could be set, use default location (New York City)
     if (!locationParamSet) {
-        console.log('[PREDICTHQ] No valid location parameter could be determined. Using default location (New York City).');
-        // Default to New York City with a 25-mile radius (converted to km)
-        const defaultRadiusKm = Math.round(25 * 1.60934);
-        queryParams.append('within', `${defaultRadiusKm}km@40.7128,-74.0060`);
-        console.log(`[PREDICTHQ] Using default coordinates: 40.7128,-74.0060 with radius ${defaultRadiusKm}km.`);
-        locationParamSet = true;
+      console.log('[PREDICTHQ] No valid location parameter could be determined. Using default location (New York City).');
+      // Default to New York City with a 25-mile radius (converted to km)
+      const defaultRadiusKm = Math.round(25 * 1.60934);
+      // Note: PredictHQ expects coordinates in the format longitude,latitude
+      queryParams.append('within', `${defaultRadiusKm}km@-74.0060,40.7128`);
+      console.log(`[PREDICTHQ] Using default coordinates: -74.0060,40.7128 (lng,lat) with radius ${defaultRadiusKm}km.`);
+      locationParamSet = true;
     }
-    // --- END MODIFIED LOCATION LOGIC ---
+    // --- END ENHANCED LOCATION LOGIC ---
 
     // Always filter for future events
     const now = new Date();
@@ -1084,6 +1125,9 @@ function normalizePredictHQEvent(event: any): Event {
       source: 'predicthq',
       title: event.title,
       description,
+      start: event.start,
+      end: event.end,
+      url: event.entities[0]?.url,
       date,
       time,
       location,
@@ -1092,9 +1136,7 @@ function normalizePredictHQEvent(event: any): Event {
       partySubcategory,
       image: imageUrl,
       coordinates,
-      url: event.url,
       price: event.ticket_info?.price,
-      // Add PredictHQ specific fields
       rank,
       localRelevance,
       attendance,
@@ -1110,6 +1152,9 @@ function normalizePredictHQEvent(event: any): Event {
       source: 'predicthq',
       title: event?.title || 'Unknown Event',
       description: 'Error processing event details',
+      start: new Date().toISOString(),
+      end: new Date().toISOString(),
+      url: 'https://www.predicthq.com',
       date: new Date().toISOString().split('T')[0],
       time: '00:00',
       location: 'Location unavailable',

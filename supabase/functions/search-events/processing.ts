@@ -5,77 +5,126 @@ interface EventWithTimestamp {
   timestamp: number;
 }
 
+// Precompile regex patterns for better performance
+const ISO_DATE_REGEX = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/;
+
 export function normalizeAndFilterEvents(events: Event[], params: SearchParams): Event[] {
-  return events
-    .filter(event => {
-      // Filter out events with missing required fields
-      if (!event.id || !event.title || !event.date) {
-        console.warn('[PROCESSING] Filtering out event with missing required fields:', {
-          id: event.id,
-          title: event.title,
-          date: event.date
-        });
-        return false;
-      }
+  // Start time for performance tracking
+  const startTime = performance.now();
+  
+  // Create a Set of excluded IDs for O(1) lookup instead of O(n) array includes
+  const excludedIdsSet = new Set(params.excludeIds || []);
+  
+  // Use a single pass through the array for both filtering and mapping
+  const result = [];
+  
+  for (const event of events) {
+    // Filter out events with missing required fields
+    if (!event.id || !event.title || !event.date) {
+      continue;
+    }
 
-      // Filter out excluded IDs
-      if (params.excludeIds?.includes(event.id)) {
-        console.log('[PROCESSING] Filtering out excluded event:', event.id);
-        return false;
-      }
+    // Filter out excluded IDs - using Set for O(1) lookup
+    if (excludedIdsSet.has(event.id)) {
+      continue;
+    }
+    
+    // Create a new object for the normalized event
+    const normalizedEvent: Event = {
+      ...event,
+      description: event.description || 'No description available',
+      venue: event.venue || 'Venue information not available',
+      category: event.category || 'Uncategorized',
+      source: event.source || 'Unknown'
+    };
+    
+    // Ensure coordinates are in the correct format
+    if (event.latitude && event.longitude && !event.coordinates) {
+      normalizedEvent.coordinates = [Number(event.longitude), Number(event.latitude)];
+    }
 
-      return true;
-    })
-    .map(event => {
-      // Ensure coordinates are in the correct format
-      if (event.latitude && event.longitude && !event.coordinates) {
-        event.coordinates = [Number(event.longitude), Number(event.latitude)];
+    // Normalize date format - only if needed
+    if (event.date && !event.rawDate && !ISO_DATE_REGEX.test(event.date)) {
+      normalizedEvent.rawDate = event.date;
+      try {
+        const date = new Date(event.date);
+        normalizedEvent.date = date.toISOString();
+      } catch (e) {
+        // Keep the original date if parsing fails
       }
+    }
 
-      // Normalize date format
-      if (event.date && !event.rawDate) {
-        event.rawDate = event.date;
-        try {
-          const date = new Date(event.date);
-          event.date = date.toISOString();
-        } catch (e) {
-          console.warn('[PROCESSING] Error normalizing date for event:', event.id, e);
-        }
-      }
-
-      // Ensure all required fields have default values
-      return {
-        ...event,
-        description: event.description || 'No description available',
-        venue: event.venue || 'Venue information not available',
-        category: event.category || 'Uncategorized',
-        source: event.source || 'Unknown'
-      };
-    });
+    result.push(normalizedEvent);
+  }
+  
+  // Log performance metrics only in development or if there are many events
+  if (events.length > 1000) {
+    const processingTime = performance.now() - startTime;
+    console.log(`[PROCESSING] Normalized ${result.length}/${events.length} events in ${processingTime.toFixed(2)}ms`);
+  }
+  
+  return result;
 }
 
+// Optimized date sorting with memoization
+const timestampCache = new Map<string, number>();
+
 export function sortEventsByDate(events: Event[]): Event[] {
-  const eventsWithTimestamps: EventWithTimestamp[] = events.map(event => {
+  const startTime = performance.now();
+  
+  // Prepare events with timestamps
+  const eventsWithTimestamps: EventWithTimestamp[] = [];
+  
+  for (const event of events) {
+    // Use cached timestamp if available
+    const cacheKey = `${event.id}-${event.date}-${event.time || ''}`;
     let timestamp: number;
-    try {
-      if (event.rawDate) {
-        timestamp = new Date(event.rawDate).getTime();
-      } else {
-        const dateStr = event.date.split('T')[0];
-        const timeStr = event.time || '00:00';
-        timestamp = new Date(`${dateStr}T${timeStr}`).getTime();
+    
+    if (timestampCache.has(cacheKey)) {
+      timestamp = timestampCache.get(cacheKey)!;
+    } else {
+      try {
+        if (event.rawDate) {
+          timestamp = new Date(event.rawDate).getTime();
+        } else {
+          const dateStr = event.date.split('T')[0];
+          const timeStr = event.time || '00:00';
+          timestamp = new Date(`${dateStr}T${timeStr}`).getTime();
+        }
+        
+        // Cache the timestamp for future use
+        timestampCache.set(cacheKey, timestamp);
+      } catch (e) {
+        timestamp = Number.MAX_SAFE_INTEGER; // Put invalid dates at the end
       }
-    } catch (e) {
-      console.warn('[PROCESSING] Error parsing date for event:', event.id, e);
-      timestamp = Number.MAX_SAFE_INTEGER; // Put invalid dates at the end
     }
-    return { event, timestamp };
-  });
+    
+    eventsWithTimestamps.push({ event, timestamp });
+  }
 
   // Sort by timestamp and map back to events
-  return eventsWithTimestamps
+  const result = eventsWithTimestamps
     .sort((a, b) => a.timestamp - b.timestamp)
     .map(item => item.event);
+  
+  // Clean up cache if it gets too large
+  if (timestampCache.size > 10000) {
+    // Keep only the most recent 5000 entries
+    const entries = Array.from(timestampCache.entries());
+    const recentEntries = entries.slice(-5000);
+    timestampCache.clear();
+    for (const [key, value] of recentEntries) {
+      timestampCache.set(key, value);
+    }
+  }
+  
+  // Log performance for large datasets
+  if (events.length > 1000) {
+    const processingTime = performance.now() - startTime;
+    console.log(`[PROCESSING] Sorted ${events.length} events in ${processingTime.toFixed(2)}ms`);
+  }
+  
+  return result;
 }
 
 // Renamed from filterEventsByCoordinates to separateEventsByCoordinates for clarity
@@ -100,72 +149,118 @@ export function separateEventsByCoordinates(events: Event[]): {
   return { eventsWithCoords, eventsWithoutCoords };
 }
 
+// Precomputed values for distance calculation
+const EARTH_RADIUS = 6371; // Radius of the Earth in kilometers
+const DEG_TO_RAD = Math.PI / 180;
+
+// Optimized distance calculation with memoization
+const distanceCache = new Map<string, number>();
+
 // Helper function to calculate distance between two coordinates in kilometers using Haversine formula
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  const R = 6371; // Radius of the Earth in kilometers
-  const dLat = (lat2 - lat1) * Math.PI / 180;
-  const dLon = (lon2 - lon1) * Math.PI / 180;
-  const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  // Create a cache key
+  const cacheKey = `${lat1.toFixed(4)},${lon1.toFixed(4)}-${lat2.toFixed(4)},${lon2.toFixed(4)}`;
+  
+  // Check if we have a cached result
+  if (distanceCache.has(cacheKey)) {
+    return distanceCache.get(cacheKey)!;
+  }
+  
+  // Precompute trigonometric values
+  const lat1Rad = lat1 * DEG_TO_RAD;
+  const lat2Rad = lat2 * DEG_TO_RAD;
+  const dLat = (lat2 - lat1) * DEG_TO_RAD;
+  const dLon = (lon2 - lon1) * DEG_TO_RAD;
+  
+  // Optimized Haversine formula
+  const sinDLat = Math.sin(dLat / 2);
+  const sinDLon = Math.sin(dLon / 2);
+  const cosLat1 = Math.cos(lat1Rad);
+  const cosLat2 = Math.cos(lat2Rad);
+  
+  const a = sinDLat * sinDLat + cosLat1 * cosLat2 * sinDLon * sinDLon;
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  const distance = R * c; // Distance in kilometers
+  const distance = EARTH_RADIUS * c; // Distance in kilometers
+  
+  // Cache the result
+  distanceCache.set(cacheKey, distance);
+  
+  // Clean up cache if it gets too large
+  if (distanceCache.size > 10000) {
+    // Keep only the most recent 5000 entries
+    const entries = Array.from(distanceCache.entries());
+    const recentEntries = entries.slice(-5000);
+    distanceCache.clear();
+    for (const [key, value] of recentEntries) {
+      distanceCache.set(key, value);
+    }
+  }
+  
   return distance;
 }
 
-// New function to filter events by distance from a given point
+// Optimized function to filter events by distance from a given point
 export function filterEventsByDistance(events: Event[], latitude: number, longitude: number, radius: number): Event[] {
+  const startTime = performance.now();
+  
+  // Validate inputs
   if (typeof latitude !== 'number' || typeof longitude !== 'number' || typeof radius !== 'number') {
-    console.warn('[PROCESSING] filterEventsByDistance called without valid location or radius. Returning all events.');
-    return events; // Return all events if location/radius is not valid instead of empty array
+    return events; // Return all events if location/radius is not valid
   }
 
-  console.log(`[PROCESSING] Filtering events within ${radius} km of ${latitude}, ${longitude}`);
-  console.log(`[PROCESSING] Total events before filtering: ${events.length}`);
-
-  // Count events with and without coordinates
-  const eventsWithCoords = events.filter(event =>
-    event.coordinates &&
-    Array.isArray(event.coordinates) &&
-    event.coordinates.length === 2 &&
-    typeof event.coordinates[0] === 'number' &&
-    typeof event.coordinates[1] === 'number' &&
-    !isNaN(event.coordinates[0]) &&
-    !isNaN(event.coordinates[1])
-  );
-
-  console.log(`[PROCESSING] Events with valid coordinates: ${eventsWithCoords.length}/${events.length}`);
-
-  const filteredEvents = events.filter(event => {
-    // If event doesn't have coordinates, include it anyway
-    // This ensures we don't lose events just because they're missing coordinates
-    if (!event.coordinates || event.coordinates.length !== 2) {
-      console.log(`[PROCESSING] Including event without valid coordinates: ${event.id} - ${event.title}`);
-      return true;
+  // Quick check if we have any events to process
+  if (events.length === 0) {
+    return [];
+  }
+  
+  // Separate events with and without coordinates for better performance
+  const eventsWithValidCoords: Event[] = [];
+  const eventsWithoutValidCoords: Event[] = [];
+  
+  // First pass: separate events with and without valid coordinates
+  for (const event of events) {
+    if (
+      event.coordinates &&
+      Array.isArray(event.coordinates) &&
+      event.coordinates.length === 2 &&
+      typeof event.coordinates[0] === 'number' &&
+      typeof event.coordinates[1] === 'number' &&
+      !isNaN(event.coordinates[0]) &&
+      !isNaN(event.coordinates[1])
+    ) {
+      eventsWithValidCoords.push(event);
+    } else {
+      eventsWithoutValidCoords.push(event);
     }
-
-    const eventLat = event.coordinates[1];
-    const eventLon = event.coordinates[0];
-
-    // Validate event coordinates before calculating distance
-    if (typeof eventLat !== 'number' || typeof eventLon !== 'number' || isNaN(eventLat) || isNaN(eventLon)) {
-        console.warn('[PROCESSING] Including event with invalid coordinates:', event.id, event.coordinates);
-        return true; // Include events with invalid coordinates instead of excluding them
-    }
-
+  }
+  
+  // Second pass: filter events with valid coordinates by distance
+  const filteredEvents: Event[] = [];
+  
+  // Process events with valid coordinates
+  for (const event of eventsWithValidCoords) {
+    const eventLat = event.coordinates![1];
+    const eventLon = event.coordinates![0];
+    
     const distance = calculateDistance(latitude, longitude, eventLat, eventLon);
-
-    // Only log distance for a sample of events to avoid excessive logging
-    if (Math.random() < 0.1) { // Log approximately 10% of events
-      console.log(`[PROCESSING] Event ${event.id} at ${eventLat}, ${eventLon} is ${distance.toFixed(2)} km away. Within radius: ${distance <= radius}`);
+    
+    if (distance <= radius) {
+      filteredEvents.push(event);
     }
-
-    return distance <= radius;
-  });
-
-  console.log(`[PROCESSING] Events after distance filtering: ${filteredEvents.length}/${events.length}`);
-  return filteredEvents;
+  }
+  
+  // Add all events without valid coordinates
+  const result = [...filteredEvents, ...eventsWithoutValidCoords];
+  
+  // Log performance metrics for large datasets
+  if (events.length > 1000) {
+    const processingTime = performance.now() - startTime;
+    console.log(`[PROCESSING] Distance filtered ${events.length} events in ${processingTime.toFixed(2)}ms`);
+    console.log(`[PROCESSING] Events with coordinates: ${eventsWithValidCoords.length}, without: ${eventsWithoutValidCoords.length}`);
+    console.log(`[PROCESSING] Events within ${radius}km radius: ${filteredEvents.length}`);
+  }
+  
+  return result;
 }
 
 // For backward compatibility

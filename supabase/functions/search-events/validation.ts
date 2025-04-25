@@ -16,8 +16,33 @@ export class RequestValidationError extends Error {
 export function validateLatLng(lat: number | undefined, lng: number | undefined): ValidationError[] {
   const errors: ValidationError[] = [];
 
+  // Check if latitude is provided but longitude is missing
+  if (lat !== undefined && lng === undefined) {
+    errors.push({
+      message: 'Missing longitude value',
+      field: 'longitude',
+      details: 'Longitude must be provided when latitude is specified'
+    });
+  }
+
+  // Check if longitude is provided but latitude is missing
+  if (lng !== undefined && lat === undefined) {
+    errors.push({
+      message: 'Missing latitude value',
+      field: 'latitude',
+      details: 'Latitude must be provided when longitude is specified'
+    });
+  }
+
+  // Validate latitude if provided
   if (lat !== undefined) {
-    if (isNaN(Number(lat)) || Number(lat) < -90 || Number(lat) > 90) {
+    if (typeof lat === 'string' && lat.trim() === '') {
+      errors.push({
+        message: 'Empty latitude value',
+        field: 'latitude',
+        details: 'Latitude cannot be an empty string'
+      });
+    } else if (isNaN(Number(lat)) || Number(lat) < -90 || Number(lat) > 90) {
       errors.push({
         message: 'Invalid latitude value',
         field: 'latitude',
@@ -26,8 +51,15 @@ export function validateLatLng(lat: number | undefined, lng: number | undefined)
     }
   }
 
+  // Validate longitude if provided
   if (lng !== undefined) {
-    if (isNaN(Number(lng)) || Number(lng) < -180 || Number(lng) > 180) {
+    if (typeof lng === 'string' && lng.trim() === '') {
+      errors.push({
+        message: 'Empty longitude value',
+        field: 'longitude',
+        details: 'Longitude cannot be an empty string'
+      });
+    } else if (isNaN(Number(lng)) || Number(lng) < -180 || Number(lng) > 180) {
       errors.push({
         message: 'Invalid longitude value',
         field: 'longitude',
@@ -182,15 +214,91 @@ export function validateCategories(categories: string[] | undefined): Validation
 export function validateAndParseSearchParams(requestBody: any): SearchParams {
   const errors: ValidationError[] = [];
 
+  // Helper function to parse PredictHQ location string (e.g., "24km@38.89,-76.94")
+  function parsePredicthqLocation(locString: string): { lat: number | undefined; lng: number | undefined } {
+    if (!locString || typeof locString !== 'string') return { lat: undefined, lng: undefined };
+
+    const match = locString.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+    if (match) {
+      return {
+        lat: parseFloat(match[1]),
+        lng: parseFloat(match[2])
+      };
+    }
+    return { lat: undefined, lng: undefined };
+  }
+
+  // Parse location from coordinates array if provided
+  function parseCoordinatesArray(coords: any): { lat: number | undefined; lng: number | undefined } {
+    if (!coords || !Array.isArray(coords) || coords.length < 2) {
+      return { lat: undefined, lng: undefined };
+    }
+    
+    const lng = typeof coords[0] === 'number' || (typeof coords[0] === 'string' && !isNaN(Number(coords[0])))
+      ? Number(coords[0])
+      : undefined;
+      
+    const lat = typeof coords[1] === 'number' || (typeof coords[1] === 'string' && !isNaN(Number(coords[1])))
+      ? Number(coords[1])
+      : undefined;
+    
+    return { lat, lng };
+  }
+
+  // Try to parse location from a string like "lat,lng" or "lat, lng"
+  function parseLocationString(locString: string): { lat: number | undefined; lng: number | undefined } {
+    if (!locString || typeof locString !== 'string') return { lat: undefined, lng: undefined };
+    
+    // Match patterns like "40.7128,-74.0060" or "40.7128, -74.0060"
+    const match = locString.match(/^(-?\d+\.?\d*)\s*,\s*(-?\d+\.?\d*)$/);
+    if (match) {
+      return {
+        lat: parseFloat(match[1]),
+        lng: parseFloat(match[2])
+      };
+    }
+    return { lat: undefined, lng: undefined };
+  }
+
   // Extract location parameters - support all possible formats
-  const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat ||
-                  (requestBody.coordinates && requestBody.coordinates[1]) ||
-                  (requestBody.predicthqLocation && parsePredicthqLocation(requestBody.predicthqLocation).lat);
+  let latitude: number | undefined;
+  let longitude: number | undefined;
+  
+  // Try to extract from direct lat/lng properties
+  if (requestBody.lat !== undefined || requestBody.latitude !== undefined || requestBody.userLat !== undefined) {
+    latitude = requestBody.lat !== undefined ? requestBody.lat :
+               requestBody.latitude !== undefined ? requestBody.latitude :
+               requestBody.userLat;
+  }
+  
+  if (requestBody.lng !== undefined || requestBody.longitude !== undefined || requestBody.userLng !== undefined) {
+    longitude = requestBody.lng !== undefined ? requestBody.lng :
+                requestBody.longitude !== undefined ? requestBody.longitude :
+                requestBody.userLng;
+  }
+  
+  // If we don't have both lat and lng, try to extract from coordinates array
+  if ((latitude === undefined || longitude === undefined) && requestBody.coordinates) {
+    const coords = parseCoordinatesArray(requestBody.coordinates);
+    if (coords.lat !== undefined && latitude === undefined) latitude = coords.lat;
+    if (coords.lng !== undefined && longitude === undefined) longitude = coords.lng;
+  }
+  
+  // If we still don't have both lat and lng, try to extract from predicthqLocation
+  if ((latitude === undefined || longitude === undefined) && requestBody.predicthqLocation) {
+    const phqLoc = parsePredicthqLocation(requestBody.predicthqLocation);
+    if (phqLoc.lat !== undefined && latitude === undefined) latitude = phqLoc.lat;
+    if (phqLoc.lng !== undefined && longitude === undefined) longitude = phqLoc.lng;
+  }
+  
+  // If we still don't have both lat and lng, try to parse from location string
+  if ((latitude === undefined || longitude === undefined) && requestBody.location) {
+    const locCoords = parseLocationString(requestBody.location);
+    if (locCoords.lat !== undefined && latitude === undefined) latitude = locCoords.lat;
+    if (locCoords.lng !== undefined && longitude === undefined) longitude = locCoords.lng;
+  }
 
-  const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng ||
-                   (requestBody.coordinates && requestBody.coordinates[0]) ||
-                   (requestBody.predicthqLocation && parsePredicthqLocation(requestBody.predicthqLocation).lng);
-
+  // Get the location string
   const location = requestBody.location || requestBody.predicthqLocation || '';
 
   // Log extracted location parameters
@@ -198,7 +306,8 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
     latitude,
     longitude,
     location,
-    predicthqLocation: requestBody.predicthqLocation
+    predicthqLocation: requestBody.predicthqLocation,
+    coordinates: requestBody.coordinates
   });
 
   // Default location parameters for New York City if none provided
@@ -220,26 +329,10 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
     });
   }
 
-  // Helper function to parse PredictHQ location string (e.g., "24km@38.89,-76.94")
-  function parsePredicthqLocation(locString: string): { lat: number | undefined; lng: number | undefined } {
-    if (!locString) return { lat: undefined, lng: undefined };
-
-    const match = locString.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*)/);
-    if (match) {
-      return {
-        lat: parseFloat(match[1]),
-        lng: parseFloat(match[2])
-      };
-    }
-    return { lat: undefined, lng: undefined };
-  }
-
-  // Validate coordinates if provided, but don't error if they're undefined
-  if (finalLatitude !== undefined && finalLongitude !== undefined) {
-    const coordErrors = validateLatLng(finalLatitude, finalLongitude);
-    if (coordErrors.length > 0) {
-      errors.push(...coordErrors);
-    }
+  // Validate coordinates
+  const coordErrors = validateLatLng(finalLatitude, finalLongitude);
+  if (coordErrors.length > 0) {
+    errors.push(...coordErrors);
   }
 
   // Validate and normalize radius
@@ -263,17 +356,16 @@ export function validateAndParseSearchParams(requestBody: any): SearchParams {
 
   // Return validated and normalized parameters
   return {
-    keyword: requestBody.keyword || '',
-    location: finalLocation,
     latitude: finalLatitude,
     longitude: finalLongitude,
-    radius: normalizedRadius, // Now guaranteed to be a number
-    startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
-    endDate: requestBody.endDate,
+    radius: normalizedRadius,
     categories: requestBody.categories || [],
+    text: requestBody.keyword || '',
+    start: requestBody.startDate || new Date().toISOString().split('T')[0],
+    end: requestBody.endDate,
     limit: requestBody.limit || 100,
-    page: requestBody.page || 1,
-    excludeIds: requestBody.excludeIds || [],
-    predicthqLocation: requestBody.predicthqLocation
+    offset: (requestBody.page ? (requestBody.page - 1) * (requestBody.limit || 100) : 0),
+    sort: requestBody.sort || 'start',
+    timeout: requestBody.timeout || 10000
   };
 }

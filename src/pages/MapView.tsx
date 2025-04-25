@@ -122,6 +122,33 @@ const MapView = () => {
     }
   }, [mapCenter, mapLoaded, filters, fetchEvents]);
 
+  // Add event listener for the custom 'view-event' event
+  useEffect(() => {
+    const handleViewEvent = (e: Event) => {
+      // Type assertion for CustomEvent with our expected detail shape
+      const customEvent = e as CustomEvent<{ event: Event }>;
+      if (customEvent.detail && customEvent.detail.event) {
+        console.log('[MapView] Received view-event for:', customEvent.detail.event.id);
+        handleEventSelect(customEvent.detail.event);
+        
+        // If the event has coordinates, center the map on it
+        if (customEvent.detail.event.coordinates) {
+          const [lng, lat] = customEvent.detail.event.coordinates;
+          setMapCenter({ latitude: lat, longitude: lng });
+          setMapZoom(15); // Zoom in to see the event clearly
+        }
+      }
+    };
+
+    // Add event listener
+    window.addEventListener('view-event', handleViewEvent as EventListener);
+    
+    // Clean up
+    return () => {
+      window.removeEventListener('view-event', handleViewEvent as EventListener);
+    };
+  }, [handleEventSelect, setMapCenter, setMapZoom]);
+
   return (
     <MapLayout>
       <MapContent

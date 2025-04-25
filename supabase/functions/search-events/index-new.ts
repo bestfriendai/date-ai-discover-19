@@ -11,7 +11,7 @@ import { validateAndParseSearchParams, RequestValidationError } from "./validati
 import {
   normalizeAndFilterEvents,
   sortEventsByDate,
-  separateEventsByCoordinates,
+  filterEventsByCoordinates,
   filterEventsByDistance,
   generateSourceStats,
   generateMetadata
@@ -78,33 +78,10 @@ serve(async (req) => {
   try {
     // Parse request parameters
     const url = new URL(req.url);
-    let params: Record<string, any> = {};
+    const params = Object.fromEntries(url.searchParams);
     
-    // Handle both GET and POST requests
-    if (req.method === 'POST') {
-      try {
-        // Parse JSON body for POST requests
-        const body = await req.json();
-        params = body;
-        console.log(`[REQUEST] ${req.method} ${url.pathname} - Body:`, params);
-      } catch (error) {
-        console.error('[ERROR] Failed to parse request body:', error);
-        return new Response(
-          JSON.stringify({
-            error: 'Invalid request body',
-            message: 'Failed to parse JSON body'
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400
-          }
-        );
-      }
-    } else {
-      // Parse query parameters for GET requests
-      params = Object.fromEntries(url.searchParams);
-      console.log(`[REQUEST] ${req.method} ${url.pathname} - Params:`, params);
-    }
+    // Log the request
+    console.log(`[REQUEST] ${req.method} ${url.pathname} - Params:`, params);
     
     // Validate and parse search parameters
     let searchParams: SearchParams;
@@ -115,7 +92,7 @@ serve(async (req) => {
         return new Response(
           JSON.stringify({
             error: error.message,
-            details: error.errors
+            details: error.details
           }),
           {
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -159,12 +136,12 @@ serve(async (req) => {
     let predictHQApiKey: string;
     
     try {
-      ticketmasterApiKey = apiKeyManager.getActiveKey('ticketmaster');
-      predictHQApiKey = apiKeyManager.getActiveKey('predicthq');
+      ticketmasterApiKey = await apiKeyManager.getTicketmasterApiKey();
+      predictHQApiKey = await apiKeyManager.getPredictHQApiKey();
       
       // Log API key usage
-      logApiKeyUsage('ticketmaster', 'get_key', 'success', 0, { keyLength: ticketmasterApiKey.length });
-      logApiKeyUsage('predicthq', 'get_key', 'success', 0, { keyLength: predictHQApiKey.length });
+      logApiKeyUsage('ticketmaster', ticketmasterApiKey);
+      logApiKeyUsage('predicthq', predictHQApiKey);
     } catch (error) {
       if (error instanceof ApiKeyError) {
         return formatApiError(error);
@@ -222,13 +199,11 @@ serve(async (req) => {
     let allEvents: Event[] = [...ticketmasterEvents, ...predictHQEvents];
     
     // Apply post-processing
-    allEvents = normalizeAndFilterEvents(allEvents, searchParams);
+    allEvents = normalizeAndFilterEvents(allEvents);
     
     // Filter by coordinates if provided
     if (searchParams.latitude && searchParams.longitude) {
-      // Use separateEventsByCoordinates instead of filterEventsByCoordinates
-      const { eventsWithCoords } = separateEventsByCoordinates(allEvents);
-      allEvents = eventsWithCoords;
+      allEvents = filterEventsByCoordinates(allEvents);
       
       // Apply distance filtering if radius is provided
       if (searchParams.radius) {

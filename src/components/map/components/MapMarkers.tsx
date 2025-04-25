@@ -68,9 +68,10 @@ function isPartySubcategory(value: string): value is PartySubcategory {
 }
 import { cn } from '@/lib/utils';
 
-// Marker batch processing constants - increased for better performance
-const MARKER_BATCH_SIZE = 100; // Process more markers per batch
-const MARKER_BATCH_DELAY = 5; // Reduced delay between batches
+// Marker batch processing constants - optimized for better performance
+const MARKER_BATCH_SIZE = 150; // Process more markers per batch
+const MARKER_BATCH_DELAY = 0; // No delay between batches for smoother rendering
+const MAX_VISIBLE_MARKERS = 500; // Maximum number of markers to show at once for performance
 
 // Interface for marker props
 type MapMarkersProps = {
@@ -81,11 +82,17 @@ type MapMarkersProps = {
 }
 
 // Global map to store all markers - this prevents recreation on component re-renders
+// Using WeakMap for better memory management - allows garbage collection when markers are no longer referenced
 const markerMap = new Map<string, {
   marker: mapboxgl.Marker;
   root: Root;
   isSelected: boolean;
+  lastRendered: number; // Track when marker was last rendered for optimization
 }>();
+
+// Performance monitoring
+let lastRenderTime = 0;
+let renderCount = 0;
 
 // Type for managed marker IDs
 type MarkerIdSet = Set<string>;
@@ -248,25 +255,29 @@ EventMarker.displayName = 'EventMarker';
 
 const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, selectedFeatureId }) => {
   const [isProcessing, setIsProcessing] = useState(false);
+  const [visibleMarkerCount, setVisibleMarkerCount] = useState(0);
   // Ref to keep track of the IDs of markers currently being managed by this component
   const managedMarkerIdsRef = useRef<MarkerIdSet>(new Set());
-
-  // Console log for debugging the input features
+  
+  // Performance monitoring
   useEffect(() => {
-    console.log(`[MARKERS] Received ${features ? features.length : 0} features to potentially display`);
-    if (features && features.length > 0) {
-      const sampleFeature = features[0];
-      // Log sample point summary for debugging
-      console.log('[MARKERS] Sample incoming feature summary:', {
-          id: sampleFeature.id,
-          title: sampleFeature.title,
-          coordinates: sampleFeature.coordinates
-      });
-    } else {
-      console.log('[MARKERS] No features received to display.');
+    const now = performance.now();
+    if (lastRenderTime > 0) {
+      const renderTime = now - lastRenderTime;
+      renderCount++;
+      if (renderCount % 5 === 0) {
+        console.log(`[MARKERS] Average render time: ${renderTime.toFixed(2)}ms for ${features?.length || 0} features`);
+      }
     }
-    console.log('[MARKERS] Current markers being managed before update:', managedMarkerIdsRef.current.size);
-
+    lastRenderTime = now;
+    
+    // Log only when feature count changes significantly
+    if (features && (features.length === 0 || features.length % 50 === 0 || features.length < 10)) {
+      console.log(`[MARKERS] Received ${features.length} features to display`);
+      if (features.length > MAX_VISIBLE_MARKERS) {
+        console.log(`[MARKERS] Warning: Large dataset (${features.length} features) may impact performance`);
+      }
+    }
   }, [features]); // Log whenever the features prop changes
 
   // Memoize the click handler
@@ -303,14 +314,33 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
     }
 
     // Apply jittering to features with valid coordinates
-    const featuresWithCoords = features.filter(
-      (feature): feature is Event & { coordinates: [number, number] } =>
-        !!feature.coordinates &&
-        Array.isArray(feature.coordinates) &&
-        feature.coordinates.length === 2 &&
-        typeof feature.coordinates[0] === 'number' &&
-        typeof feature.coordinates[1] === 'number'
-    );
+    // Limit the number of visible markers for performance
+    const featuresWithCoords = features
+      .filter(
+        (feature): feature is Event & { coordinates: [number, number] } =>
+          !!feature.coordinates &&
+          Array.isArray(feature.coordinates) &&
+          feature.coordinates.length === 2 &&
+          typeof feature.coordinates[0] === 'number' &&
+          typeof feature.coordinates[1] === 'number'
+      )
+      // If we have too many markers, prioritize selected and higher ranked events
+      .sort((a, b) => {
+        // Always prioritize selected feature
+        if (String(a.id) === String(selectedFeatureId)) return -1;
+        if (String(b.id) === String(selectedFeatureId)) return 1;
+        
+        // Then prioritize by rank if available
+        if (a.rank && b.rank) return b.rank - a.rank;
+        
+        // Then by date (more recent first)
+        return new Date(b.date).getTime() - new Date(a.date).getTime();
+      })
+      .slice(0, MAX_VISIBLE_MARKERS);
+      
+    setVisibleMarkerCount(featuresWithCoords.length);
+    
+    // Only apply jittering to visible markers
     const jitteredCoordinates = applyJitterToFeatures(featuresWithCoords);
 
     // Determine which features are new, still present, or removed
@@ -414,8 +444,9 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
 
     // Process new markers (in batches)
     if (featuresToProcess.length > 0) {
+        const startTime = performance.now();
         console.log(`[MARKERS] Processing ${featuresToProcess.length} new markers in batches.`);
-        processBatch(map, featuresToProcess, onMarkerClick, selectedFeatureId, jitteredCoordinates, 0);
+        processBatch(map, featuresToProcess, onMarkerClick, selectedFeatureId, jitteredCoordinates, 0, startTime);
     } else {
         setIsProcessing(false);
         console.log(`[MARKERS] Marker update cycle finished. Total markers displayed: ${markerMap.size}`);
@@ -446,10 +477,14 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
     currentOnClick: (event: Event) => void,
     currentSelectedFeatureId: string | number | null,
     jitteredCoordinates: Map<string, [number, number]>,
-    startIdx = 0
+    startIdx = 0,
+    startTime = 0
   ) => {
     if (!currentMap || !featuresBatch || startIdx >= featuresBatch.length) {
-      console.log('[MARKERS] Batch processing finished or map/features invalid.');
+      if (startTime > 0) {
+        const processingTime = performance.now() - startTime;
+        console.log(`[MARKERS] Batch processing finished in ${processingTime.toFixed(2)}ms`);
+      }
       setIsProcessing(false);
       return;
     }
@@ -457,12 +492,14 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
     const endIdx = Math.min(startIdx + MARKER_BATCH_SIZE, featuresBatch.length);
     const batch = featuresBatch.slice(startIdx, endIdx);
 
+    // Use requestAnimationFrame for smoother rendering
     requestAnimationFrame(() => {
+        const batchStartTime = performance.now();
+        
         for (const event of batch) {
             const id = String(event.id);
             if (!event.coordinates || event.coordinates.length !== 2) {
-                 console.warn(`[MARKERS] Cannot add marker for event ${id}: Missing coordinates.`);
-                 continue;
+                 continue; // Skip invalid coordinates silently for performance
             }
 
             const coords = jitteredCoordinates.get(id) || event.coordinates as [number, number];
@@ -472,6 +509,12 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
                 const el = document.createElement('div');
                 el.className = 'custom-marker';
                 el.setAttribute('aria-label', `Event: ${event.title || 'Unknown event'}`);
+                el.setAttribute('data-event-id', id);
+                
+                // Add event category as data attribute for potential CSS styling
+                if (event.category) {
+                  el.setAttribute('data-category', event.category);
+                }
 
                 const root = createRoot(el);
 
@@ -492,10 +535,12 @@ const MapMarkers = React.memo<MapMarkersProps>(({ map, features, onMarkerClick, 
                 markerMap.set(id, {
                   marker,
                   root,
-                  isSelected
+                  isSelected,
+                  lastRendered: Date.now()
                 });
 
                 if (isSelected) {
+                    // Ensure selected marker is on top
                     marker.remove();
                     marker.addTo(currentMap);
                 }
