@@ -5,7 +5,7 @@
  * Documentation: https://docs.predicthq.com/
  */
 
-import { Event, PredictHQParams } from '../types.ts';
+import { Event, SearchParams } from '../types.ts'; // Import SearchParams
 import { normalizePredictHQEvent } from '../normalizers/predictHQNormalizer.ts';
 
 interface PredictHQResponse {
@@ -25,7 +25,7 @@ export class PredictHQClient {
   /**
    * Fetch events from PredictHQ API with retry logic and proper error handling
    */
-  async fetchEvents(params: PredictHQParams, config: PredictHQConfig): Promise<PredictHQResponse> {
+  async fetchEvents(params: SearchParams, config: PredictHQConfig): Promise<PredictHQResponse> { // Changed type to SearchParams
     // Validate input parameters
     if (!params) {
       console.error('[PREDICTHQ] Missing parameters');
@@ -169,9 +169,9 @@ export class PredictHQClient {
       
       // Implement retry logic
       let attempt = 0;
-      let response = null;
+      let response: Response | null = null; // Explicitly type response
       let error = null;
-      
+
       while (attempt <= retries) {
         try {
           // Create AbortController for timeout
@@ -309,38 +309,5 @@ export class PredictHQClient {
         status: 500
       };
     }
-  }
-  
-  /**
-   * Helper function to validate coordinates
-   */
-  private validateCoordinates(lat: any, lng: any): boolean {
-    // Check if values are numbers
-    if (typeof lat !== 'number' || typeof lng !== 'number') {
-      return false;
-    }
-    
-    // Check if values are in valid ranges
-    if (lat < -90 || lat > 90) {
-      return false;
-    }
-    
-    if (lng < -180 || lng > 180) {
-      return false;
-    }
-    
-    return true;
-  }
-  
-  /**
-   * Helper function to format the within parameter for PredictHQ API
-   * PredictHQ expects coordinates in the format longitude,latitude (opposite of usual)
-   */
-  private formatWithinParameter(lat: number, lng: number, radiusMiles: number): string {
-    // Convert miles to kilometers for PredictHQ API
-    const radiusKm = Math.round(radiusMiles * 1.60934);
-    
-    // Format: "within=radius@lng,lat" (note the order is longitude,latitude)
-    return `${radiusKm}km@${lng},${lat}`;
   }
 }

@@ -33,6 +33,7 @@ interface MapComponentProps {
   isLoading: boolean;
   filters: EventFilters;
   mapLoaded: boolean;
+  mapboxToken: string; // Add mapboxToken prop
   onMapMoveEnd: (center: { latitude: number; longitude: number }, zoom: number, isUserInteraction: boolean) => void;
   onMapLoad: () => void;
   onEventSelect?: (event: Event | null) => void;
@@ -47,6 +48,7 @@ const MapComponent = ({
   selectedEvent,
   isLoading: isEventsLoading,
   filters,
+  mapboxToken, // Destructure the token
   onMapMoveEnd,
   onMapLoad: onMapLoadProp, // Renamed to avoid conflict with hook state
   onEventSelect,
@@ -54,7 +56,18 @@ const MapComponent = ({
   onFetchEvents,
   onAddToPlan,
   onMapInstance,
+  ...props // Rest parameter must be last (no trailing comma)
 }: MapComponentProps) => {
+  
+  // Debug token
+  console.log('[MapComponent] Received mapboxToken:', mapboxToken ? mapboxToken.substring(0, 8) + '...' : 'null');
+  
+  // Force a delay to ensure we log the token after it's been set
+  useEffect(() => {
+    setTimeout(() => {
+      console.log('[MapComponent] Token after delay:', mapboxToken ? mapboxToken.substring(0, 8) + '...' : 'null');
+    }, 1000);
+  }, [mapboxToken]);
   const mapContainer = useRef<HTMLDivElement>(null);
   const [initialViewState] = useState({
     longitude: -98.5795, // Centered US
@@ -71,7 +84,8 @@ const MapComponent = ({
     mapContainer,
     initialViewState,
     mapStyle,
-    onMapLoadProp // Pass the prop function
+    onMapLoadProp, // Pass the prop function
+    mapboxToken // Pass the token here
   );
 
   // Provide map instance to parent component when available

@@ -68,6 +68,8 @@ export interface SearchParams {
   sort?: string;
   timeout?: number;
   excludeIds?: string[];
+  withinParam?: string; // Added missing property
+  keyword?: string; // Added missing property
 }
 
 /**

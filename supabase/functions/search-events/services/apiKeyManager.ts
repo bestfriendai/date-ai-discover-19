@@ -36,7 +36,7 @@ export class ApiKeyManager {
     try {
       // Ticketmaster API key
       // @ts-ignore: Deno is available in the runtime environment
-      const ticketmasterKey = Deno.env.get('TICKETMASTER_API_KEY');
+      const ticketmasterKey = Deno.env.get('TICKETMASTER_KEY'); // Use TICKETMASTER_KEY as per report
       if (ticketmasterKey) {
         this.keys['ticketmaster'] = {
           key: ticketmasterKey,

@@ -1,10 +1,12 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import { MapLayout } from '@/components/map/layout/MapLayout';
 import { MapContent } from '@/components/map/layout/MapContent';
+import { getMapboxToken } from '@/services/mapboxService'; // Import the service
 import { useEventSearch } from '@/components/map/hooks/useEventSearch';
 import { useMapState } from '@/components/map/hooks/useMapState';
 import { useMapFilters } from '@/components/map/hooks/useMapFilters';
 import { useMapEvents } from '@/components/map/hooks/useMapEvents';
+import { Loader2Icon } from '@/lib/icons'; // Import loader icon
 import AddToPlanModal from '@/components/events/AddToPlanModal';
 import { toast } from '@/hooks/use-toast';
 import type { Event } from '@/types';
@@ -54,6 +56,27 @@ const MapView = () => {
   const [addToPlanModalOpen, setAddToPlanModalOpen] = useState(false);
   const [eventToAdd, setEventToAdd] = useState<Event | null>(null);
 
+  // State for Mapbox token
+  const [mapboxToken, setMapboxToken] = useState<string | null>(null);
+  const [isTokenLoading, setIsTokenLoading] = useState(true);
+  const [tokenError, setTokenError] = useState<string | null>(null);
+  const tokenFetchAttempts = useRef(0);
+  const maxRetryAttempts = 3;
+
+  // Initialize with hardcoded token for debugging
+  useEffect(() => {
+    // DEBUGGING: Hardcode the token directly
+    const hardcodedToken = 'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow';
+    console.log('[MapView] INIT: Setting hardcoded token:', hardcodedToken.substring(0, 8) + '...');
+    
+    // Force a delay to ensure the token is set before rendering
+    setTimeout(() => {
+      console.log('[MapView] Setting token after delay');
+      setMapboxToken(hardcodedToken);
+      setIsTokenLoading(false);
+    }, 500);
+  }, []);
+  
   // Handler for Add to Plan button
   const handleAddToPlan = useCallback((event: Event) => {
     console.log('[MapView] Opening Add to Plan modal for event:', event.id);
@@ -124,67 +147,97 @@ const MapView = () => {
 
   // Add event listener for the custom 'view-event' event
   useEffect(() => {
-    const handleViewEvent = (e: Event) => {
-      // Type assertion for CustomEvent with our expected detail shape
-      const customEvent = e as CustomEvent<{ event: Event }>;
-      if (customEvent.detail && customEvent.detail.event) {
-        console.log('[MapView] Received view-event for:', customEvent.detail.event.id);
-        handleEventSelect(customEvent.detail.event);
-        
+    // Correctly type the event parameter as CustomEvent
+    const handleViewEvent = (event: CustomEvent<{ event: Event }>) => {
+      // No need for type assertion here anymore
+      if (event.detail && event.detail.event) {
+        console.log('[MapView] Received view-event for:', event.detail.event.id);
+        handleEventSelect(event.detail.event);
+
         // If the event has coordinates, center the map on it
-        if (customEvent.detail.event.coordinates) {
-          const [lng, lat] = customEvent.detail.event.coordinates;
+        if (event.detail.event.coordinates) {
+          const [lng, lat] = event.detail.event.coordinates;
           setMapCenter({ latitude: lat, longitude: lng });
           setMapZoom(15); // Zoom in to see the event clearly
         }
       }
     };
 
-    // Add event listener
-    window.addEventListener('view-event', handleViewEvent as EventListener);
-    
+    // Add event listener - TypeScript should infer the type correctly now
+    window.addEventListener('view-event', handleViewEvent as EventListener); // Keep cast for safety or use unknown
+
     // Clean up
     return () => {
-      window.removeEventListener('view-event', handleViewEvent as EventListener);
+      window.removeEventListener('view-event', handleViewEvent as EventListener); // Keep cast for safety or use unknown
     };
   }, [handleEventSelect, setMapCenter, setMapZoom]);
 
   return (
-    <MapLayout>
-      <MapContent
-        leftSidebarOpen={leftSidebarOpen}
-        rightSidebarOpen={rightSidebarOpen}
-        selectedEvent={selectedEvent}
-        showSearch={showSearch}
-        mapHasMoved={mapHasMoved}
-        mapLoaded={mapLoaded}
-        events={events}
-        isEventsLoading={isEventsLoading}
-        filters={{ ...restFilters, onCategoriesChange, onDatePresetChange }}
-        hasMoreEvents={hasMore}
-        totalEvents={totalEvents}
-        onLeftSidebarClose={() => setLeftSidebarOpen(false)}
-        onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
-        onRightSidebarClose={() => setRightSidebarOpen(false)}
-        onShowSearchToggle={() => setShowSearch(!showSearch)}
-        onEventSelect={handleEventSelect}
-        onAdvancedSearch={handleAdvancedSearch}
-        onSearchThisArea={handleSearchThisArea}
-        onMapMoveEnd={handleMapMoveEnd}
-        onMapLoad={handleMapLoad}
-        onFetchEvents={fetchEvents}
-        onLoadMore={loadMoreEvents}
-        onAddToPlan={handleAddToPlan}
-      />
-      {sourceStats && <SourceStatsDisplay stats={sourceStats} />}
-      {eventToAdd && (
-        <AddToPlanModal
-          event={eventToAdd}
-          open={addToPlanModalOpen}
-          onClose={handleCloseAddToPlanModal}
-        />
+    <>
+      {/* Display loading indicator while fetching token */}
+      {isTokenLoading && (
+        <MapLayout>
+          <div className="flex-1 flex items-center justify-center">
+            <Loader2Icon className="h-8 w-8 animate-spin text-primary" />
+            <span className="ml-2">Loading Map Configuration...</span>
+          </div>
+        </MapLayout>
       )}
-    </MapLayout>
+
+      {/* Display error if token fetch failed and no fallback worked */}
+      {!isTokenLoading && !mapboxToken && (
+        <MapLayout>
+          <div className="flex-1 flex items-center justify-center p-4 text-center">
+            <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-md">
+              <h2 className="font-bold mb-2">Map Load Error</h2>
+              <p>Could not retrieve the necessary configuration to load the map. Please ensure the Mapbox token is correctly set up in the backend and try refreshing the page.</p>
+            </div>
+          </div>
+        </MapLayout>
+      )}
+
+      {/* Log token state before rendering MapContent */}
+      {console.log('[MapView] Rendering MapContent - isTokenLoading:', isTokenLoading, 'mapboxToken:', mapboxToken)}
+
+      {!isTokenLoading && mapboxToken && (
+        <MapLayout>
+          <MapContent
+            leftSidebarOpen={leftSidebarOpen}
+            rightSidebarOpen={rightSidebarOpen}
+            selectedEvent={selectedEvent}
+            showSearch={showSearch}
+            mapHasMoved={mapHasMoved}
+            mapLoaded={mapLoaded}
+            events={events}
+            isEventsLoading={isEventsLoading}
+            filters={{ ...restFilters, onCategoriesChange, onDatePresetChange }}
+            hasMoreEvents={hasMore}
+            totalEvents={totalEvents}
+            mapboxToken={mapboxToken} // Pass the token
+            onLeftSidebarClose={() => setLeftSidebarOpen(false)}
+            onLeftSidebarToggle={() => setLeftSidebarOpen(!leftSidebarOpen)}
+            onRightSidebarClose={() => setRightSidebarOpen(false)}
+            onShowSearchToggle={() => setShowSearch(!showSearch)}
+            onEventSelect={handleEventSelect}
+            onAdvancedSearch={handleAdvancedSearch}
+            onSearchThisArea={handleSearchThisArea}
+            onMapMoveEnd={handleMapMoveEnd}
+            onMapLoad={handleMapLoad}
+            onFetchEvents={fetchEvents}
+            onLoadMore={loadMoreEvents}
+            onAddToPlan={handleAddToPlan}
+          />
+          {sourceStats && <SourceStatsDisplay stats={sourceStats} />}
+          {eventToAdd && (
+            <AddToPlanModal
+              event={eventToAdd}
+              open={addToPlanModalOpen}
+              onClose={handleCloseAddToPlanModal}
+            />
+          )}
+        </MapLayout>
+      )}
+    </>
   );
 };
 

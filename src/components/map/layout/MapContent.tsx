@@ -18,6 +18,7 @@ interface MapContentProps {
   filters: EventFilters;
   hasMoreEvents?: boolean;
   totalEvents?: number;
+  mapboxToken: string; // Add mapboxToken prop
   onLeftSidebarClose: () => void;
   onLeftSidebarToggle: () => void;
   onRightSidebarClose: () => void;
@@ -44,6 +45,7 @@ export const MapContent = ({
   filters,
   hasMoreEvents = false,
   totalEvents = 0,
+  mapboxToken, // Destructure the token
   onLeftSidebarClose,
   onLeftSidebarToggle,
   onRightSidebarClose,
@@ -72,6 +74,7 @@ export const MapContent = ({
 
       <div className="flex-1 relative">
         <MapComponent
+          mapboxToken={'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow'} // Hardcode the token directly
           onEventSelect={onEventSelect}
           onLoadingChange={() => {}}
           events={events}
