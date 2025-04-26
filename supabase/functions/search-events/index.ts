@@ -1,29 +1,38 @@
-// @ts-ignore: Deno types
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { corsHeaders } from "../_shared/cors.ts";
-import { fetchTicketmasterEvents } from "./ticketmaster-new.ts";
-import { fetchPredictHQEvents } from "./predicthq.ts";
-import { Event, SearchParams } from "./types.ts";
-import { apiKeyManager } from "./apiKeyManager.ts";
-import { ApiKeyError, formatApiError } from "./errors.ts";
-import { logApiKeyUsage } from "./logger.ts";
-import { validateAndParseSearchParams, RequestValidationError } from "./validation.ts";
-import {
-  normalizeAndFilterEvents,
-  sortEventsByDate,
-  separateEventsByCoordinates,
-  filterEventsByDistance,
-  generateSourceStats,
-  generateMetadata,
-  deduplicateEvents
-} from "./processing.ts";
-import {
-  extractTicketmasterParams,
-  extractPredictHQParams
-} from "./utils.ts";
+/**
+ * Supabase Edge Function: search-events
+ * 
+ * This function fetches events from multiple sources (Ticketmaster, PredictHQ)
+ * and returns a normalized response with deduplication and filtering.
+ * 
+ * Implements best practices for Deno runtime and Supabase Edge Functions.
+ */
 
-// Handle CORS preflight requests
-function handleOptionsRequest() {
+// @ts-ignore: Deno types
+import { serve } from "https://deno.land/std@0.192.0/http/server.ts";
+import { corsHeaders } from "../shared/cors.ts";
+import { TicketmasterClient } from "./services/ticketmaster.ts";
+import { PredictHQClient } from "./services/predicthq.ts";
+import { Event, SearchParams, Metadata } from "./types.ts";
+import { ApiKeyManager } from "./services/apiKeyManager.ts";
+import { validateSearchParams } from "./validators/searchParamsValidator.ts";
+import { EventProcessor } from "./services/eventProcessor.ts";
+import { CacheService } from "./services/cacheService.ts";
+import { MetricsService } from "./services/metricsService.ts";
+import { ErrorHandler } from "./services/errorHandler.ts";
+
+// Initialize services
+const apiKeyManager = new ApiKeyManager();
+const ticketmasterClient = new TicketmasterClient();
+const predictHQClient = new PredictHQClient();
+const eventProcessor = new EventProcessor();
+const cacheService = new CacheService();
+const metricsService = new MetricsService();
+const errorHandler = new ErrorHandler();
+
+/**
+ * Handle CORS preflight requests
+ */
+function handleOptionsRequest(): Response {
   return new Response(null, {
     headers: {
       ...corsHeaders,
@@ -33,24 +42,9 @@ function handleOptionsRequest() {
   });
 }
 
-// Simple in-memory cache with expiration
-const cache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutes cache TTL
-
-// Clear expired cache entries
-const clearExpiredCache = () => {
-  const now = Date.now();
-  for (const [key, value] of cache.entries()) {
-    if (now - value.timestamp > CACHE_TTL) {
-      cache.delete(key);
-    }
-  }
-};
-
-// Run cache cleanup every minute
-setInterval(clearExpiredCache, 60 * 1000);
-
-// Generate cache key from search parameters
+/**
+ * Generate a cache key from search parameters
+ */
 function generateCacheKey(params: SearchParams): string {
   return JSON.stringify({
     latitude: params.latitude,
@@ -66,9 +60,25 @@ function generateCacheKey(params: SearchParams): string {
   });
 }
 
-// Main handler function
-serve(async (req) => {
-  // Start timing for performance monitoring
+/**
+ * Create a JSON response with CORS headers
+ */
+function createJsonResponse(data: unknown, status = 200): Response {
+  return new Response(
+    JSON.stringify(data),
+    {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status
+    }
+  );
+}
+
+/**
+ * Main handler function
+ */
+export async function handler(req: Request): Promise<Response> {
+  // Start performance monitoring
+  const requestId = crypto.randomUUID();
   const startTime = performance.now();
   
   // Handle CORS preflight requests
@@ -76,111 +86,104 @@ serve(async (req) => {
     return handleOptionsRequest();
   }
 
+  // Create a context object for this request
+  const context = {
+    requestId,
+    startTime,
+    method: req.method,
+    url: new URL(req.url)
+  };
+  
   try {
     // Parse request parameters
-    const url = new URL(req.url);
-    let params: Record<string, any> = {};
+    let params: Record<string, any>;
     
-    // Handle both GET and POST requests
     if (req.method === 'POST') {
       try {
-        // Parse JSON body for POST requests
-        const body = await req.json();
-        params = body;
-        console.log(`[REQUEST] ${req.method} ${url.pathname} - Body:`, params);
+        params = await req.json();
       } catch (error) {
-        console.error('[ERROR] Failed to parse request body:', error);
-        return new Response(
-          JSON.stringify({
-            error: 'Invalid request body',
-            message: 'Failed to parse JSON body'
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400
-          }
-        );
+        return createJsonResponse({
+          error: 'Invalid request body',
+          message: 'Failed to parse JSON body'
+        }, 400);
       }
     } else {
-      // Parse query parameters for GET requests
-      params = Object.fromEntries(url.searchParams);
-      console.log(`[REQUEST] ${req.method} ${url.pathname} - Params:`, params);
+      params = Object.fromEntries(context.url.searchParams);
     }
     
-    // Validate and parse search parameters
-    let searchParams: SearchParams;
-    try {
-      searchParams = validateAndParseSearchParams(params);
-    } catch (error) {
-      if (error instanceof RequestValidationError) {
-        return new Response(
-          JSON.stringify({
-            error: error.message,
-            details: error.errors
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 400
-          }
-        );
-      }
-      throw error;
+    // Log request details
+    console.log(`[REQUEST] ${context.method} ${context.url.pathname} - RequestID: ${requestId}`);
+    
+    // Validate search parameters
+    const validationResult = validateSearchParams(params);
+    if (!validationResult.isValid) {
+      return createJsonResponse({
+        error: 'Invalid parameters',
+        details: validationResult.errors
+      }, 400);
     }
+    
+    const searchParams = validationResult.params!; // Add non-null assertion since we've checked isValid
     
     // Check cache for existing results
     const cacheKey = generateCacheKey(searchParams);
-    if (cache.has(cacheKey)) {
-      const cachedData = cache.get(cacheKey)!;
-      console.log('[CACHE] Cache hit for query');
+    const cachedData = await cacheService.get<{
+      events: Event[];
+      total: number;
+      offset: number;
+      limit: number;
+      hasMore: boolean;
+      sourceStats: any;
+      metadata?: Metadata;
+    }>(cacheKey);
+    
+    if (cachedData) {
+      console.log(`[CACHE] Hit for request ${requestId}`);
+      metricsService.recordCacheHit(requestId);
       
-      // Add cache hit metadata
-      const responseData = {
-        ...cachedData.data,
-        metadata: {
-          ...cachedData.data.metadata,
-          cacheHit: true,
-          cachedAt: new Date(cachedData.timestamp).toISOString(),
-          responseTime: performance.now() - startTime
-        }
-      };
+      // Update cache metadata
+      if (cachedData.metadata) {
+        cachedData.metadata.cache = {
+          hit: true,
+          ttl: cachedData.metadata.cache?.ttl
+        };
+      } else {
+        // Add metadata if it doesn't exist
+        cachedData.metadata = {
+          requestId,
+          processingTime: 0,
+          timestamp: new Date().toISOString(),
+          cache: {
+            hit: true,
+            ttl: 5 * 60 * 1000 // 5 minutes default
+          }
+        };
+      }
       
-      return new Response(
-        JSON.stringify(responseData),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          status: 200
-        }
-      );
+      return createJsonResponse(cachedData);
     }
     
-    console.log('[CACHE] Cache miss for query');
+    console.log(`[CACHE] Miss for request ${requestId}`);
+    metricsService.recordCacheMiss(requestId);
     
     // Get API keys
-    let ticketmasterApiKey: string;
-    let predictHQApiKey: string;
+    const apiKeys = await apiKeyManager.getKeys(['ticketmaster', 'predicthq']);
     
-    try {
-      ticketmasterApiKey = apiKeyManager.getActiveKey('ticketmaster');
-      predictHQApiKey = apiKeyManager.getActiveKey('predicthq');
-      
-      // Log API key usage
-      logApiKeyUsage('ticketmaster', 'get_key', 'success', 0, { keyLength: ticketmasterApiKey.length });
-      logApiKeyUsage('predicthq', 'get_key', 'success', 0, { keyLength: predictHQApiKey.length });
-    } catch (error) {
-      if (error instanceof ApiKeyError) {
-        return formatApiError(error);
-      }
-      throw error;
-    }
+    // Create API clients with proper configuration
+    const ticketmasterConfig = {
+      apiKey: apiKeys.ticketmaster,
+      timeout: searchParams.timeout || 5000
+    };
     
-    // Prepare API-specific parameters
-    const ticketmasterParams = extractTicketmasterParams(searchParams, ticketmasterApiKey);
-    const predictHQParams = extractPredictHQParams(searchParams, predictHQApiKey);
+    const predictHQConfig = {
+      apiKey: apiKeys.predicthq,
+      timeout: searchParams.timeout || 5000
+    };
     
-    // Fetch events from both APIs in parallel
+    // Execute API requests in parallel with proper error handling
     const [ticketmasterResponse, predictHQResponse] = await Promise.allSettled([
-      fetchTicketmasterEvents(ticketmasterParams),
-      fetchPredictHQEvents(predictHQParams)
+      ticketmasterClient.fetchEvents(searchParams, ticketmasterConfig),
+      predictHQClient.fetchEvents(searchParams, predictHQConfig)
     ]);
     
     // Process Ticketmaster results
@@ -192,13 +195,13 @@ serve(async (req) => {
       ticketmasterError = ticketmasterResponse.value.error;
       
       if (ticketmasterError) {
-        console.error('[TICKETMASTER] API error:', ticketmasterError);
+        console.error(`[TICKETMASTER] API error for request ${requestId}:`, ticketmasterError);
       } else {
-        console.log(`[TICKETMASTER] Fetched ${ticketmasterEvents.length} events`);
+        console.log(`[TICKETMASTER] Fetched ${ticketmasterEvents.length} events for request ${requestId}`);
       }
     } else {
       ticketmasterError = ticketmasterResponse.reason?.message || 'Unknown error';
-      console.error('[TICKETMASTER] Promise rejected:', ticketmasterError);
+      console.error(`[TICKETMASTER] Promise rejected for request ${requestId}:`, ticketmasterError);
     }
     
     // Process PredictHQ results
@@ -210,103 +213,85 @@ serve(async (req) => {
       predictHQError = predictHQResponse.value.error;
       
       if (predictHQError) {
-        console.error('[PREDICTHQ] API error:', predictHQError);
+        console.error(`[PREDICTHQ] API error for request ${requestId}:`, predictHQError);
       } else {
-        console.log(`[PREDICTHQ] Fetched ${predictHQEvents.length} events`);
+        console.log(`[PREDICTHQ] Fetched ${predictHQEvents.length} events for request ${requestId}`);
       }
     } else {
       predictHQError = predictHQResponse.reason?.message || 'Unknown error';
-      console.error('[PREDICTHQ] Promise rejected:', predictHQError);
+      console.error(`[PREDICTHQ] Promise rejected for request ${requestId}:`, predictHQError);
     }
     
-    // Combine events from both sources
-    let allEvents: Event[] = [...ticketmasterEvents, ...predictHQEvents];
-    
-    // Apply post-processing
-    allEvents = normalizeAndFilterEvents(allEvents, searchParams);
-    
-    // Deduplicate events
-    allEvents = deduplicateEvents(allEvents);
-    
-    // Filter by coordinates if provided
-    if (searchParams.latitude && searchParams.longitude) {
-      // Use separateEventsByCoordinates instead of filterEventsByCoordinates
-      const { eventsWithCoords } = separateEventsByCoordinates(allEvents);
-      allEvents = eventsWithCoords;
-      
-      // Apply distance filtering if radius is provided
-      if (searchParams.radius) {
-        allEvents = filterEventsByDistance(
-          allEvents,
-          searchParams.latitude,
-          searchParams.longitude,
-          searchParams.radius
-        );
+    // Process events with the EventProcessor service
+    const processedEvents = eventProcessor.process({
+      ticketmaster: {
+        events: ticketmasterEvents,
+        error: ticketmasterError
+      },
+      predictHQ: {
+        events: predictHQEvents,
+        error: predictHQError
       }
-    }
-    
-    // Sort events by date
-    allEvents = sortEventsByDate(allEvents);
+    }, searchParams);
     
     // Apply pagination
     const offset = searchParams.offset || 0;
     const limit = searchParams.limit || 100;
-    const paginatedEvents = allEvents.slice(offset, offset + limit);
-    
-    // Generate source statistics
-    const sourceStats = generateSourceStats(
-      ticketmasterEvents.length,
-      ticketmasterError,
-      predictHQEvents.length,
-      predictHQError
-    );
-    
-    // Generate metadata
-    const metadata = generateMetadata(
-      startTime,
-      allEvents.length,
-      allEvents.filter(event => event.coordinates).length,
-      ticketmasterEvents.length,
-      predictHQEvents.length
-    );
+    const paginatedEvents = processedEvents.events.slice(offset, offset + limit);
     
     // Prepare response data
+    const cacheTtl = 5 * 60 * 1000; // 5 minutes
+    const metadata: Metadata = {
+      requestId,
+      processingTime: performance.now() - startTime,
+      timestamp: new Date().toISOString(),
+      cache: {
+        hit: false,
+        ttl: cacheTtl
+      }
+    };
+    
+    // Add API usage information if available
+    if (processedEvents.meta?.apiUsage) {
+      metadata.apiUsage = processedEvents.meta.apiUsage;
+    }
+    
     const responseData = {
       events: paginatedEvents,
-      total: allEvents.length,
+      total: processedEvents.events.length,
       offset,
       limit,
-      hasMore: offset + limit < allEvents.length,
-      sourceStats,
-      meta: metadata
+      hasMore: offset + limit < processedEvents.events.length,
+      sourceStats: processedEvents.sourceStats,
+      metadata
     };
     
     // Cache the results
-    cache.set(cacheKey, {
-      data: responseData,
-      timestamp: Date.now()
+    await cacheService.set(cacheKey, responseData, cacheTtl);
+    
+    // Record metrics
+    metricsService.recordApiCall({
+      requestId,
+      duration: performance.now() - startTime,
+      eventCount: paginatedEvents.length,
+      sources: {
+        ticketmaster: ticketmasterEvents.length,
+        predictHQ: predictHQEvents.length
+      }
     });
     
     // Return the response
-    return new Response(
-      JSON.stringify(responseData),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
-    );
+    return createJsonResponse(responseData);
   } catch (error) {
-    console.error('[ERROR] Unhandled error:', error);
-    
-    return new Response(
-      JSON.stringify({
-        error: 'Internal server error',
-        message: error instanceof Error ? error.message : String(error)
-      }),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500
-      }
-    );
+    // Handle unexpected errors
+    const errorResponse = errorHandler.handle(error, context);
+    return createJsonResponse(errorResponse, errorResponse.status || 500);
+  } finally {
+    // Log request completion
+    const duration = performance.now() - startTime;
+    console.log(`[COMPLETE] Request ${requestId} completed in ${duration.toFixed(2)}ms`);
   }
-});
+}
+
+// Serve the handler function
+serve(handler);

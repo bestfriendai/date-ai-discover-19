@@ -9,7 +9,7 @@ import { PartySubcategory } from './utils/eventNormalizers';
 export interface Event {
   id: string;
   title: string;
-  description?: string;
+  description: string;
   date?: string;
   time?: string;
   venue?: string;
@@ -17,10 +17,13 @@ export interface Event {
   coordinates?: [number, number]; // [longitude, latitude]
   price?: number | string;
   category?: string;
+  subcategories?: string[];
   partySubcategory?: PartySubcategory; // Added for party events
   image?: string;
-  url?: string;
-  source?: string;
+  url: string;
+  source: string;
+  start: string; // ISO datetime string for start time
+  end?: string; // ISO datetime string for end time
 
   // PredictHQ specific fields
   rank?: number;
@@ -29,7 +32,16 @@ export interface Event {
     forecast?: number;
     actual?: number;
   };
+  entities?: Array<{
+    name: string;
+    type: string;
+  }>;
+  relevance?: number;
   demandSurge?: number;
+  distance?: number; // Distance in miles from search location
+  priceMin?: number;
+  priceMax?: number;
+  currency?: string;
 }
 
 /**
@@ -40,34 +52,17 @@ export interface EventFilters {
   categories?: string[];
   priceRange?: [number, number]; // [min, max] in USD
   distance?: number; // in miles
-  sortBy?: 'date' | 'distance' | 'price'; // Sort options
+  sortBy?: 'date' | 'distance' | 'price' | 'rank'; // Sort options
   keyword?: string; // Search keyword
   location?: string; // Location search
   limit?: number; // Maximum number of events to return
 }
 
 /**
- * Search parameters for event queries
- */
-export interface SearchParams {
-  keyword?: string;
-  location?: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  startDate?: string;
-  endDate?: string;
-  categories?: string[];
-  limit?: number;
-  page?: number;
-  excludeIds?: string[];
-  fields?: string[];
-}
-
-/**
  * Map style options
  */
 export type MapStyle = 'streets' | 'outdoors' | 'light' | 'dark' | 'satellite';
+
 /**
  * Represents a single item in an itinerary (e.g., an event or activity)
  */
@@ -101,4 +96,23 @@ export interface Itinerary {
   isPublic?: boolean;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/**
+ * Search parameters for event queries
+ */
+export interface SearchParams {
+  keyword?: string;
+  location?: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+  startDate?: string;
+  endDate?: string;
+  categories?: string[];
+  limit?: number;
+  page?: number;
+  excludeIds?: string[];
+  fields?: string[];
+  timeout?: number;
 }

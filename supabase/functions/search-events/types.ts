@@ -1,94 +1,135 @@
+/**
+ * Updated types for the search-events function
+ * 
+ * This file defines the TypeScript interfaces used throughout the function.
+ */
+
+/**
+ * Event interface
+ */
 export interface Event {
   id: string;
   title: string;
-  description: string;
-  start: string;
-  end?: string;
-  url: string;
-  image?: string;
-  venue?: Venue;
-  category?: string;
-  subcategories?: string[];
-  source: string;
-  priceMin?: number;
-  priceMax?: number;
-  currency?: string;
-  coordinates?: [number, number];
-  attendance?: number | { forecast: any; actual: any; };
-  entities?: Entity[];
-  relevance?: number;
-  date?: string;
+  description?: string;
+  category: string;
+  location: string;
+  date: string;
   time?: string;
-  location?: string;
-  partySubcategory?: string;
-  rank?: number;
-  price?: number;
-  localRelevance?: number;
-  demandSurge?: number;
+  image?: string;
+  url?: string;
+  coordinates?: [number, number]; // [latitude, longitude]
+  venue?: Venue;
+  price?: string;
+  source: string;
+  start: string; // ISO date string
+  raw?: any; // Original data from the source
+  
+  // Additional properties used internally
+  rank?: number; // Used for sorting/relevance
+  distance?: number; // Used for distance calculations
+  partySubcategory?: string; // Used for party event categorization
 }
 
+/**
+ * Venue interface
+ */
 export interface Venue {
+  id?: string;
   name: string;
   address?: string;
   city?: string;
   state?: string;
   country?: string;
   postalCode?: string;
-  coordinates?: [number, number];
+  coordinates?: [number, number]; // [latitude, longitude]
+  url?: string;
 }
 
-export interface Entity {
-  name: string;
-  type: string;
-}
-
+/**
+ * Search parameters interface
+ */
 export interface SearchParams {
+  query?: string;
+  text?: string; // Legacy support for 'text' parameter
+  location?: string;
   latitude?: number;
+  lat?: number; // Alias for latitude
   longitude?: number;
+  lng?: number; // Alias for longitude
   radius?: number;
-  categories?: string[];
-  text?: string;
   start?: string;
+  startDate?: string; // Alias for start
   end?: string;
+  endDate?: string; // Alias for end
+  categories?: string[];
+  category?: string; // Single category
   limit?: number;
   offset?: number;
   sort?: string;
   timeout?: number;
+  excludeIds?: string[];
 }
 
+/**
+ * Source statistics interface
+ */
 export interface SourceStats {
-  ticketmasterCount: number;
-  ticketmasterError?: string;
-  predicthqCount: number;
-  predicthqError?: string;
+  ticketmaster: {
+    total: number;
+    filtered: number;
+    error?: string;
+  };
+  predictHQ: {
+    total: number;
+    filtered: number;
+    error?: string;
+  };
+  deduplication?: {
+    duplicatesRemoved: number;
+  };
 }
 
+/**
+ * Metadata interface
+ */
 export interface Metadata {
-  startTime: number;
-  totalEvents: number;
-  eventsWithCoords: number;
-  ticketmasterUsage?: ApiUsage;
-  predicthqUsage?: ApiUsage;
+  requestId: string;
+  processingTime: number;
+  timestamp: string;
+  apiUsage?: ApiUsage;
+  cache?: {
+    hit: boolean;
+    ttl?: number;
+  };
 }
 
+/**
+ * API usage interface
+ */
 export interface ApiUsage {
-  calls: number;
-  errors: number;
-  latency: number;
+  ticketmaster?: {
+    remaining?: number;
+    limit?: number;
+    reset?: string;
+  };
+  predictHQ?: {
+    remaining?: number;
+    limit?: number;
+    reset?: string;
+  };
 }
 
+/**
+ * PredictHQ specific parameters
+ */
 export interface PredictHQParams {
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  categories?: string[];
-  text?: string;
+  q?: string;
+  location_around?: string;
+  category?: string;
   start?: string;
   end?: string;
   limit?: number;
   offset?: number;
   sort?: string;
-  q?: string;
-  location_around?: string;
-  within?: string;
+  active?: boolean;
 }
