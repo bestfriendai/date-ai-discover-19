@@ -63,19 +63,36 @@ const MapView = () => {
   const tokenFetchAttempts = useRef(0);
   const maxRetryAttempts = 3;
 
-  // Initialize with hardcoded token for debugging
+  // Fetch Mapbox token on component mount
   useEffect(() => {
-    // DEBUGGING: Hardcode the token directly
-    const hardcodedToken = 'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow';
-    console.log('[MapView] INIT: Setting hardcoded token:', hardcodedToken.substring(0, 8) + '...');
-    
-    // Force a delay to ensure the token is set before rendering
-    setTimeout(() => {
-      console.log('[MapView] Setting token after delay');
-      setMapboxToken(hardcodedToken);
-      setIsTokenLoading(false);
-    }, 500);
-  }, []);
+    const fetchToken = async () => {
+      console.log('[MapView] Fetching Mapbox token...');
+      setIsTokenLoading(true);
+      setTokenError(null);
+      try {
+        const token = await getMapboxToken();
+        if (token) {
+          console.log('[MapView] Mapbox token fetched successfully:', token.substring(0, 8) + '...');
+          setMapboxToken(token);
+        } else {
+          throw new Error('Mapbox token returned null from service.');
+        }
+      } catch (error) {
+        console.error('[MapView] Error fetching Mapbox token:', error);
+        setTokenError(error instanceof Error ? error.message : 'Failed to load map configuration.');
+        toast({
+          title: 'Map Load Error',
+          description: 'Could not retrieve map configuration. Please refresh.',
+          variant: 'destructive',
+          duration: 10000
+        });
+      } finally {
+        setIsTokenLoading(false);
+      }
+    };
+
+    fetchToken();
+  }, []); // Run only once on mount
   
   // Handler for Add to Plan button
   const handleAddToPlan = useCallback((event: Event) => {

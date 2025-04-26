@@ -1,4 +1,3 @@
-
 import React from 'react';
 import MapComponent from '@/components/map/MapComponent';
 import { MapSidebars } from '@/components/map/components/MapSidebars';
@@ -73,21 +72,29 @@ export const MapContent = ({
       />
 
       <div className="flex-1 relative">
-        <MapComponent
-          mapboxToken={'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow'} // Hardcode the token directly
-          onEventSelect={onEventSelect}
-          onLoadingChange={() => {}}
-          events={events}
-          selectedEvent={selectedEvent}
-          isLoading={isEventsLoading}
-          filters={filters}
-          mapLoaded={mapLoaded}
-          onMapMoveEnd={onMapMoveEnd}
-          onMapLoad={onMapLoad}
-          onFetchEvents={onFetchEvents}
-          onAddToPlan={onAddToPlan}
-        />
-
+        {/* Conditionally render MapComponent only when token is available */}
+        {mapboxToken && (
+          <MapComponent
+            mapboxToken={mapboxToken} // Pass the validated token
+            onEventSelect={onEventSelect}
+            onLoadingChange={() => {}}
+            events={events}
+            selectedEvent={selectedEvent}
+            isLoading={isEventsLoading}
+            filters={filters}
+            mapLoaded={mapLoaded}
+            onMapMoveEnd={onMapMoveEnd}
+            onMapLoad={onMapLoad}
+            onFetchEvents={onFetchEvents}
+            onAddToPlan={onAddToPlan}
+          />
+        )}
+        {!mapboxToken && (
+          <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+             {/* You can show a specific loading/error message here if needed */}
+            <p>Loading map configuration...</p>
+          </div>
+        )}
         <MapControlsArea
           leftSidebarOpen={leftSidebarOpen}
           showSearch={showSearch}

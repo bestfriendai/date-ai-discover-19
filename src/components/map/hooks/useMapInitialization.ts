@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { toast } from '@/hooks/use-toast';
@@ -35,31 +34,32 @@ export const useMapInitialization = (
   useEffect(() => {
     let isMounted = true;
 
-    // Prevent initialization if container is not ready
+    // Prevent initialization if container is not ready or token is missing
     if (!mapContainer.current) {
       console.log('[MAP_INIT] Map container ref not ready.');
       return;
     }
-    
-    // HARDCODED TOKEN FOR DEBUGGING
-    const hardcodedToken = 'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow';
-    console.log('[MAP_INIT] Using hardcoded token:', hardcodedToken.substring(0, 8) + '...');
-    
+    if (!mapboxToken) { // --- CHECK THE PROP ---
+      console.log('[MAP_INIT] Mapbox token not available.');
+      setState(prev => ({ ...prev, mapError: 'Map token configuration error. Cannot load map.' }));
+      return; // Don't proceed without a token
+    }
+
     // Prevent re-initialization if map already exists
     if (mapInstanceRef.current) {
       console.log('[MAP_INIT] Map already initialized.');
       return;
     }
 
-    // Prevent multiple initialization attempts
+    // Prevent multiple initialization attempts if token hasn't changed
     if (initializationAttempted.current) {
-      console.log('[MAP_INIT] Initialization already attempted, waiting for token to change.');
+      console.log('[MAP_INIT] Initialization already attempted, waiting for token/container to change.');
       return;
     }
-    
+
     initializationAttempted.current = true;
-    console.log('[MAP_INIT] Starting map initialization with hardcoded token:', hardcodedToken.substring(0, 8) + '...');
-    
+    console.log('[MAP_INIT] Starting map initialization with token:', mapboxToken.substring(0, 8) + '...');
+
     PerformanceMonitor.startMeasure('mapInitialization', {
       initialViewState: { ...viewState },
       mapStyle,
@@ -68,12 +68,12 @@ export const useMapInitialization = (
 
     try {
       // Validate token format (basic check)
-      if (!hardcodedToken.startsWith('pk.') && !hardcodedToken.startsWith('sk.')) {
+      if (!mapboxToken.startsWith('pk.') && !mapboxToken.startsWith('sk.')) {
         console.warn('[MAP_INIT] WARNING: Token does not start with expected prefix (pk. or sk.)');
       }
-      
+
       console.log('[MAP_INIT] Setting Mapbox token.');
-      mapboxgl.accessToken = hardcodedToken; // Set the token *before* creating the map
+      mapboxgl.accessToken = mapboxToken;
 
       console.log('[MAP_INIT] Creating map instance...');
       const map = new mapboxgl.Map({
@@ -215,7 +215,7 @@ export const useMapInitialization = (
       // Reset initialization flag when component unmounts
       initializationAttempted.current = false;
     };
-  }, [mapContainer, mapboxToken, mapStyle, viewState, onMapLoad, state.mapLoaded]);
+  }, [mapContainer, mapboxToken, mapStyle, JSON.stringify(viewState), onMapLoad]); // Stringify viewState for stable dependency
 
   // Return the state, potentially including the map instance once loaded
   return state;
