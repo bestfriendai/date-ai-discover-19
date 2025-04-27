@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { MapIcon, SunIcon, MoonIcon, MountainIcon, GlobeIcon, BuildingIcon, LayersIcon } from '@/lib/icons';
+import { Map, Sun, Moon, Mountain, Globe, Building, Layers } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -38,7 +38,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.streets)}
               className="h-8 w-8 rounded-md"
             >
-              <MapIcon className="h-4 w-4" />
+              <Map className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -54,7 +54,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.light)}
               className="h-8 w-8 rounded-md"
             >
-              <SunIcon className="h-4 w-4" />
+              <Sun className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -70,7 +70,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.dark)}
               className="h-8 w-8 rounded-md"
             >
-              <MoonIcon className="h-4 w-4" />
+              <Moon className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -86,7 +86,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.satellite)}
               className="h-8 w-8 rounded-md"
             >
-              <GlobeIcon className="h-4 w-4" />
+              <Globe className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -102,7 +102,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.outdoor)}
               className="h-8 w-8 rounded-md"
             >
-              <MountainIcon className="h-4 w-4" />
+              <Mountain className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">
@@ -118,7 +118,7 @@ export const MapStyleControls: React.FC<MapStyleControlsProps> = ({
               onClick={() => onMapStyleChange(MAP_STYLES.navigation)}
               className="h-8 w-8 rounded-md"
             >
-              <LayersIcon className="h-4 w-4" />
+              <Layers className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
           <TooltipContent side="bottom">

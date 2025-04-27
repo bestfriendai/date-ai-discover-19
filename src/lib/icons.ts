@@ -1,73 +1,75 @@
+
 import * as LucideIcons from 'lucide-react';
 
 // Navigation and UI Controls
 export const {
-  ChevronLeft: ChevronLeftIcon,
-  ChevronRight: ChevronRightIcon,
-  ChevronDown: ChevronDownIcon,
-  ChevronUp: ChevronUpIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ArrowLeft,
   ArrowRight,
-  Search: SearchIcon,
-  Filter: FilterIcon,
-  X: XIcon,
+  Search,
+  Filter,
+  X,
   MoreHorizontal,
   SlidersHorizontal,
   PanelLeft,
   GripVertical,
-  Check: CheckIcon,
+  Check,
   Circle,
   Dot
 } = LucideIcons;
 
 // User Interface
 export const {
-  User: UserIcon,
-  LogOut: LogOutIcon,
-  Lock: LockIcon,
-  Mail: MailIcon,
-  ExternalLink: ExternalLinkIcon,
-  Plus: PlusIcon,
-  PlusCircle: PlusCircleIcon,
-  Loader2: Loader2Icon,
-  Trash2: Trash2Icon,
+  User,
+  LogOut,
+  Lock,
+  Mail,
+  ExternalLink,
+  Plus,
+  PlusCircle,
+  Loader2,
+  Trash2,
   Edit,
   AlertCircle,
-  Info: InfoIcon,
-  Share2: Share2Icon
+  AlertTriangle,
+  Info,
+  Share2
 } = LucideIcons;
 
 // Location and Navigation
 export const {
-  MapPin: MapPinIcon,
-  Locate: LocateIcon,
+  MapPin,
+  Locate,
   Navigation,
   Car,
-  Map: MapIcon,
-  Compass: CompassIcon,
-  Globe: GlobeIcon,
-  Satellite: SatelliteIcon
+  Map,
+  Compass,
+  Globe,
+  Satellite
 } = LucideIcons;
 
 // Date and Time
 export const {
-  Calendar: CalendarIcon,
-  CalendarDays: CalendarDaysIcon,
-  Clock: ClockIcon
+  Calendar,
+  CalendarDays,
+  Clock
 } = LucideIcons;
 
 // Event Categories and Types
 export const {
   PartyPopper,
-  Music: MusicIcon,
+  Music,
   Palette,
   Trophy,
-  Users: UsersIcon,
+  Users,
   Utensils,
-  Heart: HeartIcon,
-  Star: StarIcon,
-  Sparkles: SparklesIcon,
-  Ticket: TicketIcon
+  Heart,
+  Star,
+  Sparkles,
+  Ticket
 } = LucideIcons;
 
 // Venue and Location Types
@@ -78,22 +80,75 @@ export const {
   Network,
   Package,
   Headphones,
-  Mountain: MountainIcon,
-  MountainSnow: MountainSnowIcon,
+  Mountain,
+  MountainSnow,
   Theater,
-  Bot: BotIcon,
-  Send: SendIcon,
-  Sun: SunIcon,
-  Moon: MoonIcon,
-  Layers: LayersIcon
+  Bot,
+  Send,
+  Sun,
+  Moon,
+  Layers
 } = LucideIcons;
 
 // Additional icons needed for various components
-// Keep existing aliases and ensure no duplicates
 export const {
-  DollarSign: DollarSignIcon,
-  Settings: SettingsIcon,
-  TrendingUp: TrendingUpIcon,
-  MinusCircle: MinusCircleIcon,
-  CheckCircle: CheckCircleIcon
+  DollarSign,
+  Settings,
+  TrendingUp,
+  MinusCircle,
+  CheckCircle
 } = LucideIcons;
+
+// Create Icon aliases for consistent naming in the application
+export const CarIcon = Car;
+export const NavigationIcon = Navigation;
+export const AlertCircleIcon = AlertCircle;
+export const UtensilsIcon = Utensils;
+export const PartyPopperIcon = PartyPopper;
+export const TheaterIcon = Theater;
+export const TrophyIcon = Trophy;
+export const MusicIcon = Music;
+export const HeartIcon = Heart;
+export const TicketIcon = Ticket;
+export const MapPinIcon = MapPin;
+export const CalendarIcon = Calendar;
+export const ClockIcon = Clock;
+export const SparklesIcon = Sparkles;
+export const UserIcon = User;
+export const LogOutIcon = LogOut;
+export const LockIcon = Lock;
+export const MailIcon = Mail;
+export const ExternalLinkIcon = ExternalLink;
+export const PlusIcon = Plus;
+export const PlusCircleIcon = PlusCircle;
+export const Loader2Icon = Loader2;
+export const Trash2Icon = Trash2;
+export const InfoIcon = Info;
+export const Share2Icon = Share2;
+export const MapIcon = Map;
+export const LocateIcon = Locate;
+export const CompassIcon = Compass;
+export const GlobeIcon = Globe;
+export const SatelliteIcon = Satellite;
+export const CalendarDaysIcon = CalendarDays;
+export const StarIcon = Star;
+export const CheckIcon = Check;
+export const SearchIcon = Search;
+export const FilterIcon = Filter;
+export const XIcon = X;
+export const ChevronLeftIcon = ChevronLeft;
+export const ChevronRightIcon = ChevronRight;
+export const ChevronDownIcon = ChevronDown;
+export const ChevronUpIcon = ChevronUp;
+export const DollarSignIcon = DollarSign;
+export const SettingsIcon = Settings;
+export const TrendingUpIcon = TrendingUp;
+export const MinusCircleIcon = MinusCircle;
+export const CheckCircleIcon = CheckCircle;
+export const MountainIcon = Mountain;
+export const MountainSnowIcon = MountainSnow;
+export const BuildingIcon = Building;
+export const SlidersHorizontalIcon = SlidersHorizontal;
+export const SunIcon = Sun;
+export const MoonIcon = Moon;
+export const LayersIcon = Layers;
