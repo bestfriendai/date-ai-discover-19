@@ -1,8 +1,9 @@
+
 import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import PerformanceMonitor from '@/utils/performanceMonitor';
-import errorReporter from '@/utils/errorReporter';
 
 interface MapState {
   map: mapboxgl.Map | null;
@@ -20,211 +21,175 @@ export const useMapInitialization = (
     bearing: number;
   },
   mapStyle: string,
-  onMapLoad: () => void,
-  mapboxToken: string | null // Accept token as prop
+  onMapLoad: () => void
 ) => {
   const [state, setState] = useState<MapState>({
     map: null,
     mapError: null,
     mapLoaded: false
   });
-  const mapInstanceRef = useRef<mapboxgl.Map | null>(null); // Use ref for map instance
-  const initializationAttempted = useRef(false);
-  const tokenRef = useRef<string | null>(null); // Store token in ref to track changes
 
   useEffect(() => {
     let isMounted = true;
 
-    // Prevent initialization if container is not ready or token is missing
-    if (!mapContainer.current) {
-      console.log('[MAP_INIT] Map container ref not ready.');
-      return;
-    }
-    
-    // Check if token is valid and different from previous token
-    if (!mapboxToken) {
-      console.log('[MAP_INIT] Mapbox token not available.');
-      setState(prev => ({ ...prev, mapError: 'Map token configuration error. Cannot load map.' }));
-      return; // Don't proceed without a token
-    }
+    const initializeMap = async () => {
+      PerformanceMonitor.startMeasure('mapInitialization', {
+        initialViewState: { ...viewState }
+      });
 
-    // If token hasn't changed and map exists, no need to reinitialize
-    if (tokenRef.current === mapboxToken && mapInstanceRef.current) {
-      console.log('[MAP_INIT] Token unchanged and map exists, skipping reinitialization.');
-      return;
-    }
-
-    // Store new token
-    tokenRef.current = mapboxToken;
-
-    // Clean up previous map instance if it exists
-    if (mapInstanceRef.current) {
       try {
-        console.log('[MAP_INIT] Removing previous map instance before reinitializing.');
-        mapInstanceRef.current.remove();
-        mapInstanceRef.current = null;
-      } catch (error) {
-        console.error('[MAP_INIT] Error removing previous map:', error);
-      }
-    }
+        if (typeof mapboxgl === 'undefined') {
+          console.error('[MAP_DEBUG] CRITICAL: mapboxgl is undefined!');
+          setState(prev => ({ ...prev, mapError: "Map library failed to load." }));
+          return;
+        }
 
-    initializationAttempted.current = true;
-    console.log('[MAP_INIT] Starting map initialization with token:', mapboxToken.substring(0, 8) + '...');
+        if (!mapContainer.current) {
+          console.error('[MAP_DEBUG] Map container ref is null!');
+          setState(prev => ({ ...prev, mapError: "Map container not found." }));
+          return;
+        }
 
-    PerformanceMonitor.startMeasure('mapInitialization', {
-      initialViewState: { ...viewState },
-      mapStyle,
-      hasToken: true
-    });
+        // Try to fetch token from Supabase function
+        let mapboxToken;
+        try {
+          console.log('[MAP_DEBUG] Attempting to fetch Mapbox token from Supabase');
+          const { data, error } = await supabase.functions.invoke('get-mapbox-token');
 
-    try {
-      // Validate token format (basic check)
-      if (!mapboxToken.startsWith('pk.') && !mapboxToken.startsWith('sk.')) {
-        console.warn('[MAP_INIT] WARNING: Token does not start with expected prefix (pk. or sk.)');
-      }
-
-      console.log('[MAP_INIT] Setting Mapbox token.');
-      mapboxgl.accessToken = mapboxToken;
-
-      console.log('[MAP_INIT] Creating map instance...');
-      const map = new mapboxgl.Map({
-        container: mapContainer.current!,
-        style: mapStyle,
-        center: [viewState.longitude, viewState.latitude],
-        zoom: viewState.zoom,
-        pitch: viewState.pitch,
-        bearing: viewState.bearing,
-        attributionControl: false,
-        preserveDrawingBuffer: true,
-        fadeDuration: 0,
-        maxZoom: 18,
-        minZoom: 2,
-        trackResize: true,
-        antialias: false,
-        transformRequest: (url, resourceType) => {
-          // Log resource loading for debugging
-          if (resourceType === 'Style' || resourceType === 'Source') {
-            console.log(`[MAP_INIT] Loading ${resourceType}: ${url.split('?')[0]}`);
+          if (error) {
+            console.error('[MAP_DEBUG] Error fetching Mapbox token from Supabase:', error);
+            throw error;
           }
-          return { url };
+
+          if (data && data.MAPBOX_TOKEN) {
+            console.log('[MAP_DEBUG] Successfully retrieved Mapbox token from Supabase');
+            mapboxToken = data.MAPBOX_TOKEN;
+          } else {
+            console.warn('[MAP_DEBUG] No token returned from Supabase function');
+            throw new Error('No token returned from server');
+          }
+        } catch (tokenError) {
+          console.warn('[MAP_DEBUG] Falling back to default token:', tokenError);
+          // Fallback to environment variables, window variable, or hardcoded value
+          if (import.meta.env.VITE_MAPBOX_TOKEN) {
+            console.log('[MAP_DEBUG] Using Mapbox token from environment variables');
+            mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
+          }
+          else if ((window as any).FALLBACK_MAPBOX_TOKEN) {
+            console.log('[MAP_DEBUG] Using fallback Mapbox token from window');
+            mapboxToken = (window as any).FALLBACK_MAPBOX_TOKEN;
+          }
+          else {
+            console.log('[MAP_DEBUG] Using hardcoded Mapbox token');
+            mapboxToken = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+          }
         }
-      });
 
-      mapInstanceRef.current = map; // Store instance in ref
-
-      // Set a timeout to detect if the map is taking too long to load
-      const loadTimeoutId = setTimeout(() => {
-        if (isMounted && !state.mapLoaded) {
-          console.warn('[MAP_INIT] Map load timeout - map is taking longer than expected to initialize.');
-          // Don't set error state yet, just log a warning
+        // Validate token format (basic check)
+        if (!mapboxToken.startsWith('pk.')) {
+          console.warn('[MAP_DEBUG] Warning: Mapbox token does not start with expected prefix (pk.)');
         }
-      }, 10000); // 10 second timeout
 
-      map.on('load', () => {
-        clearTimeout(loadTimeoutId);
-        if (!isMounted) return;
-        
-        console.log('[MAP_INIT] Map "load" event fired successfully.');
-        setState(prev => ({ ...prev, mapLoaded: true, mapError: null, map })); // Update state with map instance
-        onMapLoad();
-        PerformanceMonitor.endMeasure('mapInitialization', { 
-          success: true,
-          loadTime: performance.now()
-        });
-      });
+        console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
+        mapboxgl.accessToken = mapboxToken;
 
-      map.on('error', (e: any) => {
-        if (!isMounted) return;
-        const errorMessage = e.error?.message || 'Unknown map error';
-        console.error('[MAP_INIT] Mapbox specific error:', errorMessage, e);
-        errorReporter('[MAP_INIT] Mapbox error event:', { error: errorMessage, details: e });
-        
-        setState(prev => ({ 
-          ...prev, 
-          mapError: `Map error: ${errorMessage}. This might be due to network issues or an invalid map configuration.` 
-        }));
-        
-        PerformanceMonitor.endMeasure('mapInitialization', { 
-          success: false, 
-          error: errorMessage,
-          errorType: 'mapbox_error_event'
-        });
-      });
+        // Function to initialize map with given coordinates
+        const initializeMapWithCoords = (longitude: number, latitude: number) => {
+          const map = new mapboxgl.Map({
+            container: mapContainer.current!,
+            style: mapStyle,
+            center: [longitude, latitude],
+            zoom: viewState.zoom,
+            pitch: viewState.pitch,
+            bearing: viewState.bearing,
+            attributionControl: false,
+            preserveDrawingBuffer: true,
+            fadeDuration: 0,
+            maxZoom: 18,
+            minZoom: 2,
+            trackResize: true,
+            antialias: false
+          });
 
-      // Add a style load error handler
-      map.on('styledata', () => {
-        if (!isMounted) return;
-        
-        // Check if style loaded successfully
-        if (map.isStyleLoaded()) {
-          console.log('[MAP_INIT] Map style loaded successfully.');
+          map.on('load', () => {
+            if (!isMounted) return;
+            console.log('[MAP_DEBUG] Map load event fired');
+            setState(prev => ({ ...prev, mapLoaded: true }));
+            onMapLoad();
+          });
+
+          map.on('error', (e: any) => {
+            console.error('[MAP_DEBUG] Mapbox specific error:', e);
+            const errorMessage = e.error ? e.error.message : 'Unknown map error';
+            setState(prev => ({ ...prev, mapError: `Map error: ${errorMessage}` }));
+          });
+
+          try {
+            map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+            map.addControl(
+              new mapboxgl.GeolocateControl({
+                positionOptions: { enableHighAccuracy: true },
+                trackUserLocation: true,
+                showUserHeading: true
+              }),
+              'bottom-right'
+            );
+          } catch (controlError) {
+            console.error('[MAP] Error adding map controls:', controlError);
+          }
+
+          setState(prev => ({ ...prev, map }));
+          return map;
+        };
+
+        // Try to get user's location first
+        if ("geolocation" in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              initializeMapWithCoords(position.coords.longitude, position.coords.latitude);
+            },
+            (error) => {
+              console.warn('[MAP_DEBUG] Geolocation error:', error);
+              // Fall back to default location
+              initializeMapWithCoords(viewState.longitude, viewState.latitude);
+            }
+          );
         } else {
-          console.warn('[MAP_INIT] Style may not have loaded completely.');
+          // Fallback for browsers without geolocation
+          initializeMapWithCoords(viewState.longitude, viewState.latitude);
         }
-      });
 
-      try {
-        console.log('[MAP_INIT] Adding map controls...');
-        map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-        map.addControl(
-          new mapboxgl.GeolocateControl({
-            positionOptions: { enableHighAccuracy: true },
-            trackUserLocation: true,
-            showUserHeading: true
-          }),
-          'bottom-right'
-        );
-        console.log('[MAP_INIT] Map controls added successfully.');
-      } catch (controlError) {
-        console.error('[MAP_INIT] Error adding map controls:', controlError);
-        errorReporter('[MAP_INIT] Control error:', controlError);
-        // Don't fail the whole map for control errors
+      } catch (error: any) {
+        if (!isMounted) return;
+
+        const errorMessage = error instanceof Error
+          ? `Map initialization failed: ${error.message}`
+          : "Map initialization failed. Could not load the map.";
+
+        console.error('[MAP_DEBUG] Map initialization error:', error);
+        setState(prev => ({ ...prev, mapError: errorMessage }));
+        toast({
+          title: "Map initialization failed",
+          description: errorMessage,
+          variant: "destructive"
+        });
+
+        PerformanceMonitor.endMeasure('mapInitialization', {
+          success: false,
+          error: errorMessage,
+          errorType: error.name || 'Unknown Error',
+          browserInfo: navigator.userAgent
+        });
       }
+    };
 
-    } catch (error: any) {
-      if (!isMounted) return;
-      
-      const errorMessage = error instanceof Error 
-        ? `Map initialization failed: ${error.message}` 
-        : "Unknown map initialization error.";
-      
-      console.error('[MAP_INIT] Map initialization error:', error);
-      errorReporter('[MAP_INIT] Initialization error:', { error, stack: error?.stack });
-      
-      setState(prev => ({ ...prev, mapError: errorMessage }));
-      
-      toast({
-        title: "Map Initialization Failed",
-        description: "There was a problem loading the map. Please try refreshing the page.",
-        variant: "destructive",
-        duration: 8000
-      });
-      
-      PerformanceMonitor.endMeasure('mapInitialization', {
-        success: false, 
-        error: errorMessage,
-        errorType: 'initialization_exception'
-      });
-    }
+    initializeMap();
 
     return () => {
       isMounted = false;
-      console.log('[MAP_INIT] Cleaning up map instance.');
-      
-      if (mapInstanceRef.current) {
-        try {
-          mapInstanceRef.current.remove();
-          console.log('[MAP_INIT] Map instance removed successfully.');
-        } catch (removeError) {
-          console.error('[MAP_INIT] Error removing map during cleanup:', removeError);
-          errorReporter('[MAP_INIT] Cleanup error:', removeError);
-        }
-        mapInstanceRef.current = null;
-        setState({ map: null, mapError: null, mapLoaded: false }); // Reset state on cleanup
-      }
+      state.map?.remove();
     };
-  }, [mapContainer, mapboxToken, mapStyle, onMapLoad]); // Remove viewState from dependencies to prevent unnecessary reinits
+  }, [mapContainer, mapStyle, viewState, onMapLoad]);
 
-  // Return the state, potentially including the map instance once loaded
   return state;
 };

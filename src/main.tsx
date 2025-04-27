@@ -21,18 +21,15 @@ if (typeof window !== 'undefined') {
 // --- ENHANCED ERROR LOGGING FOR BROWSER ---
 if (typeof window !== 'undefined') {
   window.addEventListener('error', (event) => {
-    const errorDetails = {
+    // Log full error details to the browser console
+    console.error('[Global Error]', {
       message: event.message,
       filename: event.filename,
       lineno: event.lineno,
       colno: event.colno,
       error: event.error,
-      stack: event.error?.stack
-    };
-    // Log full error details to the browser console
-    console.error('[Global Error]', errorDetails);
-    // Report using the utility
-    errorReporter('[GLOBAL ERROR]', errorDetails);
+      stack: event.error?.stack,
+    });
     // Optionally, show a detailed toast for the user
     if (window?.toast) {
       window.toast({
@@ -44,15 +41,11 @@ if (typeof window !== 'undefined') {
     }
   });
   window.addEventListener('unhandledrejection', (event) => {
-    const reasonDetails = event.reason instanceof Error ? {
-      message: event.reason.message,
-      stack: event.reason.stack,
-      name: event.reason.name
-    } : event.reason;
     // Log full promise rejection details
-    console.error('[Unhandled Promise Rejection]', { reason: reasonDetails });
-    // Report using the utility
-    errorReporter('[UNHANDLED REJECTION]', { reason: reasonDetails });
+    console.error('[Unhandled Promise Rejection]', {
+      reason: event.reason,
+      stack: event.reason?.stack,
+    });
     if (window?.toast) {
       window.toast({
         title: 'Unhandled Promise Rejection',

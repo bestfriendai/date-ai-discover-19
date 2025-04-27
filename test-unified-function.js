@@ -12,8 +12,11 @@ async function testSearchEvents() {
     // Use the correct Supabase project URL
     const SUPABASE_URL = 'https://akwvmljopucsnorvdwuu.supabase.co';
 
-    // Use the unified function that works reliably
+    // First try the unified function, fall back to the original if needed
     let functionUrl = `${SUPABASE_URL}/functions/v1/search-events-unified`;
+
+    // Uncomment the line below to test the original function instead
+    // functionUrl = `${SUPABASE_URL}/functions/v1/search-events`;
 
     console.log('Using function URL:', functionUrl);
 

@@ -1,62 +1,28 @@
 import { supabase } from '@/integrations/supabase/client';
 import type { Event } from '@/types';
+import { normalizeTicketmasterEvent, normalizeSerpApiEvent } from '@/utils/eventNormalizers';
 import { loadingManager } from '@/components/shared/GlobalLoadingIndicator';
+import { measureExecutionTime } from '@/hooks/usePerformanceMonitor';
 
-/**
- * Enhanced in-memory cache with improved memory management, performance tracking,
- * and automatic cleanup of expired entries.
- */
+// Simple in-memory cache
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
   expiresAt: number;
-  size?: number; // Approximate size in bytes
 }
 
 class EventCache {
   private static instance: EventCache;
   private cache: Map<string, CacheEntry<any>>;
   private readonly DEFAULT_TTL = 5 * 60 * 1000; // 5 minutes
-  private readonly MAX_CACHE_SIZE = 100; // Maximum number of entries to store
-  private readonly MAX_CACHE_AGE = 24 * 60 * 60 * 1000; // 24 hours maximum age
-  private hitCount = 0;
-  private missCount = 0;
-  private cleanupInterval: number | null = null;
-  private statsInterval: number | null = null;
 
   private constructor() {
     this.cache = new Map();
-    this.setupIntervals();
-  }
-
-  /**
-   * Set up automatic cleanup and stats logging intervals
-   */
-  private setupIntervals(): void {
-    // Clear any existing intervals
-    if (this.cleanupInterval) {
-      clearInterval(this.cleanupInterval);
-    }
-    if (this.statsInterval) {
-      clearInterval(this.statsInterval);
-    }
-
+    
     // Clean expired cache entries every minute
-    this.cleanupInterval = window.setInterval(() => this.cleanExpiredEntries(), 60 * 1000);
-
-    // Log cache stats every 5 minutes in development
-    const isDevelopment = typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-       window.location.hostname === '127.0.0.1');
-
-    if (isDevelopment) {
-      this.statsInterval = window.setInterval(() => this.logCacheStats(), 5 * 60 * 1000);
-    }
+    setInterval(() => this.cleanExpiredEntries(), 60 * 1000);
   }
 
-  /**
-   * Get the singleton instance of the cache
-   */
   public static getInstance(): EventCache {
     if (!EventCache.instance) {
       EventCache.instance = new EventCache();
@@ -64,607 +30,510 @@ class EventCache {
     return EventCache.instance;
   }
 
-  /**
-   * Get a value from the cache with type safety
-   */
   public get<T>(key: string): T | null {
     const entry = this.cache.get(key);
-
-    if (!entry) {
-      this.missCount++;
-      return null;
-    }
-
+    
+    if (!entry) return null;
+    
     // Check if entry has expired
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
-      this.missCount++;
       return null;
     }
-
-    this.hitCount++;
+    
     return entry.data as T;
   }
 
-  /**
-   * Set a value in the cache with optional TTL
-   */
   public set<T>(key: string, data: T, ttl: number = this.DEFAULT_TTL): void {
-    // Don't cache null or undefined values
-    if (data === null || data === undefined) {
-      return;
-    }
-
     const timestamp = Date.now();
     const expiresAt = timestamp + ttl;
-
-    // Estimate size of the data in bytes
-    let size: number | undefined;
-    try {
-      const jsonData = JSON.stringify(data);
-      size = new TextEncoder().encode(jsonData).length;
-    } catch (e) {
-      // If we can't stringify the data, don't track its size
-      console.warn('[CACHE] Could not estimate size for:', key);
-    }
-
-    // Check if we need to evict entries due to cache size limit
-    if (this.cache.size >= this.MAX_CACHE_SIZE) {
-      this.evictOldestEntries();
-    }
-
-    this.cache.set(key, { data, timestamp, expiresAt, size });
+    
+    this.cache.set(key, { data, timestamp, expiresAt });
   }
 
-  /**
-   * Invalidate a specific cache entry
-   */
   public invalidate(key: string): void {
     this.cache.delete(key);
   }
 
-  /**
-   * Clear the entire cache and reset statistics
-   */
   public clear(): void {
     this.cache.clear();
-    this.hitCount = 0;
-    this.missCount = 0;
   }
 
-  /**
-   * Clean expired cache entries
-   */
   private cleanExpiredEntries(): void {
     const now = Date.now();
-    let removedCount = 0;
-    let freedBytes = 0;
-
+    
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.expiresAt) {
         this.cache.delete(key);
-        removedCount++;
-        if (entry.size) {
-          freedBytes += entry.size;
-        }
       }
-    }
-
-    if (removedCount > 0 && typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-       window.location.hostname === '127.0.0.1')) {
-      console.log(`[CACHE] Cleaned ${removedCount} expired entries, freed ${(freedBytes / 1024).toFixed(2)}KB`);
     }
   }
-
-  /**
-   * Evict oldest entries to make room for new ones
-   */
-  private evictOldestEntries(): void {
-    // Sort entries by timestamp (oldest first)
-    const entries = Array.from(this.cache.entries())
-      .sort((a, b) => a[1].timestamp - b[1].timestamp);
-
-    // Remove the oldest 20% of entries
-    const entriesToRemove = Math.max(1, Math.floor(entries.length * 0.2));
-    let removedCount = 0;
-    let freedBytes = 0;
-
-    for (let i = 0; i < entriesToRemove && i < entries.length; i++) {
-      const [key, entry] = entries[i];
-      this.cache.delete(key);
-      removedCount++;
-      if (entry.size) {
-        freedBytes += entry.size;
-      }
-    }
-
-    if (removedCount > 0 && typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' ||
-       window.location.hostname === '127.0.0.1')) {
-      console.log(`[CACHE] Evicted ${removedCount} oldest entries, freed ${(freedBytes / 1024).toFixed(2)}KB`);
-    }
-  }
-
-  /**
-   * Log cache statistics to console in development
-   */
-  private logCacheStats(): void {
-    const totalRequests = this.hitCount + this.missCount;
-    const hitRate = totalRequests > 0 ?
-      (this.hitCount / totalRequests * 100).toFixed(1) : '0';
-
-    // Calculate total cache size
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      if (entry.size) {
-        totalSize += entry.size;
-      }
-    }
-
-    const sizeInKB = (totalSize / 1024).toFixed(2);
-
-    console.log(`[CACHE] Stats: ${this.cache.size} entries, ${sizeInKB}KB used`);
-    console.log(`[CACHE] Hit rate: ${hitRate}% (${this.hitCount} hits, ${this.missCount} misses)`);
-  }
-
-  /**
-   * Get cache statistics for monitoring
-   */
-  public getStats(): Record<string, any> {
-    const totalRequests = this.hitCount + this.missCount;
-    const hitRate = totalRequests > 0 ?
-      (this.hitCount / totalRequests * 100) : 0;
-
-    // Calculate total cache size
-    let totalSize = 0;
-    for (const entry of this.cache.values()) {
-      if (entry.size) {
-        totalSize += entry.size;
-      }
-    }
-
+  
+  public getStats(): { size: number, keys: string[] } {
     return {
       size: this.cache.size,
-      keys: Array.from(this.cache.keys()),
-      hitCount: this.hitCount,
-      missCount: this.missCount,
-      hitRate: hitRate.toFixed(1) + '%',
-      totalSizeBytes: totalSize,
-      totalSizeKB: (totalSize / 1024).toFixed(2),
-      oldestEntry: this.getOldestEntryAge()
+      keys: Array.from(this.cache.keys())
     };
-  }
-
-  /**
-   * Get the age of the oldest cache entry in seconds
-   */
-  private getOldestEntryAge(): number | null {
-    if (this.cache.size === 0) {
-      return null;
-    }
-
-    const now = Date.now();
-    let oldestTimestamp = now;
-
-    for (const entry of this.cache.values()) {
-      if (entry.timestamp < oldestTimestamp) {
-        oldestTimestamp = entry.timestamp;
-      }
-    }
-
-    return Math.floor((now - oldestTimestamp) / 1000);
   }
 }
 
 // Export the singleton instance
 export const eventCache = EventCache.getInstance();
 
-// Define SearchParams interface locally to avoid conflicts
 interface SearchParams {
-  query?: string;
+  keyword?: string;
   location?: string;
-  startDate?: string;
-  endDate?: string;
-  category?: string;
-  limit?: number;
-  offset?: number;
-  lat?: number;
-  lng?: number;
-  radius?: number;
   latitude?: number;
   longitude?: number;
+  radius?: number;
+  startDate?: string;
+  endDate?: string;
   categories?: string[];
-  keyword?: string;
+  limit?: number;
   page?: number;
+  excludeIds?: string[];
+  fields?: string[];
 }
 
-/**
- * Performance monitoring service to track API calls and performance metrics
- */
-class PerformanceMonitor {
-  private static instance: PerformanceMonitor;
-  private metrics: Map<string, {
-    calls: number;
-    errors: number;
-    totalTime: number;
-    lastCall: number;
-    maxTime: number;
-    minTime: number;
-  }>;
-
-  private constructor() {
-    this.metrics = new Map();
-  }
-
-  public static getInstance(): PerformanceMonitor {
-    if (!PerformanceMonitor.instance) {
-      PerformanceMonitor.instance = new PerformanceMonitor();
-    }
-    return PerformanceMonitor.instance;
-  }
-
-  /**
-   * Start tracking a new API call
-   * @param operation Name of the operation being tracked
-   * @returns Function to call when operation completes
-   */
-  public startOperation(operation: string): (success: boolean) => void {
-    const startTime = performance.now();
-
-    return (success: boolean) => {
-      const endTime = performance.now();
-      const executionTime = endTime - startTime;
-
-      // Get existing metrics or create new ones
-      const existing = this.metrics.get(operation) || {
-        calls: 0,
-        errors: 0,
-        totalTime: 0,
-        lastCall: Date.now(),
-        maxTime: 0,
-        minTime: Number.MAX_VALUE
-      };
-
-      // Update metrics
-      existing.calls += 1;
-      existing.totalTime += executionTime;
-      existing.lastCall = Date.now();
-      existing.maxTime = Math.max(existing.maxTime, executionTime);
-      existing.minTime = Math.min(existing.minTime, executionTime);
-
-      if (!success) {
-        existing.errors += 1;
-      }
-
-      // Save updated metrics
-      this.metrics.set(operation, existing);
-
-      // Log performance in development
-      const isDevelopment = typeof window !== 'undefined' &&
-        (window.location.hostname === 'localhost' ||
-         window.location.hostname === '127.0.0.1');
-
-      if (isDevelopment) {
-        console.log(
-          `[PERF] ${operation}: ${executionTime.toFixed(2)}ms ` +
-          `(avg: ${(existing.totalTime / existing.calls).toFixed(2)}ms, ` +
-          `success: ${success ? 'yes' : 'no'})`
-        );
-      }
-
-      return executionTime;
-    };
-  }
-
-  /**
-   * Get all performance metrics
-   */
-  public getMetrics(): Record<string, any> {
-    const result: Record<string, any> = {};
-
-    for (const [operation, metrics] of this.metrics.entries()) {
-      result[operation] = {
-        ...metrics,
-        avgTime: metrics.calls > 0 ? (metrics.totalTime / metrics.calls).toFixed(2) : 0,
-        errorRate: metrics.calls > 0 ? (metrics.errors / metrics.calls * 100).toFixed(1) + '%' : '0%',
-        lastCallTime: new Date(metrics.lastCall).toISOString()
-      };
-    }
-
-    return result;
-  }
-
-  /**
-   * Reset all metrics
-   */
-  public resetMetrics(): void {
-    this.metrics.clear();
-  }
-}
-
-// Export the singleton instance
-export const performanceMonitor = PerformanceMonitor.getInstance();
-
-/**
- * Utility function to retry failed API calls with exponential backoff
- * @param operation Function to retry
- * @param retries Maximum number of retries
- * @param delay Initial delay in milliseconds
- * @param backoffFactor Factor to increase delay on each retry
- * @returns Promise with the operation result
- */
-async function retryWithBackoff<T>(
-  operation: () => Promise<T>,
-  retries = 3,
-  delay = 300,
-  backoffFactor = 2
-): Promise<T> {
-  try {
-    return await operation();
-  } catch (error) {
-    // Don't retry if we've exhausted our retries
-    if (retries <= 0) {
-      throw error;
-    }
-
-    // Don't retry for certain error types
-    if (error instanceof Error) {
-      // Don't retry for timeout errors
-      if (error.message === 'Request timed out') {
-        throw error;
-      }
-
-      // Don't retry for client-side validation errors
-      if (error.message.includes('Invalid parameters')) {
-        throw error;
-      }
-    }
-
-    // Wait for the specified delay
-    await new Promise(resolve => setTimeout(resolve, delay));
-
-    // Retry with increased delay
-    return retryWithBackoff(operation, retries - 1, delay * backoffFactor, backoffFactor);
-  }
-}
-
-/**
- * Search for events using the Supabase Edge Function (search-events-unified)
- * This function fetches events from both Ticketmaster and PredictHQ APIs
- * @param params Search parameters
- * @returns Promise with search results
- */
+// Fetch events from multiple sources
 export async function searchEvents(params: SearchParams): Promise<{
   events: Event[];
-  metadata?: Record<string, any>;
+  sourceStats?: any;
+  totalEvents?: number;
+  pageSize?: number;
+  page?: number;
+  totalPages?: number;
+  hasMore?: boolean;
+  meta?: any;
+  cached?: boolean;
 }> {
-  // Generate a unique ID for this loading operation
-  const loadingId: string = `search-events-${Date.now()}`;
+  // Generate a cache key based on the search parameters
+  const cacheKey = `events:${JSON.stringify(params)}`;
+  
+  // Check if we have a cached result
+  const cachedResult = eventCache.get<{
+    events: Event[];
+    sourceStats?: any;
+    totalEvents?: number;
+    pageSize?: number;
+    page?: number;
+    totalPages?: number;
+    hasMore?: boolean;
+    meta?: any;
+  }>(cacheKey);
+  
+  if (cachedResult) {
+    console.log('[CACHE] Using cached events data');
+    return {
+      ...cachedResult,
+      cached: true
+    };
+  }
+  
+  // Show loading indicator
+  const loadingId = `search-events-${Date.now()}`;
   loadingManager.startLoading(loadingId, 'Searching for events...');
-
-  // Start performance monitoring
-  const endOperation = performanceMonitor.startOperation('searchEvents');
-
+  
   try {
-    const cacheKey = `search:${JSON.stringify(params)}`;
-    const eventCache = EventCache.getInstance();
+    // Define a function to handle the actual search
+    const performSearch = async () => {
+      // Prepare parameters for API calls
+      const searchParams = {
+        keyword: params.keyword || '',
+        lat: params.latitude,
+        lng: params.longitude,
+        location: params.location,
+        radius: params.radius || 30,
+        startDate: params.startDate,
+        endDate: params.endDate,
+        categories: params.categories,
+        limit: params.limit || 200, // Fetch up to 200 events
+        page: params.page || 1,
+        excludeIds: params.excludeIds || [],
+        fields: params.fields || []
+      };
 
-    // Check cache first
-    const cachedResult = eventCache.get<{
-      events: Event[];
-      metadata?: Record<string, any>;
-    }>(cacheKey);
+      // --- Patch: Ensure PredictHQ always gets a valid location ---
+      // Only for PredictHQ, if location is missing but lat/lng exist, synthesize a location string for PredictHQ
+      // This must NOT interfere with other APIs that use 'location' differently.
+      // So, add a new field for PredictHQ-specific location if needed.
+      let predictHQLocation = params.location;
+      if (params.latitude && params.longitude) {
+        // PredictHQ expects coordinates in a specific format for the 'within' parameter
+        // Format: {radius}km@{lat},{lng}
+        const radius = params.radius || 30;
+        const isLatValid = typeof params.latitude === 'number' && params.latitude >= -90 && params.latitude <= 90;
+        const isLngValid = typeof params.longitude === 'number' && params.longitude >= -180 && params.longitude <= 180;
+        if (isLatValid && isLngValid) {
+          const radiusKm = Math.round(radius * 1.60934); // Convert miles to km
+          predictHQLocation = `${radiusKm}km@${params.latitude},${params.longitude}`;
+          console.log('[DEBUG] Created PredictHQ location string:', predictHQLocation);
+        } else {
+          console.warn('[WARNING] Invalid latitude or longitude provided for PredictHQ:', params.latitude, params.longitude);
+          predictHQLocation = params.location || '';
+        }
+      } else if (predictHQLocation) {
+        // If a location string is provided, use it
+        console.log('[DEBUG] Using provided location for PredictHQ:', predictHQLocation);
+      } else {
+        // No valid location, fallback to empty string
+        predictHQLocation = '';
+        console.warn('[WARNING] No valid location or coordinates for PredictHQ. Will fallback to default on backend.');
+      }
+      // Add a dedicated field so only the backend PredictHQ handler uses it
+      searchParams['predicthqLocation'] = predictHQLocation;
 
-    if (cachedResult) {
-      endOperation(true); // Success from cache
-      loadingManager.stopLoading(loadingId);
-      return cachedResult;
-    }
+      console.log('[DEBUG] Sending search params to search-events function:', searchParams);
 
-    // Prepare API parameters
-    const apiParams: SearchParams = { ...params };
+      try {
+        // Call Supabase function to fetch events from multiple sources
+        console.log('[DEBUG] About to call supabase.functions.invoke("search-events")');
 
-    // Add default limit if not specified
-    if (!apiParams.limit) {
-      apiParams.limit = 20;
-    }
+        // Log the Supabase function URL
+        console.log('[DEBUG] Supabase function URL:', {
+          functionName: 'search-events',
+          hasClient: !!supabase
+        });
 
-    // Ensure we have at least some parameters to avoid empty request body
-    if (!apiParams.lat && !apiParams.lng && !apiParams.latitude && !apiParams.longitude) {
-      // Add default coordinates if none provided (New York City)
-      apiParams.latitude = 40.7128;
-      apiParams.longitude = -74.0060;
-      apiParams.radius = apiParams.radius || 30; // Default 30 mile radius
-    }
+        // Add timeout handling for the function call
+        const timeoutMs = 30000; // 30 seconds timeout
+        const functionPromise = supabase.functions.invoke('search-events', {
+          body: JSON.stringify(searchParams), // Explicitly stringify the body
+          headers: { 'Content-Type': 'application/json' }
+        });
 
-    // Add timeout handling for the function call
-    const timeoutMs = 15000; // 15 seconds timeout
-
-    try {
-      // Use retry mechanism for the API call
-      const functionResult = await retryWithBackoff(async () => {
-        // Create a promise that rejects after the timeout
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          const id = setTimeout(() => {
-            clearTimeout(id);
-            reject(new Error('Request timed out'));
-          }, timeoutMs);
+        // Create a timeout promise
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
         });
 
         // Race the function call against the timeout
-        // Use the unified search-events function that works reliably
-        return Promise.race([
-          supabase.functions.invoke('search-events-unified', {
-            body: apiParams,
-            headers: { 'Content-Type': 'application/json' }
-          }),
-          timeoutPromise
-        ]);
-      }, 2); // Retry up to 2 times (3 attempts total)
+        const { data, error } = await Promise.race([
+          functionPromise,
+          timeoutPromise.then(() => ({ data: null, error: { message: 'Timeout exceeded', status: 408 } }))
+        ]) as any;
 
-      // If we get here, the function call completed before the timeout
-      const { data, error } = functionResult;
+        // Log the result for debugging
+        console.log('[DEBUG] Function result:', {
+          hasData: !!data,
+          hasError: !!error,
+          eventCount: data?.events?.length || 0,
+          meta: data?.meta
+        });
 
-      const success = !error && !!data;
-      endOperation(success);
+        if (error) {
+          console.error('[ERROR] Supabase function error:', error);
 
-      if (error) {
-        console.error(`[ERROR] searchEvents failed:`, error);
-        loadingManager.stopLoading(loadingId);
-        return { events: [] };
+          // Check if it's a timeout error
+          const isTimeout = error.message?.includes('timeout') || error.status === 408;
+          const errorMessage = isTimeout
+            ? 'The request took too long to complete. Please try again or refine your search criteria.'
+            : error.message || String(error);
+
+          // Return a structured error response with user-friendly message
+          return {
+            events: [],
+            sourceStats: {
+              ticketmaster: { count: 0, error: errorMessage },
+              eventbrite: { count: 0 },
+              serpapi: { count: 0 },
+              error: {
+                message: errorMessage,
+                status: error.status || 500,
+                isTimeout
+              }
+            },
+            totalEvents: 0,
+            pageSize: params.limit || 200,
+            page: params.page || 1
+          };
+        }
+
+        console.log('[DEBUG] Supabase function response:', data);
+
+        if (data?.sourceStats) {
+          console.log(
+            `[Events] Ticketmaster: ${data.sourceStats.ticketmaster.count} ${data.sourceStats.ticketmaster.error ? `(Error: ${data.sourceStats.ticketmaster.error})` : ''}`
+          );
+          console.log(
+            `[Events] Eventbrite: ${data.sourceStats.eventbrite.count} ${data.sourceStats.eventbrite.error ? `(Error: ${data.sourceStats.eventbrite.error})` : ''}`
+          );
+          console.log(
+            `[Events] Serpapi: ${data.sourceStats.serpapi.count} ${data.sourceStats.serpapi.error ? `(Error: ${data.sourceStats.serpapi.error})` : ''}`
+          );
+          console.log(
+            `[Events] PredictHQ: ${data.sourceStats.predicthq.count} ${data.sourceStats.predicthq.error ? `(Error: ${data.sourceStats.predicthq.error})` : ''}`
+          );
+
+          // Add detailed PredictHQ debugging
+          if (data.sourceStats.predicthq) {
+            console.log('[PREDICTHQ_DEBUG] PredictHQ source stats:', data.sourceStats.predicthq);
+
+            if (data.sourceStats.predicthq.error) {
+              console.error('[PREDICTHQ_ERROR] PredictHQ API error:', data.sourceStats.predicthq.error);
+            }
+
+            if (data.sourceStats.predicthq.warnings) {
+              console.warn('[PREDICTHQ_WARN] PredictHQ API warnings:', data.sourceStats.predicthq.warnings);
+            }
+
+            if (data.sourceStats.predicthq.details) {
+              console.log('[PREDICTHQ_DEBUG] PredictHQ API details:', data.sourceStats.predicthq.details);
+            }
+
+            // Check if any events came from PredictHQ
+            const predicthqEvents = data.events?.filter((event: any) => event.source === 'predicthq') || [];
+            console.log(`[PREDICTHQ_DEBUG] Found ${predicthqEvents.length} events from PredictHQ`);
+
+            if (predicthqEvents.length > 0) {
+              console.log('[PREDICTHQ_DEBUG] First PredictHQ event:', predicthqEvents[0]);
+            }
+          }
+        }
+
+        // Check if we have events before returning
+        if (!data?.events || data.events.length === 0) {
+          console.log('[DEBUG] No events returned from API');
+
+          // Check for specific errors in the source stats
+          if (data?.sourceStats?.predicthq?.error) {
+            console.error('[ERROR] PredictHQ API error:', data.sourceStats.predicthq.error);
+
+            // If there's a specific error with PredictHQ, show it in the console
+            if (data.sourceStats.predicthq.error.includes('within')) {
+              console.error('[ERROR] PredictHQ location format error. Check the format of predicthqLocation.');
+            }
+          }
+
+          // Return empty array instead of mock data
+          return {
+            events: [],
+            sourceStats: data?.sourceStats || { ticketmaster: { count: 0 }, eventbrite: { count: 0 }, serpapi: { count: 0 } },
+            totalEvents: 0,
+            pageSize: params.limit || 200,
+            page: params.page || 1
+          };
+        }
+
+        // --- FILTER EVENTS: Only include those with image and description ---
+        // Modified to be less strict - only require image OR description, not both
+        const filteredEvents = (data.events || []).filter(
+          (ev: any) =>
+            // Require valid coordinates
+            ev.coordinates &&
+            Array.isArray(ev.coordinates) &&
+            ev.coordinates.length === 2 &&
+            // Require either image OR description
+            (
+              (!!ev.image && typeof ev.image === 'string' && ev.image.trim().length > 0) ||
+              (!!ev.description && typeof ev.description === 'string' && ev.description.trim().length > 0)
+            )
+        );
+
+        console.log(`[DEBUG] Filtered ${filteredEvents.length} events with valid coordinates and content`);
+
+        // Process the response with improved metadata handling
+        const sourceStats = data.sourceStats || {};
+        const meta = data.meta || {};
+
+        // Use meta data if available, otherwise fallback to legacy format
+        const totalEvents = meta.totalEvents || data.totalEvents || filteredEvents.length;
+        const pageSize = meta.pageSize || data.pageSize || params.limit || 20;
+        const page = meta.page || data.page || params.page || 1;
+        const totalPages = meta.totalPages || Math.ceil(totalEvents / pageSize) || 1;
+        const hasMore = meta.hasMore !== undefined ? meta.hasMore : (page * pageSize < totalEvents);
+
+        console.log(`[DEBUG] Event metadata: page ${page}/${totalPages}, hasMore: ${hasMore}, total: ${totalEvents}`);
+
+        // Enhance events with additional data if needed
+        const enhancedEvents = filteredEvents.map((event: Event) => {
+          // Create a copy of the event to avoid mutating the original
+          const enhancedEvent = { ...event };
+
+          // Make sure all events have a valid category
+          if (!enhancedEvent.category) {
+            enhancedEvent.category = 'other';
+          }
+
+          // Make sure all events have a valid date
+          if (!enhancedEvent.date) {
+            enhancedEvent.date = 'Date TBA';
+          }
+
+          // Make sure all events have a valid location
+          if (!enhancedEvent.location) {
+            enhancedEvent.location = 'Location TBA';
+          }
+
+          return enhancedEvent;
+        });
+
+        const result = {
+          events: enhancedEvents,
+          sourceStats,
+          totalEvents,
+          pageSize,
+          page,
+          totalPages,
+          hasMore,
+          meta
+        };
+        
+        // Cache the result if we have events
+        if (enhancedEvents.length > 0) {
+          eventCache.set(cacheKey, result);
+        }
+        
+        return result;
+      } catch (error) {
+        console.error('[ERROR] Error calling Supabase function:', error);
+        // Return empty array with structured error information
+        return {
+          events: [],
+          sourceStats: {
+            ticketmaster: { count: 0, error: String(error) },
+            eventbrite: { count: 0 },
+            serpapi: { count: 0 },
+            error: { message: String(error), status: 500 }
+          },
+          totalEvents: 0,
+          pageSize: params.limit || 20,
+          page: params.page || 1,
+          totalPages: 0,
+          hasMore: false,
+          meta: {
+            error: String(error),
+            timestamp: new Date().toISOString()
+          }
+        };
       }
-
-      if (!data) {
-        console.warn(`[WARN] searchEvents returned no data`);
-        loadingManager.stopLoading(loadingId);
-        return { events: [] };
-      }
-
-      // Process and normalize the events
-      const events = (data.events || []).map((event: any) => ({
-        id: event.id,
-        title: event.title || 'Untitled Event',
-        description: event.description || '',
-        category: event.category || 'other',
-        location: event.location || 'Location TBA',
-        date: event.date || 'Date TBA',
-        time: event.time || 'Time TBA',
-        image: event.image || '',
-        url: event.url || '',
-        venue: event.venue || null,
-        start: event.start || null,
-        source: event.source || 'unknown',
-        coordinates: event.coordinates || null
-      }));
-
-      const result = {
-        events,
-        metadata: data.metadata || {},
-        sourceStats: data.sourceStats || null
-      };
-
-      // Cache the result
-      eventCache.set(cacheKey, result);
-
-      console.log(`[API] searchEvents completed, found ${events.length} events`);
-      loadingManager.stopLoading(loadingId);
-      return result;
-    } catch (error) {
-      // Handle timeout errors
-      if (error instanceof Error && error.message === 'Request timed out') {
-        console.error(`[ERROR] Request timed out after ${timeoutMs}ms`);
-        loadingManager.stopLoading(loadingId);
-        return { events: [] };
-      }
-
-      // Handle other errors
-      console.error('[ERROR] searchEvents failed:', error);
-      loadingManager.stopLoading(loadingId);
-      return { events: [] };
-    }
+    };
+  
+    // Measure execution time and perform the search
+    const result = await measureExecutionTime(performSearch, 'searchEvents');
+    return result;
   } catch (error) {
-    console.error('[ERROR] searchEvents unexpected error:', error);
+    console.error('[ERROR] Error searching events:', error);
+    
+    // Return empty array with structured error information
+    return {
+      events: [],
+      sourceStats: {
+        ticketmaster: { count: 0, error: String(error) },
+        eventbrite: { count: 0 },
+        serpapi: { count: 0 },
+        error: { message: String(error), status: 500 }
+      },
+      totalEvents: 0,
+      pageSize: params.limit || 20,
+      page: params.page || 1,
+      totalPages: 0,
+      hasMore: false,
+      meta: {
+        error: String(error),
+        timestamp: new Date().toISOString()
+      }
+    };
+  } finally {
+    // Hide loading indicator
     loadingManager.stopLoading(loadingId);
-    return { events: [] };
   }
 }
 
-/**
- * Get event details by ID with improved error handling and caching
- * @param id Event ID to fetch
- * @returns Promise with event details or null if not found
- */
+// Get event details by ID
 export async function getEventById(id: string): Promise<Event | null> {
-  // Generate a unique ID for this loading operation
-  const loadingId = `get-event-${id}-${Date.now()}`;
-  loadingManager.startLoading(loadingId, `Loading event details...`);
-
-  // Start performance monitoring
-  const endOperation = performanceMonitor.startOperation('getEventById');
-
+  // Generate a cache key
+  const cacheKey = `event:${id}`;
+  
+  // Check if we have a cached result
+  const cachedEvent = eventCache.get<Event>(cacheKey);
+  if (cachedEvent) {
+    console.log('[CACHE] Using cached event data for ID:', id);
+    return cachedEvent;
+  }
+  
+  // Show loading indicator
+  const loadingId = `get-event-${id}`;
+  loadingManager.startLoading(loadingId, 'Loading event details...');
+  
   try {
-    if (!id) {
-      console.error('[ERROR] getEventById called with invalid ID');
-      endOperation(false);
-      loadingManager.stopLoading(loadingId);
-      return null;
-    }
+    const { data: localEvent } = await supabase
+      .from('events')
+      .select('*')
+      .eq('id', id)
+      .single();
 
-    const cacheKey = `event:${id}`;
-    const eventCache = EventCache.getInstance();
+    if (localEvent) {
+      let coordinates: [number, number] | undefined;
 
-    // Check cache first
-    const cachedEvent = eventCache.get<Event>(cacheKey);
-    if (cachedEvent) {
-      console.log(`[CACHE] Using cached data for event ${id}`);
-      endOperation(true);
-      loadingManager.stopLoading(loadingId);
-      return cachedEvent;
+      if (localEvent.location_coordinates) {
+        const coordStr = typeof localEvent.location_coordinates === 'string'
+          ? localEvent.location_coordinates
+          : '';
+
+        const matches = coordStr.match(/\(([-\d.]+)\s+([-\d.]+)\)/);
+        if (matches) {
+          coordinates = [parseFloat(matches[1]), parseFloat(matches[2])];
+        }
+      }
+
+      const metadata = localEvent.metadata || {};
+      const price = typeof metadata === 'object' && 'price' in metadata
+        ? metadata.price as string
+        : undefined;
+
+      return {
+        id: localEvent.external_id,
+        source: localEvent.source,
+        title: localEvent.title,
+        description: localEvent.description,
+        date: new Date(localEvent.date_start).toISOString().split('T')[0],
+        time: new Date(localEvent.date_start).toTimeString().slice(0, 5),
+        location: localEvent.location_name,
+        venue: localEvent.venue_name,
+        category: localEvent.category,
+        image: localEvent.image_url,
+        url: localEvent.url,
+        coordinates,
+        price
+      };
     }
 
     // If not in local database, fetch from API with timeout handling
-    const timeoutMs = 10000; // 10 seconds timeout
+    const timeoutMs = 20000; // 20 seconds timeout
+    const functionPromise = supabase.functions.invoke('get-event', {
+      body: { id }, // Use object directly instead of JSON.stringify
+      headers: { 'Content-Type': 'application/json' }
+    });
 
-    try {
-      // Use retry mechanism for the API call
-      const functionResult = await retryWithBackoff(async () => {
-        // Create a promise that rejects after the timeout
-        const timeoutPromise = new Promise<never>((_, reject) => {
-          const id = setTimeout(() => {
-            clearTimeout(id);
-            reject(new Error('Request timed out'));
-          }, timeoutMs);
-        });
+    // Create a timeout promise
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Function invocation timed out')), timeoutMs);
+    });
 
-        // Race the function call against the timeout
-        return Promise.race([
-          supabase.functions.invoke('get-event', {
-            body: { id },
-            headers: { 'Content-Type': 'application/json' }
-          }),
-          timeoutPromise
-        ]);
-      }, 2); // Retry up to 2 times (3 attempts total)
+    // Race the function call against the timeout
+    const { data, error } = await Promise.race([
+      functionPromise,
+      timeoutPromise.then(() => ({ data: null, error: { message: 'Timeout exceeded', status: 408 } }))
+    ]) as any;
 
-      // If we get here, the function call completed before the timeout
-      const { data, error } = functionResult;
-
-      if (error) {
-        console.error('[ERROR] Error fetching event by ID:', error);
-        endOperation(false);
-        loadingManager.stopLoading(loadingId);
-        return null;
-      }
-
-      if (!data?.event) {
-        endOperation(false);
-        loadingManager.stopLoading(loadingId);
-        return null;
-      }
-
-      // Cache the event data
-      eventCache.set(cacheKey, data.event);
-
-      endOperation(true);
-      loadingManager.stopLoading(loadingId);
-      return data.event;
-    } catch (error) {
-      // Handle timeout errors
-      if (error instanceof Error && error.message === 'Request timed out') {
-        console.error('[ERROR] Request timed out after', timeoutMs, 'ms');
-        endOperation(false);
-        loadingManager.stopLoading(loadingId);
-        return null;
-      }
-
-      // Re-throw other errors to be caught by the outer try/catch
-      throw error;
+    if (error) {
+      console.error('[ERROR] Error fetching event by ID:', error);
+      return null;
     }
+
+    if (!data?.event) return null;
+
+    // Cache the event data
+    eventCache.set(cacheKey, data.event);
+    
+    return data.event;
   } catch (error) {
-    console.error('[ERROR] Error getting event by ID:', error);
-    endOperation(false);
-    loadingManager.stopLoading(loadingId);
+    console.error('Error getting event by ID:', error);
+    // Return null instead of throwing to prevent app crashes
     return null;
+  } finally {
+    // Hide loading indicator
+    loadingManager.stopLoading(loadingId);
   }
 }

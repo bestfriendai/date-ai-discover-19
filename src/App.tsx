@@ -16,7 +16,7 @@ const NotFound = lazy(() => import("./pages/NotFound"));
 const MapView = lazy(() => import("./pages/MapView"));
 const DatePlan = lazy(() => import("./pages/DatePlan"));
 const Favorites = lazy(() => import("./pages/Favorites"));
-// const Chat = lazy(() => import("./pages/Chat")); // Unused import
+const Chat = lazy(() => import("./pages/Chat"));
 const Profile = lazy(() => import("./pages/Profile"));
 const EditItinerary = lazy(() => import("./pages/EditItinerary"));
 const PartyAI = lazy(() => import("./pages/PartyAI"));
@@ -31,55 +31,55 @@ const PageLoader = () => (
 
 const AppRoutes = () => {
   const location = useLocation();
-
+  
   return (
     <ErrorBoundary>
-      <AnimatePresence mode="sync">
+      <AnimatePresence mode="wait">
         <Suspense fallback={<PageLoader />}>
           <Routes location={location} key={location.pathname}>
             <Route path="/" element={
-              <PageTransition key="home">
+              <PageTransition>
                 <PartyAI />
               </PageTransition>
             } />
             <Route path="/map" element={
-              <PageTransition key="map">
+              <PageTransition>
                 <MapView />
               </PageTransition>
             } />
             <Route path="/old-home" element={
-              <PageTransition key="old-home">
+              <PageTransition>
                 <Index />
               </PageTransition>
             } />
             <Route path="/plan" element={
-              <PageTransition key="plan">
+              <PageTransition>
                 <DatePlan />
               </PageTransition>
             } />
             <Route path="/plan/:id" element={
-              <PageTransition key="plan-id">
+              <PageTransition>
                 <DatePlan />
               </PageTransition>
             } />
             {/* Add route for editing itinerary */}
             <Route path="/plan/edit/:id" element={
-              <PageTransition key="plan-edit">
+              <PageTransition>
                 <EditItinerary />
               </PageTransition>
             } />
             <Route path="/favorites" element={
-              <PageTransition key="favorites">
+              <PageTransition>
                 <Favorites />
               </PageTransition>
             } />
             <Route path="/chat" element={
-              <PageTransition key="chat">
+              <PageTransition>
                 <ChatMapView />
               </PageTransition>
             } />
             <Route path="/profile" element={
-              <PageTransition key="profile">
+              <PageTransition>
                 <Profile />
               </PageTransition>
             } />
@@ -88,7 +88,7 @@ const AppRoutes = () => {
             <Route path="/events" element={<Navigate to="/map" replace />} />
             {/* 404 route */}
             <Route path="*" element={
-              <PageTransition key="not-found">
+              <PageTransition>
                 <NotFound />
               </PageTransition>
             } />

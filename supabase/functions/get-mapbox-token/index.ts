@@ -24,22 +24,7 @@ serve(async (req) => {
     if (!MAPBOX_TOKEN) {
       console.error('[MAPBOX-TOKEN] CRITICAL ERROR: MAPBOX_TOKEN secret is NOT SET in Supabase Function environment!')
       console.error('[MAPBOX-TOKEN] Please go to Supabase Dashboard > Project Settings > Edge Functions > Add New Secret')
-
-      // Use fallback token instead of throwing an error
-      const FALLBACK_TOKEN = 'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow'
-      console.log('[MAPBOX-TOKEN] Using fallback token instead')
-      return new Response(
-        JSON.stringify({
-          MAPBOX_TOKEN: FALLBACK_TOKEN,
-          success: true,
-          timestamp: new Date().toISOString(),
-          source: 'fallback'
-        }),
-        {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'no-store, max-age=0' },
-          status: 200,
-        }
-      )
+      throw new Error('Mapbox token configuration error on server. Token not found in environment.')
     }
 
     // Validate token format (basic check)

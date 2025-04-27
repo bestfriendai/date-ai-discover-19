@@ -47,24 +47,6 @@ export interface EventFilters {
 }
 
 /**
- * Search parameters for event queries
- */
-export interface SearchParams {
-  keyword?: string;
-  location?: string;
-  latitude?: number;
-  longitude?: number;
-  radius?: number;
-  startDate?: string;
-  endDate?: string;
-  categories?: string[];
-  limit?: number;
-  page?: number;
-  excludeIds?: string[];
-  fields?: string[];
-}
-
-/**
  * Map style options
  */
 export type MapStyle = 'streets' | 'outdoors' | 'light' | 'dark' | 'satellite';
@@ -102,3 +84,4 @@ export interface Itinerary {
   createdAt?: string;
   updatedAt?: string;
 }
+

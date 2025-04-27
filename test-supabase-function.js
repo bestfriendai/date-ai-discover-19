@@ -8,10 +8,10 @@ const supabase = createClient(supabaseUrl, supabaseKey);
 
 async function testSearchEventsFunction() {
   try {
-    console.log('Testing search-events-unified function...');
-
-    // Call the search-events-unified function
-    const { data, error } = await supabase.functions.invoke('search-events-unified', {
+    console.log('Testing search-events function...');
+    
+    // Call the search-events function
+    const { data, error } = await supabase.functions.invoke('search-events', {
       body: {
         keyword: 'music',
         location: 'New York',
@@ -20,18 +20,18 @@ async function testSearchEventsFunction() {
         endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days from now
       }
     });
-
+    
     if (error) {
       console.error('Error calling function:', error);
       return;
     }
-
+    
     console.log('Response received:', {
       totalEvents: data.events?.length || 0,
       sourceStats: data.sourceStats,
       meta: data.meta,
     });
-
+    
     // Check if PredictHQ events were returned
     if (data.sourceStats?.predicthq) {
       console.log('PredictHQ stats:', data.sourceStats.predicthq);
@@ -43,7 +43,7 @@ async function testSearchEventsFunction() {
     } else {
       console.error('No PredictHQ stats in response');
     }
-
+    
     // Count events by source
     const eventsBySource = {};
     if (data.events && Array.isArray(data.events)) {
@@ -53,7 +53,7 @@ async function testSearchEventsFunction() {
       });
       console.log('Events by source:', eventsBySource);
     }
-
+    
   } catch (error) {
     console.error('Test failed:', error);
   }

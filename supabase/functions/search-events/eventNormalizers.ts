@@ -511,35 +511,8 @@ export function normalizeTicketmasterEvent(event: any): Event {
     }
     
     // Extract category information
-    const rawCategory = event.classifications?.[0]?.segment?.name || 'event';
-    let category = mapCategory(rawCategory, 'ticketmaster');
-    
-    // Check if it's a party event based on title or description
-    const eventText = `${event.name || ''} ${event.description || ''} ${event.info || ''}`.toLowerCase();
-    const partyKeywords = [
-      'party', 'club', 'nightclub', 'dance', 'dj', 'disco', 'rave',
-      'nightlife', 'mixer', 'social', 'celebration', 'gala'
-    ];
-    
-    if (partyKeywords.some(keyword => eventText.includes(keyword))) {
-      category = 'party';
-    }
-    
-    // Add party subcategory if it's a party event
-    let partySubcategory: string | undefined = undefined;
-    if (category === 'party') {
-      if (eventText.match(/club|nightclub|dj|dance|disco/)) {
-        partySubcategory = 'club';
-      } else if (eventText.match(/day|afternoon|pool|rooftop|brunch/)) {
-        partySubcategory = 'day-party';
-      } else if (eventText.match(/festival|concert|live|performance/)) {
-        partySubcategory = 'music';
-      } else if (eventText.match(/social|mixer|networking|gathering/)) {
-        partySubcategory = 'social';
-      } else {
-        partySubcategory = 'general';
-      }
-    }
+    const rawCategory = event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event';
+    const category = mapCategory(rawCategory, 'ticketmaster');
     
     // Extract subcategories
     const subcategories: string[] = [];
@@ -635,7 +608,6 @@ export function normalizeTicketmasterEvent(event: any): Event {
       location: location || DEFAULT_VALUES.location,
       venue: venueObj,
       category,
-      partySubcategory,
       subcategories: subcategories.length > 0 ? subcategories : undefined,
       image,
       coordinates,
