@@ -19,52 +19,57 @@ async function getMapboxTokenOriginal(): Promise<string | null> {
   fetchAttempts++;
 
   try {
-    // Use the standard Supabase client invocation
-    console.log('[MapboxService] Invoking Supabase function: get-mapbox-token');
+    // Use the standard Supabase client invocation with exponential backoff
+    const backoffDelay = Math.min(1000 * Math.pow(2, fetchAttempts - 1), 8000); // Exponential backoff with 8s max
+    console.log(`[MapboxService] Attempt ${fetchAttempts} with ${backoffDelay}ms timeout`);
+
     const response = await Promise.race([
       supabase.functions.invoke('get-mapbox-token'),
       new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error('Timeout fetching Mapbox token')), 8000) // 8 second timeout
+        setTimeout(() => reject(new Error(`Timeout after ${backoffDelay}ms fetching Mapbox token`)), backoffDelay)
       )
     ]);
 
-    // Log the response status for debugging
-    console.log('[MapboxService] Supabase function response status:',
-      response.error ? 'Error' : 'Success');
-    console.log('[MapboxService] Response data:', response.data ? 'Data received' : 'No data');
-
+    // Validate response
     if (response.error) {
+      const errorMessage = response.error.message || 'Unknown error';
       errorReporter('[MapboxService] Error invoking get-mapbox-token function:', response.error);
-      throw new Error(`Supabase function error: ${response.error.message || 'Unknown error'}`);
+      throw new Error(`Supabase function error: ${errorMessage}`);
     }
 
-    // Parse the JSON data from the response
+    // Validate response data
     const data = response.data;
-
-    // Check the structure of the data returned by your function
-    if (data && data.MAPBOX_TOKEN) {
-      console.log('[MapboxService] Successfully fetched Mapbox token from Supabase function.');
-      cachedToken = data.MAPBOX_TOKEN;
-      cacheTimestamp = Date.now();
-      fetchAttempts = 0; // Reset attempts counter on success
-      return data.MAPBOX_TOKEN;
-    } else {
-      errorReporter('[MapboxService] No MAPBOX_TOKEN found in function response:', data);
-      throw new Error('No MAPBOX_TOKEN returned from Supabase function');
+    if (!data) {
+      throw new Error('Empty response from Supabase function');
     }
+
+    // Validate token format
+    if (!data.MAPBOX_TOKEN || typeof data.MAPBOX_TOKEN !== 'string' || 
+        !(data.MAPBOX_TOKEN.startsWith('pk.') || data.MAPBOX_TOKEN.startsWith('sk.'))) {
+      errorReporter('[MapboxService] Invalid token format:', { tokenStart: data.MAPBOX_TOKEN?.substring(0, 3) });
+      throw new Error('Invalid Mapbox token format received');
+    }
+
+    // Store valid token
+    console.log('[MapboxService] Successfully fetched and validated Mapbox token');
+    cachedToken = data.MAPBOX_TOKEN;
+    cacheTimestamp = Date.now();
+    fetchAttempts = 0; // Reset attempts counter on success
+    return data.MAPBOX_TOKEN;
+
   } catch (error) {
-    errorReporter('[MapboxService] Failed to fetch Mapbox token:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    errorReporter('[MapboxService] Failed to fetch Mapbox token:', { error: errorMessage, attempt: fetchAttempts });
 
-    // Check if we should retry
+    // Retry with exponential backoff if attempts remain
     if (fetchAttempts < MAX_FETCH_ATTEMPTS) {
-      console.log(`[MapboxService] Retry attempt ${fetchAttempts}/${MAX_FETCH_ATTEMPTS} in ${fetchAttempts * 2} seconds...`);
-      // Wait before retrying (increasing delay with each attempt)
-      await new Promise(resolve => setTimeout(resolve, fetchAttempts * 2000));
-      return getMapboxTokenOriginal(); // Recursive retry
+      const retryDelay = fetchAttempts * 2000; // Linear backoff for retry timing
+      console.log(`[MapboxService] Retry ${fetchAttempts}/${MAX_FETCH_ATTEMPTS} in ${retryDelay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      return getMapboxTokenOriginal();
     }
 
-    // No fallbacks available
-    console.error('[MapboxService] All token fetch attempts failed.');
+    console.error('[MapboxService] All token fetch attempts failed after exponential backoff.');
     return null;
   }
 }
