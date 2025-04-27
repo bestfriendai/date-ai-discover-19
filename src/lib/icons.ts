@@ -3,99 +3,127 @@ import * as LucideIcons from 'lucide-react';
 
 // Navigation and UI Controls
 export const {
-  ChevronLeft: ChevronLeftIcon,
-  ChevronRight: ChevronRightIcon,
-  ChevronDown: ChevronDownIcon,
-  ChevronUp: ChevronUpIcon,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  ChevronUp,
   ArrowLeft,
   ArrowRight,
-  Search: SearchIcon,
-  Filter: FilterIcon,
-  X: XIcon,
+  Search,
+  Filter,
+  X,
   MoreHorizontal,
   SlidersHorizontal,
   PanelLeft,
   GripVertical,
-  Check: CheckIcon,
+  Check,
   Circle,
   Dot,
+  // Add aliases for backwards compatibility
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } = LucideIcons;
 
 // User Interface
 export const {
-  User: UserIcon,
-  LogOut: LogOutIcon,
-  Lock: LockIcon,
-  Mail: MailIcon,
-  ExternalLink: ExternalLinkIcon,
-  Plus: PlusIcon,
-  PlusCircle: PlusCircleIcon, // Already aliased at the end, but keep consistent if used elsewhere
-  Loader2: Loader2Icon,
-  Trash2: Trash2Icon,
+  User,
+  LogOut,
+  Lock,
+  Mail,
+  ExternalLink,
+  Plus,
+  PlusCircle,
+  Loader2,
+  Trash2,
   Edit,
   AlertCircle,
-  Info: InfoIcon,
-  Share2: Share2Icon,
+  Info,
+  Share2,
+  // Add aliases for backwards compatibility
+  Trash2 as Trash2Icon,
+  Edit as EditIcon,
+  AlertCircle as AlertCircleIcon,
 } = LucideIcons;
 
 // Location and Navigation
 export const {
-  MapPin: MapPinIcon,
-  Locate: LocateIcon,
+  MapPin,
+  Locate,
   Navigation,
   Car,
-  Map: MapIcon,
-  Compass: CompassIcon,
-  Globe: GlobeIcon,
-  Satellite: SatelliteIcon,
+  Map,
+  Compass,
+  Globe,
+  Satellite,
+  // Add aliases for backwards compatibility
+  MapPin as MapPinIcon,
+  Globe as GlobeIcon,
 } = LucideIcons;
 
 // Date and Time
 export const {
-  Calendar: CalendarIcon,
-  CalendarDays: CalendarDaysIcon,
-  Clock: ClockIcon,
+  Calendar,
+  CalendarDays,
+  Clock,
+  // Add aliases for backwards compatibility
+  Calendar as CalendarIcon,
+  Clock as ClockIcon,
 } = LucideIcons;
 
 // Event Categories and Types
 export const {
   PartyPopper,
-  Music: MusicIcon,
+  Music,
   Palette,
   Trophy,
-  Users: UsersIcon,
+  Users,
   Utensils,
-  Heart: HeartIcon,
-  Star: StarIcon,
-  Sparkles: SparklesIcon,
-  Ticket: TicketIcon,
+  Heart,
+  Star,
+  Sparkles,
+  Ticket,
+  // Add aliases for backwards compatibility
+  Music as MusicIcon,
+  PartyPopper as PartyPopperIcon,
+  Utensils as UtensilsIcon,
+  Trophy as TrophyIcon,
+  Theater as TheaterIcon,
 } = LucideIcons;
 
 // Venue and Location Types
 export const {
-  Building, // Keep as is, seems correctly imported elsewhere
+  Building,
   Coffee,
   Wine,
   Network,
   Package,
   Headphones,
-  Mountain: MountainIcon,
-  MountainSnow: MountainSnowIcon,
+  Mountain,
+  MountainSnow,
   Theater,
-  Bot: BotIcon,
-  Send: SendIcon,
-  Sun: SunIcon,
-  Moon: MoonIcon,
-  Layers: LayersIcon,
+  Bot,
+  Send,
+  Sun,
+  Moon,
+  Layers,
+  // Add aliases for backwards compatibility
+  Mountain as MountainIcon,
+  Building as BuildingIcon,
+  MountainSnow as MountainSnowIcon,
+  Layers as LayersIcon,
 } = LucideIcons;
 
-// Additional icons needed for various components
-// Keep existing aliases and ensure no duplicates
+// Additional icons
 export const {
-  DollarSign: DollarSignIcon,
-  Settings: SettingsIcon,
-  TrendingUp: TrendingUpIcon,
-  MinusCircle: MinusCircleIcon,
-  CheckCircle: CheckCircleIcon,
-  // Add any missing from above if needed, but avoid re-aliasing
+  DollarSign,
+  Settings,
+  TrendingUp,
+  MinusCircle,
+  CheckCircle,
+  // Add aliases for backwards compatibility
+  DollarSign as DollarSignIcon,
+  Settings as SettingsIcon,
+  TrendingUp as TrendingUpIcon,
+  MinusCircle as MinusCircleIcon,
+  CheckCircle as CheckCircleIcon,
 } = LucideIcons;
