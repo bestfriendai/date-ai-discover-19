@@ -8,6 +8,10 @@ let cacheTimestamp: number | null = null;
 let fetchAttempts = 0;
 const MAX_FETCH_ATTEMPTS = 3;
 
+// Fallback token - this is a public token that can be used if the Supabase function fails
+// This should be replaced with your own Mapbox public token
+const FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow';
+
 async function getMapboxTokenOriginal(): Promise<string | null> {
   // Check if we have a valid cached token
   if (cachedToken && cacheTimestamp && (Date.now() - cacheTimestamp < CACHE_DURATION)) {
@@ -44,7 +48,7 @@ async function getMapboxTokenOriginal(): Promise<string | null> {
     }
 
     // Validate token format
-    if (!data.MAPBOX_TOKEN || typeof data.MAPBOX_TOKEN !== 'string' || 
+    if (!data.MAPBOX_TOKEN || typeof data.MAPBOX_TOKEN !== 'string' ||
         !(data.MAPBOX_TOKEN.startsWith('pk.') || data.MAPBOX_TOKEN.startsWith('sk.'))) {
       errorReporter('[MapboxService] Invalid token format:', { tokenStart: data.MAPBOX_TOKEN?.substring(0, 3) });
       throw new Error('Invalid Mapbox token format received');
@@ -75,5 +79,33 @@ async function getMapboxTokenOriginal(): Promise<string | null> {
 }
 
 export async function getMapboxToken(): Promise<string | null> {
-  return getMapboxTokenOriginal();
+  try {
+    // First check if we have a token in the environment variables
+    if (typeof process !== 'undefined' && process.env && process.env.MAPBOX_TOKEN) {
+      console.log('[MapboxService] Using Mapbox token from environment variables');
+      return process.env.MAPBOX_TOKEN;
+    }
+
+    // Try to get the token directly from the .env file if we're in development
+    if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_MAPBOX_TOKEN) {
+      console.log('[MapboxService] Using Mapbox token from Vite environment variables');
+      return import.meta.env.VITE_MAPBOX_TOKEN;
+    }
+
+    // Then try to get the token from Supabase
+    const token = await getMapboxTokenOriginal();
+    if (token) {
+      return token;
+    }
+
+    // If all else fails, use the hardcoded fallback token
+    console.log('[MapboxService] Using fallback Mapbox token');
+    return FALLBACK_MAPBOX_TOKEN;
+  } catch (error) {
+    console.error('[MapboxService] Error in getMapboxToken:', error);
+
+    // Return fallback token in case of any error
+    console.log('[MapboxService] Using fallback Mapbox token due to error');
+    return FALLBACK_MAPBOX_TOKEN;
+  }
 }

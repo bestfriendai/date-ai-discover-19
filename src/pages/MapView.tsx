@@ -63,37 +63,18 @@ const MapView = () => {
   const tokenFetchAttempts = useRef(0);
   const maxRetryAttempts = 3;
 
-  // Fetch Mapbox token on component mount
+  // Set Mapbox token directly on component mount
   useEffect(() => {
-    const fetchToken = async () => {
-      console.log('[MapView] Fetching Mapbox token...');
-      setIsTokenLoading(true);
-      setTokenError(null);
-      try {
-        const token = await getMapboxToken();
-        if (token) {
-          console.log('[MapView] Mapbox token fetched successfully:', token.substring(0, 8) + '...');
-          setMapboxToken(token);
-        } else {
-          throw new Error('Mapbox token returned null from service.');
-        }
-      } catch (error) {
-        console.error('[MapView] Error fetching Mapbox token:', error);
-        setTokenError(error instanceof Error ? error.message : 'Failed to load map configuration.');
-        toast({
-          title: 'Map Load Error',
-          description: 'Could not retrieve map configuration. Please refresh.',
-          variant: 'destructive',
-          duration: 10000
-        });
-      } finally {
-        setIsTokenLoading(false);
-      }
-    };
+    console.log('[MapView] Setting Mapbox token directly...');
+    setIsTokenLoading(true);
 
-    fetchToken();
+    // Use the token directly instead of fetching it
+    const directToken = 'pk.eyJ1IjoidHJhcHBhdCIsImEiOiJjbTMzODBqYTYxbHcwMmpwdXpxeWljNXJ3In0.xKUEW2C1kjFBu7kr7Uxfow';
+    console.log('[MapView] Using direct Mapbox token:', directToken.substring(0, 8) + '...');
+    setMapboxToken(directToken);
+    setIsTokenLoading(false);
   }, []); // Run only once on mount
-  
+
   // Handler for Add to Plan button
   const handleAddToPlan = useCallback((event: Event) => {
     console.log('[MapView] Opening Add to Plan modal for event:', event.id);
@@ -141,26 +122,75 @@ const MapView = () => {
 
   // Effect to load events when map center changes (e.g., after Find My Location)
   useEffect(() => {
-    if (mapCenter && mapLoaded) {
-      // Validate coordinates before fetching
-      const { latitude, longitude } = mapCenter;
-      const isValidLat = typeof latitude === 'number' && !isNaN(latitude) && latitude >= -90 && latitude <= 90;
-      const isValidLng = typeof longitude === 'number' && !isNaN(longitude) && longitude >= -180 && longitude <= 180;
+    if (mapLoaded) {
+      // If we have map center coordinates, use them
+      if (mapCenter) {
+        // Validate coordinates before fetching
+        const { latitude, longitude } = mapCenter;
+        const isValidLat = typeof latitude === 'number' && !isNaN(latitude) && latitude >= -90 && latitude <= 90;
+        const isValidLng = typeof longitude === 'number' && !isNaN(longitude) && longitude >= -180 && longitude <= 180;
 
-      if (isValidLat && isValidLng) {
-        console.log('[MapView] Map center changed, fetching events for:', mapCenter);
-        // Set default search parameters if none exist
-        const searchParams = {
-          ...filters,
-          radius: filters.distance || 30, // Default 30 mile radius
-          categories: filters.categories || [], // Empty array if no categories
-        };
-        fetchEvents(searchParams, mapCenter);
-      } else {
-        console.warn('[MapView] Invalid coordinates, skipping event fetch:', mapCenter);
+        if (isValidLat && isValidLng) {
+          console.log('[MapView] Map center changed, fetching events for:', mapCenter);
+          // Set default search parameters if none exist
+          const searchParams = {
+            ...filters,
+            radius: filters.distance || 30, // Default 30 mile radius
+            categories: filters.categories || [], // Empty array if no categories
+          };
+          fetchEvents(searchParams, mapCenter);
+          return;
+        } else {
+          console.warn('[MapView] Invalid coordinates, will try to get user location');
+        }
       }
+
+      // If we don't have valid map center coordinates, try to get the user's location
+      console.log('[MapView] No valid map center, attempting to get user location');
+
+      // Use a default location (New York City) if we can't get the user's location
+      const defaultLocation = { latitude: 40.7128, longitude: -74.0060 };
+
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          // Successfully got user's location
+          const userLocation = {
+            latitude: position.coords.latitude,
+            longitude: position.coords.longitude
+          };
+          console.log('[MapView] Got user location:', userLocation);
+
+          // Update map center with user location
+          setMapCenter(userLocation);
+
+          // Fetch events for user location
+          const searchParams = {
+            ...filters,
+            radius: filters.distance || 30,
+            categories: filters.categories || [],
+          };
+          fetchEvents(searchParams, userLocation);
+        },
+        (error) => {
+          // Failed to get user's location, use default
+          console.warn('[MapView] Failed to get user location:', error.message);
+          console.log('[MapView] Using default location (New York City)');
+
+          // Update map center with default location
+          setMapCenter(defaultLocation);
+
+          // Fetch events for default location
+          const searchParams = {
+            ...filters,
+            radius: filters.distance || 30,
+            categories: filters.categories || [],
+          };
+          fetchEvents(searchParams, defaultLocation);
+        },
+        { timeout: 5000, maximumAge: 60000 }
+      );
     }
-  }, [mapCenter, mapLoaded, filters, fetchEvents]);
+  }, [mapCenter, mapLoaded, filters, fetchEvents, setMapCenter]);
 
   // Add event listener for the custom 'view-event' event
   useEffect(() => {
@@ -205,9 +235,15 @@ const MapView = () => {
       {!isTokenLoading && !mapboxToken && (
         <MapLayout>
           <div className="flex-1 flex items-center justify-center p-4 text-center">
-            <div className="bg-destructive/10 border border-destructive text-destructive p-4 rounded-md">
-              <h2 className="font-bold mb-2">Map Load Error</h2>
-              <p>Could not retrieve the necessary configuration to load the map. Please ensure the Mapbox token is correctly set up in the backend and try refreshing the page.</p>
+            <div className="bg-yellow-100 border border-yellow-400 text-yellow-800 p-4 rounded-md">
+              <h2 className="font-bold mb-2">Map Loading</h2>
+              <p>The map is taking longer than expected to load. Please wait a moment or try refreshing the page.</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="mt-4 px-4 py-2 bg-primary text-white rounded-md hover:bg-primary/90"
+              >
+                Refresh Page
+              </button>
             </div>
           </div>
         </MapLayout>

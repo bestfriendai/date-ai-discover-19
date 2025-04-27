@@ -23,7 +23,7 @@ class EventCache {
   private missCount = 0;
   private cleanupInterval: number | null = null;
   private statsInterval: number | null = null;
-  
+
   private constructor() {
     this.cache = new Map();
     this.setupIntervals();
@@ -40,15 +40,15 @@ class EventCache {
     if (this.statsInterval) {
       clearInterval(this.statsInterval);
     }
-    
+
     // Clean expired cache entries every minute
     this.cleanupInterval = window.setInterval(() => this.cleanExpiredEntries(), 60 * 1000);
-    
+
     // Log cache stats every 5 minutes in development
-    const isDevelopment = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || 
+    const isDevelopment = typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
        window.location.hostname === '127.0.0.1');
-    
+
     if (isDevelopment) {
       this.statsInterval = window.setInterval(() => this.logCacheStats(), 5 * 60 * 1000);
     }
@@ -69,19 +69,19 @@ class EventCache {
    */
   public get<T>(key: string): T | null {
     const entry = this.cache.get(key);
-    
+
     if (!entry) {
       this.missCount++;
       return null;
     }
-    
+
     // Check if entry has expired
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       this.missCount++;
       return null;
     }
-    
+
     this.hitCount++;
     return entry.data as T;
   }
@@ -94,10 +94,10 @@ class EventCache {
     if (data === null || data === undefined) {
       return;
     }
-    
+
     const timestamp = Date.now();
     const expiresAt = timestamp + ttl;
-    
+
     // Estimate size of the data in bytes
     let size: number | undefined;
     try {
@@ -107,12 +107,12 @@ class EventCache {
       // If we can't stringify the data, don't track its size
       console.warn('[CACHE] Could not estimate size for:', key);
     }
-    
+
     // Check if we need to evict entries due to cache size limit
     if (this.cache.size >= this.MAX_CACHE_SIZE) {
       this.evictOldestEntries();
     }
-    
+
     this.cache.set(key, { data, timestamp, expiresAt, size });
   }
 
@@ -139,7 +139,7 @@ class EventCache {
     const now = Date.now();
     let removedCount = 0;
     let freedBytes = 0;
-    
+
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.expiresAt) {
         this.cache.delete(key);
@@ -149,14 +149,14 @@ class EventCache {
         }
       }
     }
-    
-    if (removedCount > 0 && typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || 
+
+    if (removedCount > 0 && typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
        window.location.hostname === '127.0.0.1')) {
       console.log(`[CACHE] Cleaned ${removedCount} expired entries, freed ${(freedBytes / 1024).toFixed(2)}KB`);
     }
   }
-  
+
   /**
    * Evict oldest entries to make room for new ones
    */
@@ -164,12 +164,12 @@ class EventCache {
     // Sort entries by timestamp (oldest first)
     const entries = Array.from(this.cache.entries())
       .sort((a, b) => a[1].timestamp - b[1].timestamp);
-    
+
     // Remove the oldest 20% of entries
     const entriesToRemove = Math.max(1, Math.floor(entries.length * 0.2));
     let removedCount = 0;
     let freedBytes = 0;
-    
+
     for (let i = 0; i < entriesToRemove && i < entries.length; i++) {
       const [key, entry] = entries[i];
       this.cache.delete(key);
@@ -178,14 +178,14 @@ class EventCache {
         freedBytes += entry.size;
       }
     }
-    
-    if (removedCount > 0 && typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || 
+
+    if (removedCount > 0 && typeof window !== 'undefined' &&
+      (window.location.hostname === 'localhost' ||
        window.location.hostname === '127.0.0.1')) {
       console.log(`[CACHE] Evicted ${removedCount} oldest entries, freed ${(freedBytes / 1024).toFixed(2)}KB`);
     }
   }
-  
+
   /**
    * Log cache statistics to console in development
    */
@@ -193,7 +193,7 @@ class EventCache {
     const totalRequests = this.hitCount + this.missCount;
     const hitRate = totalRequests > 0 ?
       (this.hitCount / totalRequests * 100).toFixed(1) : '0';
-    
+
     // Calculate total cache size
     let totalSize = 0;
     for (const entry of this.cache.values()) {
@@ -201,13 +201,13 @@ class EventCache {
         totalSize += entry.size;
       }
     }
-    
+
     const sizeInKB = (totalSize / 1024).toFixed(2);
-    
+
     console.log(`[CACHE] Stats: ${this.cache.size} entries, ${sizeInKB}KB used`);
     console.log(`[CACHE] Hit rate: ${hitRate}% (${this.hitCount} hits, ${this.missCount} misses)`);
   }
-  
+
   /**
    * Get cache statistics for monitoring
    */
@@ -215,7 +215,7 @@ class EventCache {
     const totalRequests = this.hitCount + this.missCount;
     const hitRate = totalRequests > 0 ?
       (this.hitCount / totalRequests * 100) : 0;
-    
+
     // Calculate total cache size
     let totalSize = 0;
     for (const entry of this.cache.values()) {
@@ -223,7 +223,7 @@ class EventCache {
         totalSize += entry.size;
       }
     }
-    
+
     return {
       size: this.cache.size,
       keys: Array.from(this.cache.keys()),
@@ -235,7 +235,7 @@ class EventCache {
       oldestEntry: this.getOldestEntryAge()
     };
   }
-  
+
   /**
    * Get the age of the oldest cache entry in seconds
    */
@@ -243,16 +243,16 @@ class EventCache {
     if (this.cache.size === 0) {
       return null;
     }
-    
+
     const now = Date.now();
     let oldestTimestamp = now;
-    
+
     for (const entry of this.cache.values()) {
       if (entry.timestamp < oldestTimestamp) {
         oldestTimestamp = entry.timestamp;
       }
     }
-    
+
     return Math.floor((now - oldestTimestamp) / 1000);
   }
 }
@@ -292,18 +292,18 @@ class PerformanceMonitor {
     maxTime: number;
     minTime: number;
   }>;
-  
+
   private constructor() {
     this.metrics = new Map();
   }
-  
+
   public static getInstance(): PerformanceMonitor {
     if (!PerformanceMonitor.instance) {
       PerformanceMonitor.instance = new PerformanceMonitor();
     }
     return PerformanceMonitor.instance;
   }
-  
+
   /**
    * Start tracking a new API call
    * @param operation Name of the operation being tracked
@@ -311,11 +311,11 @@ class PerformanceMonitor {
    */
   public startOperation(operation: string): (success: boolean) => void {
     const startTime = performance.now();
-    
+
     return (success: boolean) => {
       const endTime = performance.now();
       const executionTime = endTime - startTime;
-      
+
       // Get existing metrics or create new ones
       const existing = this.metrics.get(operation) || {
         calls: 0,
@@ -325,26 +325,26 @@ class PerformanceMonitor {
         maxTime: 0,
         minTime: Number.MAX_VALUE
       };
-      
+
       // Update metrics
       existing.calls += 1;
       existing.totalTime += executionTime;
       existing.lastCall = Date.now();
       existing.maxTime = Math.max(existing.maxTime, executionTime);
       existing.minTime = Math.min(existing.minTime, executionTime);
-      
+
       if (!success) {
         existing.errors += 1;
       }
-      
+
       // Save updated metrics
       this.metrics.set(operation, existing);
-      
+
       // Log performance in development
-      const isDevelopment = typeof window !== 'undefined' && 
-        (window.location.hostname === 'localhost' || 
+      const isDevelopment = typeof window !== 'undefined' &&
+        (window.location.hostname === 'localhost' ||
          window.location.hostname === '127.0.0.1');
-      
+
       if (isDevelopment) {
         console.log(
           `[PERF] ${operation}: ${executionTime.toFixed(2)}ms ` +
@@ -352,17 +352,17 @@ class PerformanceMonitor {
           `success: ${success ? 'yes' : 'no'})`
         );
       }
-      
+
       return executionTime;
     };
   }
-  
+
   /**
    * Get all performance metrics
    */
   public getMetrics(): Record<string, any> {
     const result: Record<string, any> = {};
-    
+
     for (const [operation, metrics] of this.metrics.entries()) {
       result[operation] = {
         ...metrics,
@@ -371,10 +371,10 @@ class PerformanceMonitor {
         lastCallTime: new Date(metrics.lastCall).toISOString()
       };
     }
-    
+
     return result;
   }
-  
+
   /**
    * Reset all metrics
    */
@@ -407,30 +407,31 @@ async function retryWithBackoff<T>(
     if (retries <= 0) {
       throw error;
     }
-    
+
     // Don't retry for certain error types
     if (error instanceof Error) {
       // Don't retry for timeout errors
       if (error.message === 'Request timed out') {
         throw error;
       }
-      
+
       // Don't retry for client-side validation errors
       if (error.message.includes('Invalid parameters')) {
         throw error;
       }
     }
-    
+
     // Wait for the specified delay
     await new Promise(resolve => setTimeout(resolve, delay));
-    
+
     // Retry with increased delay
     return retryWithBackoff(operation, retries - 1, delay * backoffFactor, backoffFactor);
   }
 }
 
 /**
- * Search for events using the Supabase Edge Function
+ * Search for events using the Supabase Edge Function (search-events-unified)
+ * This function fetches events from both Ticketmaster and PredictHQ APIs
  * @param params Search parameters
  * @returns Promise with search results
  */
@@ -441,34 +442,34 @@ export async function searchEvents(params: SearchParams): Promise<{
   // Generate a unique ID for this loading operation
   const loadingId: string = `search-events-${Date.now()}`;
   loadingManager.startLoading(loadingId, 'Searching for events...');
-  
+
   // Start performance monitoring
   const endOperation = performanceMonitor.startOperation('searchEvents');
-  
+
   try {
     const cacheKey = `search:${JSON.stringify(params)}`;
     const eventCache = EventCache.getInstance();
-    
+
     // Check cache first
     const cachedResult = eventCache.get<{
       events: Event[];
       metadata?: Record<string, any>;
     }>(cacheKey);
-    
+
     if (cachedResult) {
       endOperation(true); // Success from cache
       loadingManager.stopLoading(loadingId);
       return cachedResult;
     }
-    
+
     // Prepare API parameters
     const apiParams: SearchParams = { ...params };
-    
+
     // Add default limit if not specified
     if (!apiParams.limit) {
       apiParams.limit = 20;
     }
-    
+
     // Ensure we have at least some parameters to avoid empty request body
     if (!apiParams.lat && !apiParams.lng && !apiParams.latitude && !apiParams.longitude) {
       // Add default coordinates if none provided (New York City)
@@ -476,10 +477,10 @@ export async function searchEvents(params: SearchParams): Promise<{
       apiParams.longitude = -74.0060;
       apiParams.radius = apiParams.radius || 30; // Default 30 mile radius
     }
-    
+
     // Add timeout handling for the function call
     const timeoutMs = 15000; // 15 seconds timeout
-    
+
     try {
       // Use retry mechanism for the API call
       const functionResult = await retryWithBackoff(async () => {
@@ -490,42 +491,36 @@ export async function searchEvents(params: SearchParams): Promise<{
             reject(new Error('Request timed out'));
           }, timeoutMs);
         });
-        
+
         // Race the function call against the timeout
-        // Try search-events-simple first, and if that fails, fall back to search-events
+        // Use the unified search-events function that works reliably
         return Promise.race([
-          supabase.functions.invoke('search-events-simple', {
+          supabase.functions.invoke('search-events-unified', {
             body: apiParams,
             headers: { 'Content-Type': 'application/json' }
-          }).catch(error => {
-            console.warn('[API] search-events-simple failed, falling back to search-events:', error);
-            return supabase.functions.invoke('search-events', {
-              body: apiParams,
-              headers: { 'Content-Type': 'application/json' }
-            });
           }),
           timeoutPromise
         ]);
       }, 2); // Retry up to 2 times (3 attempts total)
-      
+
       // If we get here, the function call completed before the timeout
       const { data, error } = functionResult;
-      
+
       const success = !error && !!data;
       endOperation(success);
-      
+
       if (error) {
         console.error(`[ERROR] searchEvents failed:`, error);
         loadingManager.stopLoading(loadingId);
         return { events: [] };
       }
-      
+
       if (!data) {
         console.warn(`[WARN] searchEvents returned no data`);
         loadingManager.stopLoading(loadingId);
         return { events: [] };
       }
-      
+
       // Process and normalize the events
       const events = (data.events || []).map((event: any) => ({
         id: event.id,
@@ -542,16 +537,16 @@ export async function searchEvents(params: SearchParams): Promise<{
         source: event.source || 'unknown',
         coordinates: event.coordinates || null
       }));
-      
+
       const result = {
         events,
         metadata: data.metadata || {},
         sourceStats: data.sourceStats || null
       };
-      
+
       // Cache the result
       eventCache.set(cacheKey, result);
-      
+
       console.log(`[API] searchEvents completed, found ${events.length} events`);
       loadingManager.stopLoading(loadingId);
       return result;
@@ -562,7 +557,7 @@ export async function searchEvents(params: SearchParams): Promise<{
         loadingManager.stopLoading(loadingId);
         return { events: [] };
       }
-      
+
       // Handle other errors
       console.error('[ERROR] searchEvents failed:', error);
       loadingManager.stopLoading(loadingId);
@@ -584,10 +579,10 @@ export async function getEventById(id: string): Promise<Event | null> {
   // Generate a unique ID for this loading operation
   const loadingId = `get-event-${id}-${Date.now()}`;
   loadingManager.startLoading(loadingId, `Loading event details...`);
-  
+
   // Start performance monitoring
   const endOperation = performanceMonitor.startOperation('getEventById');
-  
+
   try {
     if (!id) {
       console.error('[ERROR] getEventById called with invalid ID');
@@ -598,7 +593,7 @@ export async function getEventById(id: string): Promise<Event | null> {
 
     const cacheKey = `event:${id}`;
     const eventCache = EventCache.getInstance();
-    
+
     // Check cache first
     const cachedEvent = eventCache.get<Event>(cacheKey);
     if (cachedEvent) {
@@ -610,7 +605,7 @@ export async function getEventById(id: string): Promise<Event | null> {
 
     // If not in local database, fetch from API with timeout handling
     const timeoutMs = 10000; // 10 seconds timeout
-    
+
     try {
       // Use retry mechanism for the API call
       const functionResult = await retryWithBackoff(async () => {
@@ -621,7 +616,7 @@ export async function getEventById(id: string): Promise<Event | null> {
             reject(new Error('Request timed out'));
           }, timeoutMs);
         });
-        
+
         // Race the function call against the timeout
         return Promise.race([
           supabase.functions.invoke('get-event', {
@@ -631,7 +626,7 @@ export async function getEventById(id: string): Promise<Event | null> {
           timeoutPromise
         ]);
       }, 2); // Retry up to 2 times (3 attempts total)
-      
+
       // If we get here, the function call completed before the timeout
       const { data, error } = functionResult;
 
@@ -650,7 +645,7 @@ export async function getEventById(id: string): Promise<Event | null> {
 
       // Cache the event data
       eventCache.set(cacheKey, data.event);
-      
+
       endOperation(true);
       loadingManager.stopLoading(loadingId);
       return data.event;
@@ -662,7 +657,7 @@ export async function getEventById(id: string): Promise<Event | null> {
         loadingManager.stopLoading(loadingId);
         return null;
       }
-      
+
       // Re-throw other errors to be caught by the outer try/catch
       throw error;
     }
