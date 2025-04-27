@@ -1,7 +1,6 @@
-
 import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Navigation, Car, AlertCircle, CheckCircle } from '@/lib/icons';
+import { NavigationIcon, CarIcon, AlertCircleIcon, CheckCircleIcon } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
@@ -47,7 +46,7 @@ export function RoutePlanner({
       
       {!userCoordinates ? (
         <div className="flex items-center gap-2 p-3 bg-yellow-100/20 text-yellow-800 dark:text-yellow-400 rounded-md mb-3">
-          <AlertCircle className="h-4 w-4 flex-shrink-0" />
+          <AlertCircleIcon className="h-4 w-4 flex-shrink-0" />
           <p className="text-xs">Enable location to get directions</p>
         </div>
       ) : (
@@ -59,7 +58,7 @@ export function RoutePlanner({
               className="flex-1 gap-2"
               onClick={() => setMode('driving')}
             >
-              <Car className="h-4 w-4" />
+              <CarIcon className="h-4 w-4" />
               Driving
               {distanceData && mode === 'driving' && (
                 <span className="text-xs opacity-90">{formatTime(distanceData.duration)}</span>
@@ -71,7 +70,7 @@ export function RoutePlanner({
               className="flex-1 gap-2"
               onClick={() => setMode('walking')}
             >
-              <Navigation className="h-4 w-4" />
+              <NavigationIcon className="h-4 w-4" />
               Walking
               {distanceData && mode === 'walking' && (
                 <span className="text-xs opacity-90">{formatTime(distanceData.duration)}</span>
@@ -81,7 +80,7 @@ export function RoutePlanner({
           
           {routeRequested ? (
             <div className="flex items-center gap-2 p-3 bg-green-100/20 text-green-800 dark:text-green-400 rounded-md">
-              <CheckCircle className="h-4 w-4 flex-shrink-0" />
+              <CheckCircleIcon className="h-4 w-4 flex-shrink-0" />
               <p className="text-xs">Directions loaded!</p>
             </div>
           ) : (

@@ -1,102 +1,237 @@
+// @ts-ignore: Deno types
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { corsHeaders } from "../_shared/cors.ts";
+import { fetchTicketmasterEvents } from "./ticketmaster.ts";
+import { fetchPredictHQEvents } from "./predicthq-fixed.ts";
+import { Event, SearchParams } from "./types.ts";
+import { apiKeyManager } from "./apiKeyManager.ts";
+import { ApiKeyError, formatApiError } from "./errors.ts";
+import { logApiKeyUsage } from "./logger.ts";
+import { validateAndParseSearchParams, RequestValidationError } from "./validation.ts";
+import {
+  normalizeAndFilterEvents,
+  sortEventsByDate,
+  filterEventsByCoordinates,
+  generateSourceStats,
+  generateMetadata
+} from "./processing.ts";
+import {
+  extractTicketmasterParams,
+  extractPredictHQParams
+} from "./utils.ts";
 
-// @ts-ignore
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
+// Handle CORS preflight requests
+function handleOptionsRequest() {
+  return new Response(null, {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
+    status: 204,
+  });
+}
 
-// CORS headers for all responses
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
-
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json',
-      },
-      status: 204,
-    });
+    return handleOptionsRequest();
   }
 
+  const startTime = Date.now();
+  const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+  
+  // Helper function for consistent response formatting
+  const safeResponse = (data: any, status = 200) =>
+    new Response(JSON.stringify(data), { headers: responseHeaders, status });
+
+  // Initialize tracking variables
+  let ticketmasterCount = 0;
+  let ticketmasterError: string | null = null;
+  let predicthqCount = 0;
+  let predicthqError: string | null = null;
+  let hasValidTicketmasterKey = false;
+  let hasValidPredictHQKey = false;
+
   try {
-    console.log('Request received to search-events');
-    
-    // Parse request body
-    const body = await req.json();
-    const { lat, lng, radius = 10 } = body;
-    
-    console.log(`Searching for events near lat:${lat}, lng:${lng}, radius:${radius}`);
+    console.log('[SEARCH-EVENTS] Received request');
 
-    if (!lat || !lng) {
-      throw new Error('Latitude and longitude are required');
+    // Validate request body exists
+    const contentLength = req.headers.get('content-length');
+    if (!contentLength || parseInt(contentLength) === 0) {
+      return safeResponse({
+        error: 'Missing request body',
+        errorType: 'ValidationError',
+        details: 'Request body is required',
+        events: [],
+        sourceStats: generateSourceStats(0, 'Missing request body', 0, 'Missing request body'),
+        meta: generateMetadata(startTime, 0, 0, null, null)
+      }, 400);
     }
 
-    // Get API key from environment
-    // @ts-ignore
-    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
-    
-    if (!TICKETMASTER_KEY) {
-      throw new Error('TICKETMASTER_KEY is not configured');
-    }
-
-    // Call Ticketmaster API
-    const tmResponse = await fetch(
-      `https://app.ticketmaster.com/discovery/v2/events.json?apikey=${TICKETMASTER_KEY}&latlong=${lat},${lng}&radius=${radius}&unit=miles&size=20`
-    );
-
-    if (!tmResponse.ok) {
-      const errorText = await tmResponse.text();
-      throw new Error(`Ticketmaster API error: ${tmResponse.status} - ${errorText}`);
-    }
-
-    const tmData = await tmResponse.json();
-
-    // Transform Ticketmaster events
-    const events = tmData._embedded?.events?.map((event: any) => ({
-      id: `ticketmaster-${event.id}`,
-      title: event.name,
-      description: event.description || event.info,
-      date: event.dates.start.localDate,
-      time: event.dates.start.localTime,
-      location: event._embedded?.venues?.[0]?.name,
-      category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
-      image: event.images?.[0]?.url || '/placeholder.svg',
-      coordinates: event._embedded?.venues?.[0]?.location ? [
-        parseFloat(event._embedded.venues[0].location.longitude),
-        parseFloat(event._embedded.venues[0].location.latitude)
-      ] : undefined,
-      venue: event._embedded?.venues?.[0]?.name,
-      url: event.url,
-      source: 'ticketmaster'
-    })) || [];
-
-    return new Response(
-      JSON.stringify({ events }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 200,
+    // Parse and validate request parameters
+    const requestBody = await req.json();
+    let params: SearchParams;
+    try {
+      params = validateAndParseSearchParams(requestBody);
+    } catch (error) {
+      if (error instanceof RequestValidationError) {
+        return safeResponse({
+          error: 'Invalid request parameters',
+          errorType: 'ValidationError',
+          details: error.errors,
+          events: [],
+          sourceStats: generateSourceStats(0, 'Invalid parameters', 0, 'Invalid parameters'),
+          meta: generateMetadata(startTime, 0, 0, null, null)
+        }, 400);
       }
+      throw error;
+    }
+
+    // Get API keys
+    let ticketmasterKey: string | undefined;
+    let predicthqKey: string | undefined;
+
+    try {
+      ticketmasterKey = apiKeyManager.getActiveKey('ticketmaster');
+      hasValidTicketmasterKey = true;
+      console.log('[SEARCH-EVENTS] Successfully validated Ticketmaster API key');
+    } catch (error) {
+      console.warn('[SEARCH-EVENTS] Ticketmaster API key error:', error);
+    }
+
+    try {
+      predicthqKey = apiKeyManager.getActiveKey('predicthq');
+      hasValidPredictHQKey = true;
+      console.log('[SEARCH-EVENTS] Successfully validated PredictHQ API key');
+    } catch (error) {
+      console.warn('[SEARCH-EVENTS] PredictHQ API key error:', error);
+    }
+
+    if (!hasValidTicketmasterKey && !hasValidPredictHQKey) {
+      return safeResponse({
+        error: 'No valid API keys available',
+        errorType: 'ApiKeyError',
+        details: 'Both Ticketmaster and PredictHQ API keys are invalid or missing',
+        events: [],
+        sourceStats: generateSourceStats(0, 'Invalid API key', 0, 'Invalid API key'),
+        meta: generateMetadata(startTime, 0, 0, apiKeyManager.getUsageStats('ticketmaster'), null)
+      }, 401);
+    }
+
+    // Make parallel API calls with properly extracted parameters
+    const results = await Promise.allSettled([
+      hasValidTicketmasterKey
+        ? fetchTicketmasterEvents(extractTicketmasterParams(params, ticketmasterKey!))
+        : Promise.resolve({ events: [], error: 'API key not available' }),
+      
+      hasValidPredictHQKey
+        ? fetchPredictHQEvents(extractPredictHQParams(params, predicthqKey!))
+        : Promise.resolve({ events: [], error: 'API key not available' })
+    ]);
+
+    const allEvents: Event[] = [];
+
+    // Process Ticketmaster results
+    if (results[0].status === 'fulfilled') {
+      const tmResult = results[0].value;
+      if (tmResult.error) {
+        ticketmasterError = tmResult.error;
+        logApiKeyUsage('ticketmaster', 'fetch_events', 'error', Date.now() - startTime, { error: tmResult.error });
+      } else {
+        ticketmasterCount = tmResult.events.length;
+        allEvents.push(...tmResult.events);
+        logApiKeyUsage('ticketmaster', 'fetch_events', 'success', Date.now() - startTime, { eventCount: ticketmasterCount });
+      }
+    } else {
+      ticketmasterError = results[0].reason?.message || 'API call failed';
+      logApiKeyUsage('ticketmaster', 'fetch_events', 'error', Date.now() - startTime, { error: ticketmasterError });
+    }
+
+    // Process PredictHQ results
+    if (results[1].status === 'fulfilled') {
+      const phqResult = results[1].value;
+      if (phqResult.error) {
+        predicthqError = phqResult.error;
+        logApiKeyUsage('predicthq', 'fetch_events', 'error', Date.now() - startTime, { error: phqResult.error });
+      } else {
+        predicthqCount = phqResult.events.length;
+        allEvents.push(...phqResult.events);
+        logApiKeyUsage('predicthq', 'fetch_events', 'success', Date.now() - startTime, { eventCount: predicthqCount });
+      }
+    } else {
+      predicthqError = results[1].reason?.message || 'API call failed';
+      logApiKeyUsage('predicthq', 'fetch_events', 'error', Date.now() - startTime, { error: predicthqError });
+    }
+
+    // Process events
+    // Process and filter events
+    const normalizedEvents = normalizeAndFilterEvents(allEvents, params);
+    
+    // Ensure all events have valid coordinates
+    const eventsWithCoords = normalizedEvents.map(event => {
+      // If event already has valid coordinates, use them
+      if (event.coordinates &&
+          Array.isArray(event.coordinates) &&
+          event.coordinates.length === 2 &&
+          !isNaN(event.coordinates[0]) &&
+          !isNaN(event.coordinates[1])) {
+        return {
+          ...event,
+          coordinates: event.coordinates as [number, number]
+        };
+      }
+
+      // If no valid coordinates and no search location, return event without coordinates
+      if (typeof params.latitude !== 'number' || typeof params.longitude !== 'number') {
+        return event;
+      }
+
+      // Generate coordinates near the search location
+      const jitterAmount = 0.01; // About 1km
+      const lat = params.latitude + (Math.random() - 0.5) * jitterAmount;
+      const lng = params.longitude + (Math.random() - 0.5) * jitterAmount;
+      
+      return {
+        ...event,
+        coordinates: [lng, lat] as [number, number]
+      };
+    });
+
+    const sortedEvents = sortEventsByDate(eventsWithCoords);
+
+    // Generate response
+    const sourceStats = generateSourceStats(ticketmasterCount, ticketmasterError, predicthqCount, predicthqError);
+    const meta = generateMetadata(
+      startTime,
+      allEvents.length,
+      eventsWithCoords.length,
+      apiKeyManager.getUsageStats('ticketmaster'),
+      hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null
     );
+
+    return safeResponse({
+      events: sortedEvents,
+      sourceStats,
+      meta
+    }, 200);
+
   } catch (error) {
-    console.error('Error in search-events function:', error);
+    console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
+    const formattedError = formatApiError(error);
     
-    return new Response(
-      JSON.stringify({ 
-        error: error instanceof Error ? error.message : 'Unknown error', 
-        events: [] 
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json',
-        },
-        status: 500,
-      }
-    );
+    return safeResponse({
+      events: [],
+      error: formattedError.error,
+      errorType: formattedError.errorType,
+      details: formattedError.details,
+      sourceStats: generateSourceStats(0, 'Function execution failed', 0, 'Function execution failed'),
+      meta: generateMetadata(
+        startTime,
+        0,
+        0,
+        apiKeyManager.getUsageStats('ticketmaster'),
+        hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null
+      )
+    }, error instanceof ApiKeyError ? 401 : 500);
   }
 });

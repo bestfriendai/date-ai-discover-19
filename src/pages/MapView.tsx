@@ -102,52 +102,10 @@ const MapView = () => {
   // Effect to load events when map center changes (e.g., after Find My Location)
   useEffect(() => {
     if (mapCenter && mapLoaded) {
-      // Validate coordinates before fetching
-      const { latitude, longitude } = mapCenter;
-      const isValidLat = typeof latitude === 'number' && !isNaN(latitude) && latitude >= -90 && latitude <= 90;
-      const isValidLng = typeof longitude === 'number' && !isNaN(longitude) && longitude >= -180 && longitude <= 180;
-
-      if (isValidLat && isValidLng) {
-        console.log('[MapView] Map center changed, fetching events for:', mapCenter);
-        // Set default search parameters if none exist
-        const searchParams = {
-          ...filters,
-          radius: filters.distance || 30, // Default 30 mile radius
-          categories: filters.categories || [], // Empty array if no categories
-        };
-        fetchEvents(searchParams, mapCenter);
-      } else {
-        console.warn('[MapView] Invalid coordinates, skipping event fetch:', mapCenter);
-      }
+      console.log('[MapView] Map center changed, fetching events for:', mapCenter);
+      fetchEvents(filters, mapCenter);
     }
   }, [mapCenter, mapLoaded, filters, fetchEvents]);
-
-  // Add event listener for the custom 'view-event' event
-  useEffect(() => {
-    const handleViewEvent = (e: Event) => {
-      // Type assertion for CustomEvent with our expected detail shape
-      const customEvent = e as CustomEvent<{ event: Event }>;
-      if (customEvent.detail && customEvent.detail.event) {
-        console.log('[MapView] Received view-event for:', customEvent.detail.event.id);
-        handleEventSelect(customEvent.detail.event);
-        
-        // If the event has coordinates, center the map on it
-        if (customEvent.detail.event.coordinates) {
-          const [lng, lat] = customEvent.detail.event.coordinates;
-          setMapCenter({ latitude: lat, longitude: lng });
-          setMapZoom(15); // Zoom in to see the event clearly
-        }
-      }
-    };
-
-    // Add event listener
-    window.addEventListener('view-event', handleViewEvent as EventListener);
-    
-    // Clean up
-    return () => {
-      window.removeEventListener('view-event', handleViewEvent as EventListener);
-    };
-  }, [handleEventSelect, setMapCenter, setMapZoom]);
 
   return (
     <MapLayout>

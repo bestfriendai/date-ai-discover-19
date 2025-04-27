@@ -93,71 +93,50 @@ export const useMapInitialization = (
         console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
         mapboxgl.accessToken = mapboxToken;
 
-        // Function to initialize map with given coordinates
-        const initializeMapWithCoords = (longitude: number, latitude: number) => {
-          const map = new mapboxgl.Map({
-            container: mapContainer.current!,
-            style: mapStyle,
-            center: [longitude, latitude],
-            zoom: viewState.zoom,
-            pitch: viewState.pitch,
-            bearing: viewState.bearing,
-            attributionControl: false,
-            preserveDrawingBuffer: true,
-            fadeDuration: 0,
-            maxZoom: 18,
-            minZoom: 2,
-            trackResize: true,
-            antialias: false
-          });
+        const newMap = new mapboxgl.Map({
+          container: mapContainer.current,
+          style: mapStyle,
+          center: [viewState.longitude, viewState.latitude],
+          zoom: viewState.zoom,
+          pitch: viewState.pitch,
+          bearing: viewState.bearing,
+          attributionControl: false,
+          preserveDrawingBuffer: true,
+          fadeDuration: 0,
+          maxZoom: 18,
+          minZoom: 2,
+          trackResize: true,
+          antialias: false
+        });
 
-          map.on('load', () => {
-            if (!isMounted) return;
-            console.log('[MAP_DEBUG] Map load event fired');
-            setState(prev => ({ ...prev, mapLoaded: true }));
-            onMapLoad();
-          });
+        newMap.on('load', () => {
+          if (!isMounted) return;
+          console.log('[MAP_DEBUG] Map load event fired');
+          setState(prev => ({ ...prev, mapLoaded: true }));
+          onMapLoad();
+        });
 
-          map.on('error', (e: any) => {
-            console.error('[MAP_DEBUG] Mapbox specific error:', e);
-            const errorMessage = e.error ? e.error.message : 'Unknown map error';
-            setState(prev => ({ ...prev, mapError: `Map error: ${errorMessage}` }));
-          });
+        newMap.on('error', (e: any) => {
+          console.error('[MAP_DEBUG] Mapbox specific error:', e);
+          const errorMessage = e.error ? e.error.message : 'Unknown map error';
+          setState(prev => ({ ...prev, mapError: `Map error: ${errorMessage}` }));
+        });
 
-          try {
-            map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
-            map.addControl(
-              new mapboxgl.GeolocateControl({
-                positionOptions: { enableHighAccuracy: true },
-                trackUserLocation: true,
-                showUserHeading: true
-              }),
-              'bottom-right'
-            );
-          } catch (controlError) {
-            console.error('[MAP] Error adding map controls:', controlError);
-          }
-
-          setState(prev => ({ ...prev, map }));
-          return map;
-        };
-
-        // Try to get user's location first
-        if ("geolocation" in navigator) {
-          navigator.geolocation.getCurrentPosition(
-            (position) => {
-              initializeMapWithCoords(position.coords.longitude, position.coords.latitude);
-            },
-            (error) => {
-              console.warn('[MAP_DEBUG] Geolocation error:', error);
-              // Fall back to default location
-              initializeMapWithCoords(viewState.longitude, viewState.latitude);
-            }
+        try {
+          newMap.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+          newMap.addControl(
+            new mapboxgl.GeolocateControl({
+              positionOptions: { enableHighAccuracy: true },
+              trackUserLocation: true,
+              showUserHeading: true
+            }),
+            'bottom-right'
           );
-        } else {
-          // Fallback for browsers without geolocation
-          initializeMapWithCoords(viewState.longitude, viewState.latitude);
+        } catch (controlError) {
+          console.error('[MAP] Error adding map controls:', controlError);
         }
+
+        setState(prev => ({ ...prev, map: newMap }));
 
       } catch (error: any) {
         if (!isMounted) return;

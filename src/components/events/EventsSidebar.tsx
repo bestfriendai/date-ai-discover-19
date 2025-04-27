@@ -2,15 +2,9 @@ import { useState, useCallback } from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Event } from '@/types';
 import { Button } from "@/components/ui/button";
-import { 
-  PartyPopper, 
-  Music, 
-  Palette, 
-  Trophy, 
-  Users, 
-  Utensils, 
-  Calendar 
-} from '@/lib/icons';
+import { PartyPopper, Music, Palette, Trophy, Users, Utensils, Calendar } from 'lucide-react';
+
+// Mock data removed as it's passed via props
 
 interface EventsSidebarProps {
   onClose: () => void;
@@ -25,17 +19,20 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState<'today' | 'week' | 'month' | null>(null);
 
+  // Filter events based on selected categories and date
   const filteredEvents = useCallback(() => {
     if (isLoading) return [];
 
     let filtered = [...events];
 
+    // Apply category filter if any categories are selected
     if (selectedCategories.length > 0) {
       filtered = filtered.filter(event =>
         selectedCategories.includes(event.category?.toLowerCase() || 'other')
       );
     }
 
+    // Apply date filter
     if (dateFilter) {
       const now = new Date();
       let startDate: Date;
@@ -78,6 +75,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
     setDateFilter(prev => prev === filter ? null : filter);
   };
 
+  // Get category icon based on category name
   const getCategoryIcon = (category: string) => {
     switch(category.toLowerCase()) {
       case 'music': return <Music className="h-4 w-4" />;
@@ -90,6 +88,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
     }
   };
 
+  // Helper function to format party subcategory for display
   const formatPartySubcategory = (subcategory: string): string => {
     switch(subcategory) {
       case 'day-party': return 'Day Party';
@@ -109,6 +108,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
       aria-label="Events Sidebar"
       tabIndex={0}
     >
+      {/* Sticky header with animated transition */}
       <div className="sticky top-0 z-10 bg-[hsl(var(--sidebar-background))]/95 backdrop-blur-md border-b border-[hsl(var(--sidebar-border))] p-4 transition-all duration-300">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center">
@@ -126,6 +126,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
           </button>
         </div>
 
+        {/* Search/filter input */}
         <div className="mb-4">
           <label htmlFor="event-search" className="sr-only">Search events</label>
           <div className="relative">
@@ -143,6 +144,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
           </div>
         </div>
 
+        {/* Category and Date Filters */}
         <button
           onClick={() => setShowFilters(!showFilters)}
           className="w-full flex items-center justify-between p-2 mb-2 bg-background/30 hover:bg-background/50 rounded-lg transition-all"
@@ -166,6 +168,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
 
         {showFilters && (
           <div className="space-y-3 mb-4 animate-in fade-in duration-200">
+            {/* Category Filter Buttons */}
             <div className="p-4 border-b border-[hsl(var(--sidebar-border))]">
               <h3 className="font-medium mb-3 text-sm">Categories</h3>
               <div className="flex flex-wrap gap-2">
@@ -193,6 +196,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
               </div>
             </div>
 
+            {/* Date filters */}
             <div>
               <h3 className="text-sm font-medium mb-2">Date Range</h3>
               <div className="flex flex-wrap gap-2">
@@ -232,7 +236,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
               className={`p-1.5 rounded ${view === 'list'
                 ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-primary))]'
                 : 'hover:bg-[hsl(var(--sidebar-accent))]/50 text-[hsl(var(--sidebar-foreground))]'
-              } focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]}`}
+              } focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]}}`}
               aria-label="List view"
               aria-pressed={view === 'list'}
             >
@@ -245,7 +249,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
               className={`p-1.5 rounded ${view === 'grid'
                 ? 'bg-[hsl(var(--sidebar-accent))] text-[hsl(var(--sidebar-primary))]'
                 : 'hover:bg-[hsl(var(--sidebar-accent))]/50 text-[hsl(var(--sidebar-foreground))]'
-              } focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]}`}
+              } focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]}}`}
               aria-label="Grid view"
               aria-pressed={view === 'grid'}
             >
@@ -265,8 +269,10 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
         </div>
       </div>
 
+      {/* Scrollable event list */}
       <div className="flex-1 overflow-y-auto">
         {isLoading ? (
+          // Render skeletons while loading
           <div className="p-4 space-y-4">
             {Array.from({ length: skeletonCount }).map((_, index) => (
               <div key={index} className="flex gap-3">
@@ -291,6 +297,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                 }`}
               >
                 {view === 'grid' ? (
+                  // Grid view template
                   <div className="space-y-2">
                     <div className="relative aspect-[4/3] w-full overflow-hidden rounded-md">
                       <img
@@ -302,6 +309,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                           target.src = '/placeholder.jpg';
                         }}
                       />
+                      {/* Event category badges */}
                       <div className="absolute top-2 right-2 flex flex-col gap-1 items-end">
                         <div className="bg-blue-600 text-white text-xs font-medium px-2 py-0.5 rounded">
                           {event.category?.charAt(0).toUpperCase() + event.category?.slice(1) || 'Event'}
@@ -324,6 +332,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                     </div>
                   </div>
                 ) : (
+                  // List view template
                   <div className="flex gap-3">
                     <div className="relative h-20 w-20 flex-shrink-0 overflow-hidden rounded-md">
                       <img
@@ -335,12 +344,14 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                           target.src = '/placeholder.jpg';
                         }}
                       />
+                      {/* Category indicator dot */}
                       <div className="absolute bottom-1 right-1 rounded-full w-5 h-5 flex items-center justify-center bg-background/80 backdrop-blur-sm border border-white/10">
                         {getCategoryIcon(event.category || 'other')}
                       </div>
                     </div>
                     <div className="flex-1">
                       <h3 className="font-semibold text-base mb-0.5 line-clamp-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h3>
+                      {/* Description snippet */}
                       {event.description && (
                         <div className="text-xs text-[hsl(var(--sidebar-foreground))]/80 mb-1 line-clamp-2">
                           {event.description.slice(0, 100)}
@@ -353,14 +364,18 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
                         {event.time}
                       </div>
                       <div className="flex items-center gap-1">
+                        {/* Category badge */}
                         <div className="text-xs bg-blue-600/10 text-blue-500 rounded px-1.5 py-0.5 mr-1 font-medium">
                           {event.category?.charAt(0).toUpperCase() + event.category?.slice(1) || 'Event'}
                         </div>
+
+                        {/* Party subcategory badge */}
                         {event.category === 'party' && event.partySubcategory && (
                           <div className="text-xs bg-purple-100 text-purple-800 rounded px-1.5 py-0.5 mr-1 font-medium">
                             {formatPartySubcategory(event.partySubcategory)}
                           </div>
                         )}
+                        {/* Price */}
                         {event.price && (
                           <div className="text-xs bg-gray-100/80 text-gray-800 rounded px-1 py-0.5 mr-1 font-semibold">
                             {event.price}
@@ -378,6 +393,7 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
             ))}
           </div>
         ) : (
+          // Show empty state if not loading and no events
           <div className="p-8 flex flex-col items-center text-center text-[hsl(var(--sidebar-foreground))]/60">
             <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mb-4 opacity-30" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M8 15h8M9 9h.01M15 9h.01"/></svg>
             <span className="font-medium">No events found for the current view or filters.</span>

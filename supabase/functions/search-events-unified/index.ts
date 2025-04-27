@@ -1,4 +1,3 @@
-
 // @ts-ignore: Deno types are not available in the TypeScript compiler context but will be available at runtime
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { fetchTicketmasterEvents } from "./ticketmaster.ts"
@@ -71,67 +70,89 @@ serve(async (req: Request) => {
     // Parse request parameters with error handling
     let params: SearchParams;
 
-    // Parse request body, allowing empty body for default parameters
-    let requestBody;
-    try {
-      const contentLength = req.headers.get('content-length');
-      if (contentLength && parseInt(contentLength) > 0) {
-        requestBody = await req.json();
-        console.log('[SEARCH-EVENTS] Parsed request body:', requestBody);
-      } else {
-        requestBody = {}; // Provide an empty object if no body is present
-        console.log('[SEARCH-EVENTS] No request body provided, using empty object.');
-      }
-    } catch (error) {
-      console.error('[SEARCH-EVENTS] Failed to parse request body:', error);
-      return safeResponse({
-        error: 'Invalid request body',
-        details: error instanceof Error ? error.message : undefined,
-        events: [],
-        sourceStats: {
-          ticketmaster: { count: 0, error: 'Invalid request' },
-          predicthq: { count: 0, error: 'Invalid request' }
-        },
-        meta: {
-          executionTime: Date.now() - startTime,
-          totalEvents: 0,
-          eventsWithCoordinates: 0,
-          timestamp: new Date().toISOString()
+    // Check if the request has a body
+    const contentLength = req.headers.get('content-length');
+    console.log('[SEARCH-EVENTS] Content-Length:', contentLength);
+
+    if (!contentLength || parseInt(contentLength) === 0) {
+      console.warn('[SEARCH-EVENTS] Empty request body detected, using default parameters');
+      // Use default parameters if no body is provided
+      params = {
+        location: 'New York',
+        radius: 50,
+        startDate: new Date().toISOString().split('T')[0], // Today
+        endDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 7 days from now
+        categories: ['music', 'sports', 'arts', 'family', 'food']
+      };
+    } else {
+      try {
+        // Parse the request body as JSON
+        const requestBody = await req.json();
+        console.log('[SEARCH-EVENTS] Request body:', requestBody);
+
+        // Extract location parameters
+        const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat;
+        const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng;
+        const location = requestBody.location || '';
+
+        // Validate location parameters
+        if ((!latitude || !longitude) && !location) {
+          return safeResponse({
+            error: 'Missing location parameters',
+            details: 'Either coordinates (latitude/longitude) or location string is required',
+            events: [],
+            sourceStats: {
+              ticketmaster: { count: 0, error: 'Missing location parameters' },
+              predicthq: { count: 0, error: 'Missing location parameters' }
+            },
+            meta: {
+              executionTime: Date.now() - startTime,
+              totalEvents: 0,
+              eventsWithCoordinates: 0,
+              timestamp: new Date().toISOString()
+            }
+          }, 400);
         }
-      }, 400);
+
+        // Validate and normalize radius
+        let radius = requestBody.radius || 50;
+        radius = Math.min(Math.max(radius, 5), 100); // Enforce minimum 5km and maximum 100km radius
+
+        // Validate and extract parameters
+        params = {
+          keyword: requestBody.keyword || '',
+          location,
+          latitude,
+          longitude,
+          radius,
+          startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
+          endDate: requestBody.endDate,
+          categories: requestBody.categories || [],
+          limit: requestBody.limit || 100,
+          page: requestBody.page || 1,
+          excludeIds: requestBody.excludeIds || []
+        };
+
+        console.log('[SEARCH-EVENTS] Parsed parameters:', params);
+      } catch (error) {
+        console.error('[SEARCH-EVENTS] Error parsing request body:', error);
+        return safeResponse({
+          error: 'Invalid request body',
+          details: error instanceof Error ? error.message : undefined,
+          events: [],
+          sourceStats: {
+            ticketmaster: { count: 0, error: 'Invalid request' },
+            predicthq: { count: 0, error: 'Invalid request' }
+          },
+          meta: {
+            executionTime: Date.now() - startTime,
+            totalEvents: 0,
+            eventsWithCoordinates: 0,
+            timestamp: new Date().toISOString()
+          }
+        }, 400);
+      }
     }
-
-    // Extract and validate parameters from the request body (or empty object)
-    const latitude = requestBody.lat || requestBody.latitude || requestBody.userLat;
-    const longitude = requestBody.lng || requestBody.longitude || requestBody.userLng;
-    const location = requestBody.location || '';
-
-    // Validate location parameters - allow empty location for initial load
-    if ((!latitude || !longitude) && !location) {
-      console.log('[SEARCH-EVENTS] No location parameters provided, will use default or broad search.');
-      // No error thrown, proceed with potentially broad search or default location in API calls
-    }
-
-    // Validate and normalize radius
-    let radius = requestBody.radius || 50;
-    radius = Math.min(Math.max(radius, 5), 100); // Enforce minimum 5km and maximum 100km radius
-
-    // Construct search parameters object with defaults
-    params = {
-      keyword: requestBody.keyword || '',
-      location,
-      latitude,
-      longitude,
-      radius,
-      startDate: requestBody.startDate || new Date().toISOString().split('T')[0],
-      endDate: requestBody.endDate,
-      categories: requestBody.categories || [],
-      limit: requestBody.limit || 100,
-      page: requestBody.page || 1,
-      excludeIds: requestBody.excludeIds || []
-    };
-
-    console.log('[SEARCH-EVENTS] Final search parameters:', params);
 
     // Initialize variables for tracking events
     const allEvents: Event[] = [];

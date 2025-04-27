@@ -20,7 +20,7 @@ async function testSearchEvents() {
     console.log(`With parameters: ${JSON.stringify(params, null, 2)}`);
 
     // Get the anon key from Supabase project settings
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTk0NzA0NzcsImV4cCI6MjAxNTA0NjQ3N30.Zt5AxiIPXwfIjcSBQDO9zDGpOY7yIZNwkOI2y5Dl1Ks';
 
     const response = await fetch(url, {
       method: 'POST',

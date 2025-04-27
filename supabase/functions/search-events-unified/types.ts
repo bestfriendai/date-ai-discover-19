@@ -1,39 +1,66 @@
+/**
+ * Type definitions for the search-events-unified function
+ */
 
+/**
+ * Event interface matching the frontend type
+ */
+export interface Event {
+  id: string;
+  source?: string;
+  title: string;
+  description?: string;
+  date: string;
+  time: string;
+  location: string;
+  venue?: string;
+  category: string;
+  image: string;
+  coordinates?: [number, number]; // [longitude, latitude]
+  latitude?: number; // Added for backward compatibility
+  longitude?: number; // Added for backward compatibility
+  url?: string;
+  price?: string;
+}
+
+/**
+ * Search parameters for event APIs
+ */
 export interface SearchParams {
   keyword?: string;
-  location?: string;
-  latitude?: number | string;
-  longitude?: number | string;
+  latitude?: number;
+  longitude?: number;
   radius?: number | string;
   startDate?: string;
   endDate?: string;
   categories?: string[];
+  location?: string;
   limit?: number;
   page?: number;
   excludeIds?: string[];
 }
 
-export interface Event {
-  id: string;
-  title: string;
-  description?: string;
-  date: string;
-  time?: string;
-  location?: string;
-  category?: string;
-  image?: string;
-  coordinates?: [number, number];
-  latitude?: number;
-  longitude?: number;
-  venue?: string;
-  url?: string;
-  source: string;
-  price?: string;
-  partySubcategory?: string;
+/**
+ * Source statistics for event APIs
+ */
+export interface SourceStats {
+  count: number;
+  error: string | null;
 }
 
-export interface APIResponse {
+/**
+ * Response format for the search-events function
+ */
+export interface SearchEventsResponse {
   events: Event[];
-  error?: string;
-  warning?: string;
+  sourceStats: {
+    ticketmaster: SourceStats;
+    predicthq: SourceStats;
+  };
+  meta: {
+    executionTime: number;
+    totalEvents: number;
+    eventsWithCoordinates: number;
+    timestamp: string;
+  };
 }

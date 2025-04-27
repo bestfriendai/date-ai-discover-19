@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -19,47 +18,23 @@ serve(async (req) => {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY')
 
     if (!TICKETMASTER_KEY) {
-      console.error('[GET-EVENT] TICKETMASTER_KEY is not set in environment variables')
       throw new Error('TICKETMASTER_KEY is not set')
     }
 
     // Parse request parameters
-    let id: string;
-    
-    try {
-      const body = await req.json();
-      id = body.id;
-      
-      if (!id) {
-        throw new Error('Event ID is required');
-      }
-      
-      console.log(`[GET-EVENT] Fetching event with ID: ${id}`);
-    } catch (parseError) {
-      console.error('[GET-EVENT] Error parsing request body:', parseError);
-      return new Response(JSON.stringify({
-        error: 'Invalid request body. Event ID is required.',
-        timestamp: new Date().toISOString()
-      }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400,
-      });
+    const { id } = await req.json()
+
+    if (!id) {
+      throw new Error('Event ID is required')
     }
 
     // Check if it's a Ticketmaster event
     if (id.startsWith('ticketmaster-')) {
       const ticketmasterId = id.replace('ticketmaster-', '')
-      console.log(`[GET-EVENT] Fetching Ticketmaster event: ${ticketmasterId}`);
 
       const response = await fetch(
         `https://app.ticketmaster.com/discovery/v2/events/${ticketmasterId}.json?apikey=${TICKETMASTER_KEY}`
       )
-
-      if (!response.ok) {
-        const errorText = await response.text()
-        console.error(`[GET-EVENT] Ticketmaster API error: ${response.status}`, errorText)
-        throw new Error(`Event not found or API error: ${response.status}`)
-      }
 
       const data = await response.json()
 
@@ -89,22 +64,16 @@ serve(async (req) => {
           undefined
       }
 
-      console.log(`[GET-EVENT] Successfully retrieved Ticketmaster event: ${event.title}`);
-
       return new Response(JSON.stringify({ event }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 200,
       })
-    } else if (id.startsWith('predicthq-')) {
-      // Future implementation for PredictHQ events
-      console.error('[GET-EVENT] PredictHQ event retrieval not implemented');
-      throw new Error('PredictHQ event retrieval not implemented')
     } else if (id.startsWith('serpapi-')) {
       // For SerpAPI events, we would need to implement a way to retrieve them
-      console.error('[GET-EVENT] SerpAPI event retrieval not implemented');
+      // Since SerpAPI doesn't have a direct "get by ID" endpoint, we would need to
+      // store the events in a database or cache them
       throw new Error('SerpAPI event retrieval not implemented')
     } else {
-      console.error('[GET-EVENT] Unknown event source:', id);
       throw new Error('Unknown event source')
     }
   } catch (error) {

@@ -131,32 +131,26 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
     <section
       className="h-full flex flex-col bg-[hsl(var(--sidebar-background))] border-l border-[hsl(var(--sidebar-border))] shadow-lg rounded-l-xl"
       role="region"
-      aria-label={`Event Details: ${event.title}`}
+      aria-label="Event Details"
       tabIndex={0}
-      aria-live="polite"
     >
       <div className="p-4 border-b border-[hsl(var(--sidebar-border))] flex justify-between items-center">
-        <h2 className="text-xl font-bold text-[hsl(var(--sidebar-primary))]" id="event-detail-title">Event Details</h2>
+        <h2 className="text-xl font-bold text-[hsl(var(--sidebar-primary))]">Event Details</h2>
         <button
           onClick={onClose}
           className="p-2 rounded-md hover:bg-[hsl(var(--sidebar-accent))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--sidebar-ring))]"
           aria-label="Close event details"
-          title="Close"
         >
-          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+          <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
         </button>
       </div>
 
-      <div className="flex-1 overflow-y-auto" aria-labelledby="event-detail-title">
-        <div className="h-48 bg-[hsl(var(--sidebar-accent))] rounded-b-xl relative">
-          {/* Add loading skeleton */}
-          <div className="absolute inset-0 bg-[hsl(var(--sidebar-accent))] animate-pulse rounded-b-xl"
-               aria-hidden="true" />
+      <div className="flex-1 overflow-y-auto">
+        <div className="h-48 bg-[hsl(var(--sidebar-accent))] rounded-b-xl">
           <img
             src={event.image}
-            alt={event.title || "Event image"}
-            className="w-full h-full object-cover rounded-b-xl relative z-10"
-            loading="eager"
+            alt={event.title}
+            className="w-full h-full object-cover rounded-b-xl"
             onError={(e) => {
               (e.target as HTMLImageElement).onerror = null;
               (e.target as HTMLImageElement).src = '/placeholder.svg';
@@ -166,9 +160,9 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
 
         <div className="p-6 space-y-6"> {/* Added space-y-6 for consistent vertical spacing */}
           <div>
-            <h2 className="text-2xl font-bold mb-2 text-[hsl(var(--sidebar-primary))]" id="event-title">{event.title}</h2>
+            <h2 className="text-2xl font-bold mb-2 text-[hsl(var(--sidebar-primary))]">{event.title}</h2>
 
-            <div className="flex flex-wrap items-center gap-2" aria-label="Event categories and tags">
+            <div className="flex flex-wrap items-center gap-2"> {/* Removed mb-4 */}
               <Badge variant="secondary" className="capitalize">{event.category}</Badge>
               {event.category === 'party' && event.partySubcategory && (
                 <Badge variant="secondary" className="capitalize bg-purple-600">
@@ -176,15 +170,11 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 </Badge>
               )}
               {event.source && <Badge variant="outline" className="capitalize">{event.source}</Badge>}
-              {event.price && (
-                <Badge variant="outline" className="capitalize" aria-label={`Price: ${event.price}`}>
-                  {event.price}
-                </Badge>
-              )}
+              {event.price && <Badge variant="outline" className="capitalize">{event.price}</Badge>}
             </div>
           </div>
 
-          <div className="flex items-center gap-2" role="toolbar" aria-label="Event actions">
+          <div className="flex items-center gap-2"> {/* Removed mb-6 */}
             <Button
               variant="outline"
               size="icon"
@@ -192,10 +182,8 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               onClick={handleToggleFavorite}
               disabled={favoriteLoading}
               aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
-              title={favorited ? 'Remove from favorites' : 'Add to favorites'}
             >
-              <HeartIcon className="h-4 w-4" fill={favorited ? "currentColor" : "none"} aria-hidden="true" />
-              {favoriteLoading && <span className="sr-only">Loading...</span>}
+              <HeartIcon className="h-4 w-4" fill={favorited ? "currentColor" : "none"} />
             </Button>
 
             <Button
@@ -204,9 +192,8 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
               className="h-8 w-8"
               onClick={handleAddToPlan}
               aria-label="Add to plan"
-              title="Add to plan"
             >
-              <PlusIcon className="h-4 w-4" aria-hidden="true" />
+              <PlusIcon className="h-4 w-4" />
             </Button>
 
             {event.url && (
@@ -216,9 +203,8 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 className="h-8 w-8"
                 onClick={() => window.open(event.url, '_blank')}
                 aria-label="Visit website"
-                title="Visit website"
               >
-                <ExternalLinkIcon className="h-4 w-4" aria-hidden="true" />
+                <ExternalLinkIcon className="h-4 w-4" />
               </Button>
             )}
 
@@ -239,69 +225,68 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 }
               }}
               aria-label="Share event"
-              title="Share event"
             >
-              <Share2Icon className="h-4 w-4" aria-hidden="true" />
+              <Share2Icon className="h-4 w-4" />
             </Button>
           </div>
 
           <div className="border border-[hsl(var(--sidebar-border))] rounded-md p-4 bg-[hsl(var(--sidebar-accent))]/40">
-            <div className="grid grid-cols-2 gap-4" role="list" aria-label="Event details">
+            <div className="grid grid-cols-2 gap-4">
               {event.rank && (
-                <div role="listitem">
-                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-rank-label">Event Rank</p>
-                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-rank-label">
-                    <StarIcon className="h-4 w-4 mr-2 fill-yellow-500" aria-hidden="true" />
+                <div>
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Event Rank</p>
+                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
+                    <StarIcon className="h-4 w-4 mr-2 fill-yellow-500" />
                     <p>{Math.round(event.rank)}/100</p>
                   </div>
                 </div>
               )}
               {event.localRelevance && (
-                <div role="listitem">
-                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-relevance-label">Local Impact</p>
-                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-relevance-label">
-                    <TrendingUpIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+                <div>
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Local Impact</p>
+                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
+                    <TrendingUpIcon className="h-4 w-4 mr-2" />
                     <p>{Math.round(event.localRelevance)}/100</p>
                   </div>
                 </div>
               )}
               {event.attendance?.forecast && (
-                <div role="listitem">
-                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-attendance-label">Expected Attendance</p>
-                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-attendance-label">
-                    <UsersIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+                <div>
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Expected Attendance</p>
+                  <div className="flex items-center text-[hsl(var(--sidebar-foreground))]">
+                    <UsersIcon className="h-4 w-4 mr-2" />
                     <p>{event.attendance.forecast.toLocaleString()}</p>
                   </div>
                 </div>
               )}
-              <div role="listitem">
-                <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-date-label">Date</p>
-                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-date-label">
-                  <CalendarDaysIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+              <div>
+                <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Date</p>
+                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
+                  <CalendarDaysIcon className="h-4 w-4 mr-2" />
                   <p>{event.date}</p>
                 </div>
               </div>
 
-              <div role="listitem">
-                <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-time-label">Time</p>
-                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-time-label">
-                  <ClockIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+              <div>
+                <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Time</p>
+                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
+                  <ClockIcon className="h-4 w-4 mr-2" />
                   <p>{event.time}</p>
                 </div>
               </div>
 
-              <div className="col-span-2" role="listitem">
-                <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-location-label">Location</p>
-                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-location-label">
-                  <MapPinIcon className="h-4 w-4 mr-2" aria-hidden="true" />
+              <div className="col-span-2">
+                <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Location</p>
+                <div className="flex items-center text-[hsl(var(--sidebar-foreground))]"> {/* Added text color */}
+                  <MapPinIcon className="h-4 w-4 mr-2" />
                   <p>{event.location}</p>
                 </div>
               </div>
 
               {event.venue && event.venue !== event.location && (
-                <div className="col-span-2" role="listitem">
-                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1" id="event-venue-label">Venue</p>
-                  <p className="text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-venue-label">{event.venue}</p>
+                <div className="col-span-2">
+                  <p className="text-sm text-[hsl(var(--sidebar-foreground))]/70 mb-1">Venue</p>
+                  <p className="text-[hsl(var(--sidebar-foreground))]">{event.venue}</p> {/* Added text color */}
                 </div>
               )}
 
@@ -316,9 +301,8 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                       const [lng, lat] = event.coordinates!;
                       window.open(`https://www.google.com/maps/search/?api=1&query=${lat},${lng}`, '_blank');
                     }}
-                    aria-label="View on Google Maps"
                   >
-                    <MapPinIcon className="h-3 w-3 mr-1" aria-hidden="true" /> View on Map
+                    <MapPinIcon className="h-3 w-3 mr-1" /> View on Map
                   </Button>
                 </div>
               )}
@@ -326,11 +310,9 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
           </div>
 
           {event.description && (
-            <div>
-              <h3 className="text-lg font-semibold mb-2 text-[hsl(var(--sidebar-primary))]" id="event-description-heading">About</h3>
-              <p className="text-[hsl(var(--sidebar-foreground))]" aria-labelledby="event-description-heading">
-                {event.description}
-              </p>
+            <div> {/* Removed mb-6 */}
+              <h3 className="text-lg font-semibold mb-2 text-[hsl(var(--sidebar-primary))]">About</h3>
+              <p className="text-[hsl(var(--sidebar-foreground))]">{event.description}</p> {/* Removed /80 opacity */}
             </div>
           )}
 
@@ -354,11 +336,10 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
 
           {/* Related Events Section */}
           <div className="mt-8">
-            <h3 className="text-lg font-semibold mb-4 text-[hsl(var(--sidebar-primary))]" id="related-events-heading">Related Events</h3>
+            <h3 className="text-lg font-semibold mb-4 text-[hsl(var(--sidebar-primary))]">Related Events</h3>
 
             {loadingRelated ? (
-              <div className="space-y-4" aria-live="polite" aria-busy="true">
-                <p className="sr-only">Loading related events</p>
+              <div className="space-y-4">
                 {[1, 2, 3].map((i) => (
                   <div key={i} className="flex gap-3">
                     <Skeleton className="h-16 w-16 rounded-md" />
@@ -370,47 +351,16 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 ))}
               </div>
             ) : relatedEvents.length > 0 ? (
-              <div className="space-y-3" role="list" aria-labelledby="related-events-heading">
+              <div className="space-y-3">
                 {relatedEvents.map((relatedEvent) => (
-                  <Card
-                    key={relatedEvent.id}
-                    className="overflow-hidden hover:bg-[hsl(var(--sidebar-accent))]/20 transition cursor-pointer"
-                    role="listitem"
-                    onClick={() => {
-                      // Close current event and open the related event
-                      onClose();
-                      // We need to wait for the current event to close before opening the new one
-                      setTimeout(() => {
-                        // Dispatch a custom event to notify the parent component
-                        const customEvent = new CustomEvent('view-event', {
-                          detail: { event: relatedEvent }
-                        });
-                        window.dispatchEvent(customEvent);
-                      }, 100);
-                    }}
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        onClose();
-                        setTimeout(() => {
-                          const customEvent = new CustomEvent('view-event', {
-                            detail: { event: relatedEvent }
-                          });
-                          window.dispatchEvent(customEvent);
-                        }, 100);
-                      }
-                    }}
-                  >
+                  <Card key={relatedEvent.id} className="overflow-hidden hover:bg-[hsl(var(--sidebar-accent))]/20 transition cursor-pointer">
                     <CardContent className="p-3">
                       <div className="flex gap-3">
                         <div className="h-16 w-16 rounded-md overflow-hidden bg-[hsl(var(--sidebar-accent))]">
                           <img
                             src={relatedEvent.image}
-                            alt=""
-                            aria-hidden="true"
+                            alt={relatedEvent.title}
                             className="h-full w-full object-cover"
-                            loading="lazy"
                             onError={(e) => {
                               (e.target as HTMLImageElement).onerror = null;
                               (e.target as HTMLImageElement).src = '/placeholder.svg';
@@ -419,15 +369,15 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                         </div>
                         <div className="flex-1">
                           <h4 className="font-medium text-sm line-clamp-2">{relatedEvent.title}</h4>
-                          <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]">
-                            <CalendarDaysIcon className="h-3 w-3" aria-hidden="true" />
+                          <div className="flex items-center gap-2 mt-1 text-xs text-[hsl(var(--sidebar-foreground))]"> {/* Adjusted text color */}
+                            <CalendarDaysIcon className="h-3 w-3" />
                             <span>{relatedEvent.date}</span>
                             {relatedEvent.location && (
-                                <><span className="mx-1">·</span><MapPinIcon className="h-3 w-3 inline" aria-hidden="true" /> {relatedEvent.location}</>
+                                <><span className="mx-1">·</span><MapPinIcon className="h-3 w-3 inline" /> {relatedEvent.location}</>
                             )}
                           </div>
                           {relatedEvent.price && (
-                            <div className="text-xs text-[hsl(var(--sidebar-foreground))] mt-1">
+                            <div className="text-xs text-[hsl(var(--sidebar-foreground))] mt-1"> {/* Adjusted text color */}
                               Price: {relatedEvent.price}
                             </div>
                           )}
@@ -438,7 +388,7 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
                 ))}
               </div>
             ) : (
-              <p className="text-[hsl(var(--sidebar-foreground))] text-sm" aria-live="polite">No related events found.</p>
+              <p className="text-[hsl(var(--sidebar-foreground))] text-sm">No related events found.</p>
             )}
           </div>
         </div>

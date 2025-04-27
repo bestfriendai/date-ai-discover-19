@@ -70,10 +70,13 @@ const PartyAI = () => {
     setEventToAdd(null);
   }, []);
 
-  // Use mapCenter directly since it's already in the correct format
+  // Convert mapCenter array to object format
   const mapCenterObject = useMemo(() => {
-    if (!mapCenter || !mapCenter.longitude || !mapCenter.latitude) return null;
-    return mapCenter;
+    if (!mapCenter || !mapCenter[0] || !mapCenter[1]) return null;
+    return {
+      longitude: mapCenter[0],
+      latitude: mapCenter[1]
+    };
   }, [mapCenter]);
 
   // Use extracted handlers for search
@@ -91,7 +94,7 @@ const PartyAI = () => {
       onCategoriesChange(['party']);
       
       // Ensure we have map center coordinates
-      if (!mapCenterObject) {
+      if (!mapCenter || !mapCenter.longitude || !mapCenter.latitude) {
         console.warn('[PartyAI] No map center coordinates available');
         return;
       }
@@ -106,8 +109,8 @@ const PartyAI = () => {
           categories: ['party'],
           keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music" OR "themed party" OR "costume party" OR "masquerade" OR "holiday party" OR "new years party" OR "halloween party" OR "summer party" OR "winter party" OR "spring party" OR "fall party" OR "seasonal party" OR "annual party" OR "live dj" OR "live band" OR "live performance" OR "music venue" OR "dance venue" OR "nightclub venue" OR "lounge venue" OR "bar venue" OR "club night" OR "dance night" OR "party night" OR "night life" OR "social mixer" OR "networking event" OR "singles event" OR "mingling" OR "daytime event" OR "pool event" OR "rooftop event" OR "outdoor event"',
           limit: 500,
-          latitude: mapCenterObject.latitude,
-          longitude: mapCenterObject.longitude,
+          latitude: mapCenter.latitude,
+          longitude: mapCenter.longitude,
           radius
         },
         mapCenter,

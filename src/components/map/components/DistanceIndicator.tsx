@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Car, Navigation } from '@/lib/icons';
+import { CarIcon, NavigationIcon } from '@/lib/icons';
 
 export interface DistanceData {
   distance: number; // distance in kilometers
@@ -48,9 +48,9 @@ export function DistanceIndicator({
   return (
     <div className={`inline-flex items-center gap-1 text-xs font-medium bg-background/90 backdrop-blur-sm text-foreground px-2 py-1 rounded-full shadow-sm border border-border/50 ${className}`}>
       {mode === 'driving' ? (
-        <Car className="h-3 w-3 text-blue-500" />
+        <CarIcon className="h-3 w-3 text-blue-500" />
       ) : (
-        <Navigation className="h-3 w-3 text-green-500" />
+        <NavigationIcon className="h-3 w-3 text-green-500" />
       )}
       <span>{formatDistance(distance)}</span>
       {duration && (

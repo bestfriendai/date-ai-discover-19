@@ -18,7 +18,6 @@ serve(async (req) => {
   try {
     const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY')
     if (!TICKETMASTER_KEY) {
-      console.error('[FETCH-EVENTS] TICKETMASTER_KEY is not set in environment variables')
       throw new Error('TICKETMASTER_KEY is not set')
     }
 
@@ -27,8 +26,6 @@ serve(async (req) => {
     const lat = url.searchParams.get('lat') || '40.7831'
     const lng = url.searchParams.get('lng') || '-73.9712'
     const radius = url.searchParams.get('radius') || '10'
-    
-    console.log(`[FETCH-EVENTS] Fetching events for lat: ${lat}, lng: ${lng}, radius: ${radius}`)
 
     // Fetch events from Ticketmaster API
     const response = await fetch(
@@ -40,15 +37,7 @@ serve(async (req) => {
       `size=20`
     )
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error(`[FETCH-EVENTS] Ticketmaster API error: ${response.status}`, errorText)
-      throw new Error(`Ticketmaster API error: ${response.status}`)
-    }
-
     const data = await response.json()
-    
-    console.log(`[FETCH-EVENTS] Retrieved ${data._embedded?.events?.length || 0} events from Ticketmaster`)
 
     // Transform the data to match our Event type
     const events = data._embedded?.events?.map((event: any) => ({
@@ -65,8 +54,7 @@ serve(async (req) => {
         parseFloat(event._embedded?.venues?.[0]?.location?.latitude)
       ],
       venue: event._embedded?.venues?.[0]?.name,
-      url: event.url,
-      source: 'ticketmaster'
+      url: event.url
     })) || []
 
     return new Response(JSON.stringify({ events }), {

@@ -4,7 +4,6 @@
  */
 
 import { Event, TicketmasterParams } from './types.ts';
-import { normalizeTicketmasterEvent } from './eventNormalizers.ts';
 
 interface TicketmasterResponse {
   events: Event[];
@@ -52,28 +51,45 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     startDate,
     endDate,
     keyword,
-    categories = [],
-    limit = 20
+    segmentName,
+    classificationName,
+    size = 100
   } = params;
 
   try {
+    console.log('[TICKETMASTER] Fetching events with params:', {
+      hasCoordinates: !!(latitude && longitude),
+      radius,
+      hasDateRange: !!(startDate && endDate),
+      keyword,
+      segmentName,
+      classificationName,
+      size
+    });
+
     // Build the Ticketmaster API URL
-    let url = 'https://app.ticketmaster.com/discovery/v2/events.json';
+    let url = 'https://app.ticketmaster.com/discovery/v2/events.json?';
 
     // Build query parameters
     const queryParams = new URLSearchParams();
 
-    // Add API key
+    // Add API key (required)
     queryParams.append('apikey', apiKey);
 
-    // Add location parameters
+    // Add location parameters with improved handling
     if (latitude && longitude) {
+      // Ticketmaster API uses latlong parameter with comma-separated values
       queryParams.append('latlong', `${latitude},${longitude}`);
+
+      // Use the validated radius from the parameters
+      // The radius is already guaranteed to be a number between 5-100 by the validation
       queryParams.append('radius', radius.toString());
       queryParams.append('unit', 'miles');
+
+      console.log(`[TICKETMASTER] Using lat/lng ${latitude},${longitude} with radius ${radius} miles.`);
     }
 
-    // Add date range parameters
+    // Add date range parameters (using underscore naming as per v2 docs)
     if (startDate) {
       queryParams.append('startDateTime', `${startDate}T00:00:00Z`);
     }
@@ -81,68 +97,97 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       queryParams.append('endDateTime', `${endDate}T23:59:59Z`);
     }
 
-    // Add keyword search
+    // Add keyword parameter
     if (keyword) {
       queryParams.append('keyword', keyword);
     }
 
-    // Add category filters
-    if (categories && categories.length > 0) {
-      // Map our categories to Ticketmaster segment names
-      const categoryMap: Record<string, string> = {
-        'music': 'Music',
-        'sports': 'Sports',
-        'arts': 'Arts & Theatre',
-        'family': 'Family',
-        'food': 'Miscellaneous',
-        'party': 'Music' // Default party events to Music category
-      };
-
-      // Get unique mapped categories
-      const segmentNames = Array.from(
-        new Set(
-          categories
-            .map(cat => categoryMap[cat])
-            .filter(Boolean)
-        )
-      );
-
-      if (segmentNames.length > 0) {
-        queryParams.append('segmentName', segmentNames.join(','));
-      }
-
-      // Special handling for party category
-      if (categories.includes('party')) {
-        // Add keyword search for party-related terms if not already specified
-        if (!keyword) {
-          queryParams.append('keyword', 'party OR club OR nightclub OR dance OR dj OR nightlife');
-        } else {
-          // Enhance existing keyword with party terms
-          queryParams.append('keyword', `${keyword} OR party OR club OR nightclub OR dance OR dj OR nightlife`);
-        }
-      }
+    // Add segment parameter (music, sports, arts, etc.) (using underscore naming as per v2 docs)
+    if (segmentName) {
+      queryParams.append('segmentName', segmentName);
     }
 
-    // Add size parameter (limit)
-    queryParams.append('size', limit.toString());
+    // Add classification parameter (specific type of event) (using underscore naming as per v2 docs)
+    if (classificationName) {
+      queryParams.append('classificationName', classificationName);
+    }
 
-    // Add sort parameter
+    // Add size parameter (max 200 per Ticketmaster docs)
+    queryParams.append('size', Math.min(size, 200).toString());
+
+    // Add sort parameter - sort by date
     queryParams.append('sort', 'date,asc');
 
+    // Add includeTBA and includeTBD parameters to include events with dates to be announced/defined
+    queryParams.append('includeTBA', 'yes');
+    queryParams.append('includeTBD', 'yes');
+
     // Append query parameters to URL
-    url += `?${queryParams.toString()}`;
+    url += queryParams.toString();
 
     console.log('[TICKETMASTER] API URL:', url);
+    console.log('[TICKETMASTER_DEBUG] Full request parameters:', {
+      apiKey: apiKey ? `${apiKey.substring(0, 4)}...` : 'NOT SET',
+      latitude,
+      longitude,
+      radius,
+      startDate,
+      endDate,
+      keyword,
+      segmentName,
+      classificationName,
+      size
+    });
 
-    // Make the API request
-    const response = await fetch(url);
+    // Make the API request with proper error handling
+    let response: Response;
+    try {
+      // Create a controller for the timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        controller.abort('Ticketmaster API call timed out after 15 seconds');
+      }, 15000);
+
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json'
+        },
+        signal: controller.signal
+      });
+
+      clearTimeout(timeoutId);
+
+      console.log('[TICKETMASTER] API response status:', response.status);
+
+      // Log response headers for debugging
+      const headers: Record<string, string> = {};
+      response.headers.forEach((value, key) => {
+        headers[key] = value;
+      });
+      console.log('[TICKETMASTER] API response headers:', headers);
+    } catch (fetchError) {
+      console.error('[TICKETMASTER_FETCH_ERROR] Fetch error:', fetchError);
+      let errorMsg = `Ticketmaster API fetch error: ${fetchError instanceof Error ? fetchError.message : String(fetchError)}`;
+      if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+        errorMsg = fetchError.message;
+      }
+
+      return {
+        events: [],
+        error: errorMsg,
+        status: 500,
+        warnings: ['API request failed or timed out']
+      };
+    }
 
     // Check for HTTP errors
     if (!response.ok) {
-      console.error('[TICKETMASTER] API error:', response.status, response.statusText);
+      const errorText = await response.text();
+      console.error('[TICKETMASTER] API error:', response.status, errorText);
       return {
         events: [],
-        error: `API returned status ${response.status}`,
+        error: `Ticketmaster API error: ${response.status} ${errorText}`,
         status: response.status,
         warnings: [`API returned status ${response.status}`]
       };
@@ -170,27 +215,71 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       };
     }
 
-    // Transform Ticketmaster events to our Event format using the new normalizer
+    // Transform Ticketmaster events to our Event format
     const events: Event[] = data._embedded.events.map((event: any) => {
-      try {
-        return normalizeTicketmasterEvent(event);
-      } catch (error) {
-        console.error('[TICKETMASTER_NORM_ERROR] Failed to normalize event:', error);
-        // Return a minimal error event
-        return {
-          id: `ticketmaster-error-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-          source: 'ticketmaster',
-          title: event?.name || 'Unknown Event',
-          description: 'Error processing event details',
-          start: new Date().toISOString(),
-          url: event?.url || '',
-          date: event?.dates?.start?.localDate || new Date().toISOString().split('T')[0],
-          time: event?.dates?.start?.localTime || '00:00',
-          location: 'Location unavailable',
-          category: 'other',
-          image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop'
-        };
+      // Extract venue information
+      const venue = event._embedded?.venues?.[0];
+      const venueName = venue?.name || '';
+      const venueCity = venue?.city?.name || '';
+      const venueState = venue?.state?.stateCode || '';
+      const venueCountry = venue?.country?.countryCode || '';
+      const venueAddress = venue?.address?.line1 || '';
+
+      // Build location string
+      let locationStr = venueName;
+      if (venueCity) {
+        locationStr += locationStr ? `, ${venueCity}` : venueCity;
       }
+      if (venueState) {
+        locationStr += locationStr ? `, ${venueState}` : venueState;
+      }
+      if (venueCountry && venueCountry !== 'US') {
+        locationStr += locationStr ? `, ${venueCountry}` : venueCountry;
+      }
+
+      // Extract coordinates
+      let coordinates: [number, number] | undefined = undefined;
+      if (venue?.location?.longitude && venue?.location?.latitude) {
+        coordinates = [
+          parseFloat(venue.location.longitude),
+          parseFloat(venue.location.latitude)
+        ];
+      }
+
+      // Extract price information
+      let price: string | undefined = undefined;
+      if (event.priceRanges && event.priceRanges.length > 0) {
+        const priceRange = event.priceRanges[0];
+        price = `${priceRange.min} - ${priceRange.max} ${priceRange.currency}`;
+      }
+
+      // Extract category information
+      const category = event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event';
+
+      // Extract image
+      const image = event.images && event.images.length > 0
+        ? event.images.find((img: any) => img.ratio === '16_9' && img.width > 500)?.url || event.images[0].url
+        : '';
+
+      // Extract date and time
+      const date = event.dates?.start?.localDate || '';
+      const time = event.dates?.start?.localTime || '';
+
+      return {
+        id: `ticketmaster-${event.id}`,
+        source: 'ticketmaster',
+        title: event.name,
+        description: event.description || event.info || '',
+        date,
+        time,
+        location: locationStr,
+        venue: venueName,
+        category,
+        image,
+        coordinates,
+        url: event.url,
+        price
+      };
     });
 
     console.log('[TICKETMASTER] Transformed events:', events.length);
