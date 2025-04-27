@@ -1,4 +1,3 @@
-
 // src/components/map/MapComponent.tsx
 import { useRef, useState, useCallback, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
@@ -39,6 +38,8 @@ interface MapComponentProps {
   onEventSelect?: (event: Event | null) => void;
   onLoadingChange?: (isLoading: boolean) => void;
   onFetchEvents?: (filters: EventFilters, coords: { latitude: number; longitude: number }, radius?: number) => void;
+  latitude?: number; // Make latitude optional with default in component
+  longitude?: number; // Make longitude optional with default in component
   onAddToPlan?: (event: Event) => void;
   onMapInstance?: (map: mapboxgl.Map) => void; // Correct typings for map instance callback
 }
@@ -54,6 +55,8 @@ const MapComponent = ({
   onEventSelect,
   onLoadingChange,
   onFetchEvents,
+  latitude = 39.8283, // Default to US center if not provided
+  longitude = -98.5795, // Default to US center if not provided
   onAddToPlan,
   onMapInstance,
   ...props // Rest parameter must be last (no trailing comma)
@@ -62,22 +65,19 @@ const MapComponent = ({
   // Debug token
   console.log('[MapComponent] Received mapboxToken:', mapboxToken ? mapboxToken.substring(0, 8) + '...' : 'null');
   
-  // Force a delay to ensure we log the token after it's been set
-  useEffect(() => {
-    setTimeout(() => {
-      console.log('[MapComponent] Token after delay:', mapboxToken ? mapboxToken.substring(0, 8) + '...' : 'null');
-    }, 1000);
-  }, [mapboxToken]);
   const mapContainer = useRef<HTMLDivElement>(null);
   const [initialViewState] = useState({
-    longitude: -98.5795, // Centered US
-    latitude: 39.8283,
+    longitude, // Use provided longitude or default
+    latitude, // Use provided latitude or default
     zoom: 3.5,
     pitch: 0,
     bearing: 0
   });
 
   const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
+  const [terrainEnabled, setTerrainEnabled] = useState(false);
+  const [terrainSourceExists, setTerrainSourceExists] = useState(false);
+  const [mapCenter, setMapCenter] = useState<{latitude: number; longitude: number} | null>(null);
 
   // Use Map state from the hook
   const { map, mapError, mapLoaded: isMapInitialized } = useMapInitialization(
@@ -111,225 +111,164 @@ const MapComponent = ({
   );
 
   // Map event handling (moveend, deselect on click empty space)
-  const { handleMapMoveEnd: handleMapMoveEndFromHook } = useMapEvents(
-    (center) => {
-      if (isMapInitialized && map) {
-        const currentZoom = map.getZoom();
-        const centerObj = {
-          latitude: center.latitude,
-          longitude: center.longitude
-        };
-        onMapMoveEnd(centerObj, currentZoom, true);
-      }
-    },
-    (zoom) => {
-      if (isMapInitialized && map) {
-        const center = map.getCenter();
-        const centerObj = {
-          latitude: center.lat,
-          longitude: center.lng
-        };
-        onMapMoveEnd(centerObj, zoom, true);
-      }
-    },
-    // onSearchThisArea logic needs map and filters
-    () => {
-      if (map && isMapInitialized && onFetchEvents) {
-        const center = map.getCenter();
-        if (center) {
-          const centerObj = {
-            latitude: center.lat,
-            longitude: center.lng
-          };
-          toast({
-            title: "Searching this area",
-            description: "Looking for events in the current map view...",
-          });
-          onFetchEvents(filters, centerObj, filters.distance);
-        }
-      }
-    },
-    isMapInitialized
-  );
-
-  // Clustering is disabled - we use custom React markers instead
-  const clusteringEnabled = false;
-
-  // Attach Mapbox-specific event listeners like moveend and click (for deselect)
-  useEffect(() => {
-      if (!map || !isMapInitialized) return;
-
-      const onMoveEnd = () => {
-          const center = map.getCenter();
-          const zoom = map.getZoom();
-          // Assuming user interaction for moveend for simplicity in this handler
-          if (center) {
-            handleMapMoveEndFromHook({ latitude: center.lat, longitude: center.lng }, zoom, true);
-          }
-      };
-
-      // Handle clicks on the map *background* to deselect the event
-      const handleMapBackgroundClick = (e: mapboxgl.MapMouseEvent) => {
-        // Query layers that might be clickable. Only query if they exist.
-        const clickableLayers = [];
-         if (clusteringEnabled && map.getLayer('clusters')) clickableLayers.push('clusters');
-         if (clusteringEnabled && map.getLayer('unclustered-point')) clickableLayers.push('unclustered-point');
-         // Add other potentially clickable layers if any
-
-        const features = clickableLayers.length > 0
-            ? map.queryRenderedFeatures(e.point, { layers: clickableLayers })
-            : [];
-
-        // If no clickable features were found at the click point AND an event is currently selected, deselect it.
-        if (features.length === 0 && selectedEvent && onEventSelect) {
-          console.log('[MapComponent] Clicked empty space, deselecting event.');
-          onEventSelect(null);
-        }
-         // Note: Clicks *on* features (clusters or individual points when clustering is active)
-         // are handled by the layer-specific click handlers added below.
-         // Clicks on custom HTML markers (when clustering is disabled) are handled by their React `onClick` props.
-      };
-
-      // Add general map event listeners
-      map.on('moveend', onMoveEnd);
-      map.on('click', handleMapBackgroundClick);
-
-
-      // Cleanup function for these listeners
-      return () => {
-          map.off('moveend', onMoveEnd);
-          map.off('click', handleMapBackgroundClick);
-      };
-  }, [map, isMapInitialized, handleMapMoveEndFromHook, selectedEvent, onEventSelect, clusteringEnabled]); // Re-run if map, loaded state, handlers, selected event, or clustering state change
-
-
-   // Cluster handlers removed - we use custom React markers instead
-
-  // Cluster event listeners removed - we use custom React markers instead
-
-
-  const [terrainEnabled, setTerrainEnabled] = useState(false);
-  const terrainSourceExists = map && map.getSource('mapbox-terrain'); // Check if terrain source exists
-
-  // Effect to set up terrain when map style loads
   useEffect(() => {
     if (!map || !isMapInitialized) return;
 
-    map.once('style.load', () => {
-      console.log('[MapComponent] Map style loaded.');
-      try {
-         // Check if terrain source exists and is added by the style
-         if (map.getSource('mapbox-terrain')) {
-             // Do not automatically set terrain here, let the toggle control it
-             console.log('[MapComponent] Mapbox terrain source found in style.');
-             // Initial terrain state will be handled by the terrainEnabled state and toggle
-         } else {
-             console.warn('[MapComponent] Mapbox terrain source not found in style. Terrain toggle may not work.');
-         }
-
-         // Add sky layer if it doesn't exist
-        if (!map.getLayer('sky')) {
-          map.addLayer({
-            'id': 'sky',
-            'type': 'sky',
-            'paint': {
-              'sky-type': 'atmosphere',
-              'sky-atmosphere-sun': [0.0, 0.0],
-              'sky-atmosphere-sun-intensity': 15
-            }
-          });
-           console.log('[MapComponent] Sky layer added.');
-        }
-      } catch (err) {
-        console.error('[MapComponent] Error during style load handling:', err);
-      }
+    // Track map center for UI state
+    const center = map.getCenter();
+    setMapCenter({
+      latitude: center.lat,
+      longitude: center.lng
     });
-  }, [map, isMapInitialized]); // Effect depends on map and initialized state
 
+    // Check if terrain source exists
+    try {
+      const terrainSource = map.getSource('mapbox-dem');
+      setTerrainSourceExists(!!terrainSource);
+    } catch (e) {
+      // Source doesn't exist yet
+      setTerrainSourceExists(false);
+    }
 
-  const toggleTerrain = useCallback(() => {
+    const onMoveEnd = () => {
+      const center = map.getCenter();
+      const zoom = map.getZoom();
+      const isUserInteraction = true; // Assume user interaction for now
+      
+      // Update local state
+      setMapCenter({
+        latitude: center.lat,
+        longitude: center.lng
+      });
+      
+      // Notify parent component
+      onMapMoveEnd(
+        { latitude: center.lat, longitude: center.lng },
+        zoom,
+        isUserInteraction
+      );
+    };
+
+    // Handle clicks on the map *background* to deselect the event
+    const handleMapBackgroundClick = (e: mapboxgl.MapMouseEvent) => {
+      // Only handle clicks that aren't on markers
+      const features = map.queryRenderedFeatures(e.point);
+      
+      // Check if we clicked on a marker or popup
+      const clickedOnMarker = features.some((feature: any) => {
+        if ('layer' in feature && feature.layer) {
+          const layerId = feature.layer.id;
+          return layerId === 'markers' || 
+                 (typeof layerId === 'string' && (layerId.includes('marker') || layerId.includes('cluster')));
+        }
+        return false;
+      });
+      
+      // If we didn't click on a marker and there's a selected event, deselect it
+      if (!clickedOnMarker && selectedEvent && onEventSelect) {
+        console.log('Deselecting event from map background click');
+        onEventSelect(null);
+      }
+    };
+
+    // Add event listeners
+    map.on('moveend', onMoveEnd);
+    map.on('click', handleMapBackgroundClick);
+
+    // Clean up event listeners
+    return () => {
+      map.off('moveend', onMoveEnd);
+      map.off('click', handleMapBackgroundClick);
+    };
+  }, [map, isMapInitialized, onMapMoveEnd, selectedEvent, onEventSelect]);
+
+  // Add terrain layer when enabled
+  useEffect(() => {
     if (!map || !isMapInitialized) return;
+
+    const addTerrainSource = async () => {
+      try {
+        // Check if the source already exists
+        try {
+          const source = map.getSource('mapbox-dem');
+          if (source) {
+            console.log('Terrain source already exists');
+            setTerrainSourceExists(true);
+            return;
+          }
+        } catch (e) {
+          // Source doesn't exist, continue to add it
+        }
+
+        // Add the terrain source
+        map.addSource('mapbox-dem', {
+          type: 'raster-dem',
+          url: 'mapbox://mapbox.mapbox-terrain-dem-v1',
+          tileSize: 512,
+          maxzoom: 14
+        } as any);
+
+        setTerrainSourceExists(true);
+        console.log('Added terrain source');
+      } catch (error) {
+        console.error('Error adding terrain source:', error);
+      }
+    };
+
+    // Add the terrain source when the map is initialized
+    addTerrainSource();
+  }, [map, isMapInitialized]);
+
+  // Toggle terrain when terrainEnabled changes
+  useEffect(() => {
+    if (!map || !isMapInitialized || !terrainSourceExists) return;
 
     try {
-      if (!terrainEnabled) {
-         // Attempt to set terrain. Check if source is available.
-         if (map.getSource('mapbox-terrain')) {
-             map.setTerrain({ 'source': 'mapbox-terrain', 'exaggeration': 1.5 });
-              map.easeTo({
-                pitch: 60, // Tilt the map for better 3D view
-                duration: 1000
-              });
-              setTerrainEnabled(true);
-              console.log('[MapComponent] 3D terrain enabled.');
-         } else {
-             console.warn('[MapComponent] Mapbox terrain source not available. Cannot enable terrain.');
-             toast({
-               title: "Terrain Not Available",
-               description: "3D terrain is not available for this map style or area.",
-               variant: "default"
-             });
-         }
+      if (terrainEnabled) {
+        map.setTerrain({ 'source': 'mapbox-dem', 'exaggeration': 1.5 });
+        console.log('Terrain enabled');
       } else {
-         // Disable terrain
-         map.setTerrain(null); // Setting terrain to null disables it
-         map.easeTo({
-           pitch: 0, // Reset pitch
-           duration: 1000
-         });
-         setTerrainEnabled(false);
-         console.log('[MapComponent] 3D terrain disabled.');
+        map.setTerrain(null);
+        console.log('Terrain disabled');
       }
     } catch (error) {
-      console.error('[MapComponent] Error toggling terrain:', error);
-      toast({
-        title: "Error Toggling Terrain",
-        description: error instanceof Error ? error.message : String(error),
-        variant: "destructive"
-      });
+      console.error('Error toggling terrain:', error);
     }
-  }, [map, isMapInitialized, terrainEnabled]);
+  }, [map, isMapInitialized, terrainEnabled, terrainSourceExists]);
 
-  // Use mapCenter from useMapState hook for display
-  const { mapCenter } = useMapState();
+  // Toggle terrain function
+  const toggleTerrain = useCallback(() => {
+    setTerrainEnabled(prev => !prev);
+  }, []);
 
-
-  // Custom marker click handler removed - now handled directly in MapMarkers component
-
-
-  useMapPopup({
-      map,
-      event: selectedEvent, // Use the selectedEvent from state
-      onClose: () => {
-        // The popup is managed by this hook, closing it should clear the selected event
-        if (onEventSelect && selectedEvent) {
-          console.log('[MapComponent] Popup reports close, deselecting event');
-          onEventSelect(null);
-        }
-      },
-      onViewDetails: (event) => { // This event object is passed from the popup HTML
-        console.log('[MapComponent] Popup ViewDetails clicked for:', event.id);
-        // Selecting the event here will open the right sidebar and update the map state
-        if (onEventSelect && (!selectedEvent || selectedEvent.id !== event.id)) {
-          onEventSelect(event);
-        }
-      },
-      onAddToPlan: (evt) => { // This event object is passed from the popup HTML
-        console.log('[MapComponent] Popup AddToPlan clicked for:', evt.id);
-        if (onAddToPlan) {
-          onAddToPlan(evt);
-        }
-      }
-  });
-
-
-  // Use keyboard navigation hook
-  useKeyboardNavigation({
-    events, // Pass the current list of events
-    selectedEventId: selectedEvent?.id?.toString() || null, // Pass ID of selected event
-    onSelectEvent: onEventSelect || (() => {}), // Pass the handler to update selected event
+  // Set up keyboard navigation for events
+  const { focusedIndex } = useKeyboardNavigation({
+    events,
+    selectedEventId: selectedEvent?.id?.toString() || null,
+    onSelectEvent: onEventSelect || (() => {}),
     isEnabled: isMapInitialized && events.length > 0 // Only enable keyboard nav when map is initialized and there are events
   });
 
+  // Event handlers for the popup
+  const onClose = useCallback(() => {
+    // Use the selectedEvent from state
+    if (onEventSelect) {
+      onEventSelect(null);
+    }
+  }, [onEventSelect]);
+
+  const onViewDetails = useCallback((event) => {
+    // Navigate to event details page
+    if (event && event.id) {
+      window.location.href = `/event/${event.id}`;
+    }
+  }, []);
+
+  const onAddToPlanHandler = useCallback((evt) => {
+    if (onAddToPlan) {
+      onAddToPlan(evt);
+    }
+  }, [onAddToPlan]);
 
   return (
     <div className="w-full h-full relative">

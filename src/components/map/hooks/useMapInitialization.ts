@@ -30,6 +30,7 @@ export const useMapInitialization = (
   });
   const mapInstanceRef = useRef<mapboxgl.Map | null>(null); // Use ref for map instance
   const initializationAttempted = useRef(false);
+  const tokenRef = useRef<string | null>(null); // Store token in ref to track changes
 
   useEffect(() => {
     let isMounted = true;
@@ -39,22 +40,32 @@ export const useMapInitialization = (
       console.log('[MAP_INIT] Map container ref not ready.');
       return;
     }
-    if (!mapboxToken) { // --- CHECK THE PROP ---
+    
+    // Check if token is valid and different from previous token
+    if (!mapboxToken) {
       console.log('[MAP_INIT] Mapbox token not available.');
       setState(prev => ({ ...prev, mapError: 'Map token configuration error. Cannot load map.' }));
       return; // Don't proceed without a token
     }
 
-    // Prevent re-initialization if map already exists
-    if (mapInstanceRef.current) {
-      console.log('[MAP_INIT] Map already initialized.');
+    // If token hasn't changed and map exists, no need to reinitialize
+    if (tokenRef.current === mapboxToken && mapInstanceRef.current) {
+      console.log('[MAP_INIT] Token unchanged and map exists, skipping reinitialization.');
       return;
     }
 
-    // Prevent multiple initialization attempts if token hasn't changed
-    if (initializationAttempted.current) {
-      console.log('[MAP_INIT] Initialization already attempted, waiting for token/container to change.');
-      return;
+    // Store new token
+    tokenRef.current = mapboxToken;
+
+    // Clean up previous map instance if it exists
+    if (mapInstanceRef.current) {
+      try {
+        console.log('[MAP_INIT] Removing previous map instance before reinitializing.');
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      } catch (error) {
+        console.error('[MAP_INIT] Error removing previous map:', error);
+      }
     }
 
     initializationAttempted.current = true;
@@ -211,11 +222,8 @@ export const useMapInitialization = (
         mapInstanceRef.current = null;
         setState({ map: null, mapError: null, mapLoaded: false }); // Reset state on cleanup
       }
-      
-      // Reset initialization flag when component unmounts
-      initializationAttempted.current = false;
     };
-  }, [mapContainer, mapboxToken, mapStyle, JSON.stringify(viewState), onMapLoad]); // Stringify viewState for stable dependency
+  }, [mapContainer, mapboxToken, mapStyle, onMapLoad]); // Remove viewState from dependencies to prevent unnecessary reinits
 
   // Return the state, potentially including the map instance once loaded
   return state;
