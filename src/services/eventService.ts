@@ -272,6 +272,11 @@ interface SearchParams {
   lat?: number;
   lng?: number;
   radius?: number;
+  latitude?: number;
+  longitude?: number;
+  categories?: string[];
+  keyword?: string;
+  page?: number;
 }
 
 /**
@@ -464,6 +469,14 @@ export async function searchEvents(params: SearchParams): Promise<{
       apiParams.limit = 20;
     }
     
+    // Ensure we have at least some parameters to avoid empty request body
+    if (!apiParams.lat && !apiParams.lng && !apiParams.latitude && !apiParams.longitude) {
+      // Add default coordinates if none provided (New York City)
+      apiParams.latitude = 40.7128;
+      apiParams.longitude = -74.0060;
+      apiParams.radius = apiParams.radius || 30; // Default 30 mile radius
+    }
+    
     // Add timeout handling for the function call
     const timeoutMs = 15000; // 15 seconds timeout
     
@@ -479,10 +492,17 @@ export async function searchEvents(params: SearchParams): Promise<{
         });
         
         // Race the function call against the timeout
+        // Try search-events-simple first, and if that fails, fall back to search-events
         return Promise.race([
-          supabase.functions.invoke('search-events', {
+          supabase.functions.invoke('search-events-simple', {
             body: apiParams,
             headers: { 'Content-Type': 'application/json' }
+          }).catch(error => {
+            console.warn('[API] search-events-simple failed, falling back to search-events:', error);
+            return supabase.functions.invoke('search-events', {
+              body: apiParams,
+              headers: { 'Content-Type': 'application/json' }
+            });
           }),
           timeoutPromise
         ]);
@@ -519,12 +539,14 @@ export async function searchEvents(params: SearchParams): Promise<{
         url: event.url || '',
         venue: event.venue || null,
         start: event.start || null,
-        source: event.source || 'unknown'
+        source: event.source || 'unknown',
+        coordinates: event.coordinates || null
       }));
       
       const result = {
         events,
-        metadata: data.metadata || {}
+        metadata: data.metadata || {},
+        sourceStats: data.sourceStats || null
       };
       
       // Cache the result

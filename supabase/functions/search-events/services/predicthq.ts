@@ -106,16 +106,38 @@ export class PredictHQClient {
       // Build query parameters
       const queryParams = new URLSearchParams();
       
-      // Add location parameters
+      // Add location parameters with improved validation and error handling
       if (withinParam) {
+        // Validate withinParam format
+        if (!/^\d+km@-?\d+(\.\d+)?,-?\d+(\.\d+)?$/.test(withinParam)) {
+          return {
+            events: [],
+            error: 'Invalid within parameter format. Expected: {radius}km@{lng},{lat}',
+            status: 400
+          };
+        }
         queryParams.append('within', withinParam);
       } else if (latitude !== undefined && longitude !== undefined && radius) {
         // Format: "within=radius@lng,lat" (note the order is longitude,latitude)
-        // Convert miles to km for PredictHQ API
-        const radiusKm = Math.round(radius * 1.60934);
-        queryParams.append('within', `${radiusKm}km@${longitude},${latitude}`);
+        // Convert miles to km for PredictHQ API with proper rounding
+        const radiusKm = Math.max(1, Math.round(radius * 1.60934)); // Ensure minimum 1km radius
+        queryParams.append('within', `${radiusKm}km@${longitude.toFixed(6)},${latitude.toFixed(6)}`);
+        
+        // Add location bias for better relevance
+        queryParams.append('location_around.origin', `${longitude.toFixed(6)},${latitude.toFixed(6)}`);
       } else if (location) {
-        queryParams.append('place.name', location);
+        // Sanitize location string and add place search
+        const sanitizedLocation = location.trim().replace(/[<>]/g, '');
+        queryParams.append('place.name', sanitizedLocation);
+        
+        // Add place scope for better results
+        queryParams.append('place.scope', 'place,city,region,country');
+      } else {
+        return {
+          events: [],
+          error: 'Missing location parameters. Provide either coordinates or location name.',
+          status: 400
+        };
       }
       
       // Add date range parameters
@@ -131,17 +153,23 @@ export class PredictHQClient {
         queryParams.append('q', keyword);
       }
       
-      // Add category filters
+      // Add category filters with enhanced party event detection
       if (categories && categories.length > 0) {
-        // Map our categories to PredictHQ category names
+        // Map our categories to PredictHQ category names with expanded coverage
         const categoryMap: Record<string, string[]> = {
-          'music': ['concerts', 'festivals'],
+          'music': ['concerts', 'festivals', 'performing-arts'],
           'sports': ['sports'],
-          'arts': ['performing-arts', 'community', 'expos'],
-          'family': ['community', 'expos'],
-          'food': ['food-drink'],
-          'party': ['festivals']
+          'arts': ['performing-arts', 'community', 'expos', 'conferences'],
+          'family': ['community', 'expos', 'school-holidays', 'observances'],
+          'food': ['food-drink', 'festivals'],
+          'party': ['festivals', 'concerts', 'performing-arts', 'community']
         };
+        
+        // Add labels for better party event detection
+        if (categories.includes('party')) {
+          queryParams.append('label.contains', 'nightlife,dance,club,party,dj');
+          queryParams.append('local_rank.gt', '50'); // Filter for more popular events
+        }
         
         // Get all mapped categories
         const phqCategories = categories
@@ -227,7 +255,7 @@ export class PredictHQClient {
         };
       }
       
-      // Parse the response
+      // Process response data with enhanced error handling and validation
       const data = await response.json();
       
       // Log response metadata for debugging
@@ -238,6 +266,16 @@ export class PredictHQClient {
         resultsCount: data.results?.length || 0,
         requestId: data.request_id
       });
+      
+      if (!data.results || !Array.isArray(data.results)) {
+        console.error('[PREDICTHQ] Invalid response format:', data);
+        return {
+          events: [],
+          error: 'Invalid response format from API',
+          status: response.status,
+          warnings: ['API returned invalid data format']
+        };
+      }
       
       // Log any warnings
       if (data.warnings && data.warnings.length > 0) {
