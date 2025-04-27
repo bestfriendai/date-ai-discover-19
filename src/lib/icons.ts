@@ -19,9 +19,8 @@ export const {
   Check,
   Circle,
   Dot,
-  // Add aliases for backwards compatibility
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
+  ChevronRight as ChevronRightIcon
 } = LucideIcons;
 
 // User Interface
@@ -39,10 +38,9 @@ export const {
   AlertCircle,
   Info,
   Share2,
-  // Add aliases for backwards compatibility
   Trash2 as Trash2Icon,
   Edit as EditIcon,
-  AlertCircle as AlertCircleIcon,
+  AlertCircle as AlertCircleIcon
 } = LucideIcons;
 
 // Location and Navigation
@@ -55,9 +53,8 @@ export const {
   Compass,
   Globe,
   Satellite,
-  // Add aliases for backwards compatibility
   MapPin as MapPinIcon,
-  Globe as GlobeIcon,
+  Globe as GlobeIcon
 } = LucideIcons;
 
 // Date and Time
@@ -65,9 +62,8 @@ export const {
   Calendar,
   CalendarDays,
   Clock,
-  // Add aliases for backwards compatibility
   Calendar as CalendarIcon,
-  Clock as ClockIcon,
+  Clock as ClockIcon
 } = LucideIcons;
 
 // Event Categories and Types
@@ -82,12 +78,10 @@ export const {
   Star,
   Sparkles,
   Ticket,
-  // Add aliases for backwards compatibility
   Music as MusicIcon,
   PartyPopper as PartyPopperIcon,
   Utensils as UtensilsIcon,
-  Trophy as TrophyIcon,
-  Theater as TheaterIcon,
+  Trophy as TrophyIcon
 } = LucideIcons;
 
 // Venue and Location Types
@@ -106,11 +100,10 @@ export const {
   Sun,
   Moon,
   Layers,
-  // Add aliases for backwards compatibility
   Mountain as MountainIcon,
   Building as BuildingIcon,
   MountainSnow as MountainSnowIcon,
-  Layers as LayersIcon,
+  Layers as LayersIcon
 } = LucideIcons;
 
 // Additional icons
@@ -120,10 +113,10 @@ export const {
   TrendingUp,
   MinusCircle,
   CheckCircle,
-  // Add aliases for backwards compatibility
   DollarSign as DollarSignIcon,
   Settings as SettingsIcon,
   TrendingUp as TrendingUpIcon,
   MinusCircle as MinusCircleIcon,
-  CheckCircle as CheckCircleIcon,
+  CheckCircle as CheckCircleIcon
 } = LucideIcons;
+
