@@ -1,4 +1,3 @@
-
 import * as LucideIcons from 'lucide-react';
 
 // Navigation and UI Controls
@@ -18,7 +17,7 @@ export const {
   GripVertical,
   Check: CheckIcon,
   Circle,
-  Dot,
+  Dot
 } = LucideIcons;
 
 // User Interface
@@ -29,13 +28,13 @@ export const {
   Mail: MailIcon,
   ExternalLink: ExternalLinkIcon,
   Plus: PlusIcon,
-  PlusCircle: PlusCircleIcon, // Already aliased at the end, but keep consistent if used elsewhere
+  PlusCircle: PlusCircleIcon,
   Loader2: Loader2Icon,
   Trash2: Trash2Icon,
   Edit,
   AlertCircle,
   Info: InfoIcon,
-  Share2: Share2Icon,
+  Share2: Share2Icon
 } = LucideIcons;
 
 // Location and Navigation
@@ -47,14 +46,14 @@ export const {
   Map: MapIcon,
   Compass: CompassIcon,
   Globe: GlobeIcon,
-  Satellite: SatelliteIcon,
+  Satellite: SatelliteIcon
 } = LucideIcons;
 
 // Date and Time
 export const {
   Calendar: CalendarIcon,
   CalendarDays: CalendarDaysIcon,
-  Clock: ClockIcon,
+  Clock: ClockIcon
 } = LucideIcons;
 
 // Event Categories and Types
@@ -68,12 +67,12 @@ export const {
   Heart: HeartIcon,
   Star: StarIcon,
   Sparkles: SparklesIcon,
-  Ticket: TicketIcon,
+  Ticket: TicketIcon
 } = LucideIcons;
 
 // Venue and Location Types
 export const {
-  Building, // Keep as is, seems correctly imported elsewhere
+  Building,
   Coffee,
   Wine,
   Network,
@@ -86,7 +85,7 @@ export const {
   Send: SendIcon,
   Sun: SunIcon,
   Moon: MoonIcon,
-  Layers: LayersIcon,
+  Layers: LayersIcon
 } = LucideIcons;
 
 // Additional icons needed for various components
@@ -96,6 +95,5 @@ export const {
   Settings: SettingsIcon,
   TrendingUp: TrendingUpIcon,
   MinusCircle: MinusCircleIcon,
-  CheckCircle: CheckCircleIcon,
-  // Add any missing from above if needed, but avoid re-aliasing
+  CheckCircle: CheckCircleIcon
 } = LucideIcons;

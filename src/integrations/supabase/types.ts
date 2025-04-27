@@ -876,6 +876,36 @@ export type Database = {
         Args: { "": string }
         Returns: unknown
       }
+      get_events_near_location: {
+        Args: {
+          lat: number
+          lng: number
+          radius_km?: number
+          category?: string
+        }
+        Returns: {
+          category: string | null
+          created_at: string
+          date_end: string | null
+          date_start: string
+          description: string | null
+          external_id: string
+          id: string
+          image_url: string | null
+          location_address: string | null
+          location_coordinates: unknown | null
+          location_name: string | null
+          metadata: Json | null
+          price_currency: string | null
+          price_max: number | null
+          price_min: number | null
+          source: string
+          title: string
+          updated_at: string
+          url: string | null
+          venue_name: string | null
+        }[]
+      }
       get_proj4_from_srid: {
         Args: { "": number }
         Returns: string
