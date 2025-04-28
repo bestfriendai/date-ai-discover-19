@@ -125,19 +125,42 @@ serve(async (req: Request) => {
     try {
       params = validateAndParseSearchParams(requestBody);
       
-      // Add detailed logging for location parameters
-      console.log('[SEARCH-EVENTS] Location parameters:', {
+      // Add comprehensive logging for all validated parameters
+      console.log('[SEARCH-EVENTS] Validated search parameters:', {
+        // Location parameters
         latitude: params.latitude,
         longitude: params.longitude,
+        lat: params.lat,
+        lng: params.lng,
+        userLat: params.userLat,
+        userLng: params.userLng,
         radius: params.radius,
         location: params.location,
-        hasValidCoordinates: !!(params.latitude && params.longitude),
-        radiusInKm: params.radius ? Math.round(Number(params.radius) * 1.60934) : 'N/A'
+        hasValidCoordinates: !!(params.latitude && params.longitude) ||
+                            !!(params.lat && params.lng) ||
+                            !!(params.userLat && params.userLng),
+        radiusInKm: params.radius ? Math.round(Number(params.radius) * 1.60934) : 'N/A',
+        
+        // Search parameters
+        keyword: params.keyword || 'not provided',
+        categories: params.categories || [],
+        startDate: params.startDate || 'not provided',
+        endDate: params.endDate || 'not provided',
+        page: params.page || 1,
+        limit: params.limit || 20
       });
       
-      // Log a warning if no valid coordinates are found
-      if (!params.latitude && !params.longitude) {
+      // Log specific warnings for missing parameters
+      if (!params.latitude && !params.longitude && !params.lat && !params.lng && !params.userLat && !params.userLng) {
         console.warn('[SEARCH-EVENTS] No valid coordinates found, falling back to location name only');
+      }
+      
+      if (!params.location && !params.latitude && !params.longitude) {
+        console.warn('[SEARCH-EVENTS] No location information provided (neither coordinates nor location name)');
+      }
+      
+      if (params.categories && params.categories.includes('party')) {
+        console.log('[SEARCH-EVENTS] Party category detected, will prioritize party events');
       }
     } catch (error) {
       if (error instanceof RequestValidationError) {

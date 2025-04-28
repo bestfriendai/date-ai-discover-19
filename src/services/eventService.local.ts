@@ -40,21 +40,37 @@ export async function searchEvents(params: SearchParams): Promise<{
     };
 
     console.log('[EVENT_SERVICE] Processed search params:', searchParams);
-    console.log('[EVENT_SERVICE] Calling search-events function with params:', JSON.stringify(searchParams));
+    console.log('[EVENT_SERVICE] Calling local search-events-simple function with params:', JSON.stringify(searchParams));
 
     try {
-      // Use our custom function invoker with retry logic
-      const data = await invokeFunctionWithRetry('search-events-fixed-final', searchParams);
-      return data;
+      // Use our local server instead of the deployed function
+      const LOCAL_SERVER_URL = 'http://localhost:3001/functions/v1/search-events-simple';
+      
+      console.log(`[EVENTS] Calling local server at: ${LOCAL_SERVER_URL}`);
+      
+      const response = await fetch(LOCAL_SERVER_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(searchParams)
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      return await response.json();
     } catch (functionError) {
-      console.error('[EVENTS] Error from function invocation:', functionError);
+      console.error('[EVENTS] Error from local server:', functionError);
 
-      // Fallback to direct fetch if the function client fails
+      // Fallback to direct fetch if the local server fails
       console.log('[EVENTS] Attempting direct fetch fallback...');
+      
       // Get the anon key for authorization
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
 
-      const response = await fetch(`https://akwvmljopucsnorvdwuu.supabase.co/functions/v1/search-events`, {
+      const response = await fetch(`https://akwvmljopucsnorvdwuu.supabase.co/functions/v1/search-events-simple`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -74,8 +90,7 @@ export async function searchEvents(params: SearchParams): Promise<{
     return {
       events: [],
       sourceStats: {
-        ticketmaster: { count: 0, error: String(error) },
-        predicthq: { count: 0, error: String(error) }
+        rapidapi: { count: 0, error: String(error) }
       },
       meta: {
         error: String(error),
@@ -83,53 +98,6 @@ export async function searchEvents(params: SearchParams): Promise<{
       }
     };
   }
-}
-
-// REMOVE THIS FUNCTION LATER - KEPT FOR REFERENCE ONLY
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getMockEvents = (params: any): {
-  events: Event[];
-  sourceStats?: any;
-  totalEvents?: number;
-  pageSize?: number;
-  page?: number;
-} => {
-  console.log('[DEBUG] Generating mock events around', params.lat, params.lng);
-
-  // Generate mock events around the specified coordinates
-  const centerLat = params.lat || 40.7128;
-  const centerLng = params.lng || -74.0060;
-  const mockEvents: Event[] = [];
-
-  // Generate events in a grid around the center
-  for (let i = 0; i < 100; i++) { // Increased from 10 to 100
-    // Create a variation from the center point (about 0.01 degrees is roughly 1 km)
-    const latOffset = (Math.random() - 0.5) * 0.1; // Increased spread slightly
-    const lngOffset = (Math.random() - 0.5) * 0.1; // Increased spread slightly
-
-    mockEvents.push({
-      id: `mock-${i}`,
-      title: `Mock Event ${i}`,
-      date: 'Sat, May 17',
-      time: '07:00 PM',
-      location: 'Mock Location',
-      category: ['music', 'sports', 'arts & theatre', 'family', 'food'][i % 5],
-      image: '/lovable-uploads/hamilton.jpg',
-      coordinates: [centerLng + lngOffset, centerLat + latOffset],
-      price: `$${Math.floor(Math.random() * 100)}.00`,
-      description: 'This is a mock event for testing purposes'
-    });
-  }
-
-  return {
-    events: mockEvents,
-    sourceStats: {
-      mock: { count: mockEvents.length, error: null }
-    },
-    totalEvents: mockEvents.length, // Report the actual number of mock events
-    pageSize: params.limit || 100,
-    page: params.page || 1
-  };
 }
 
 // Get event details by ID

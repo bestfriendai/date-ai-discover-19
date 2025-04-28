@@ -107,11 +107,16 @@ class ApiKeyManager {
       throw new ValidationRulesNotFoundError(service);
     }
 
+    // Add detailed logging for key validation
+    console.log(`[API_KEY_MANAGER] Validating ${service} key format`);
+    console.log(`[API_KEY_MANAGER] Key length: ${key.length}, required min: ${rules.minLength}, max: ${rules.maxLength}`);
+    
     // Check for placeholder or example keys
     if (key === 'your_ticketmaster_key_here' ||
         key === 'your_predicthq_key_here' ||
         key.includes('example') ||
         key.includes('placeholder')) {
+      console.error(`[API_KEY_MANAGER] ${service} key validation failed: using placeholder or example key`);
       throw new InvalidApiKeyError(service, 'using placeholder or example key');
     }
 
@@ -122,9 +127,11 @@ class ApiKeyManager {
       
       if (!isValid) {
         const details = key.length < 10 ? 'too short' : 'invalid characters';
+        console.error(`[API_KEY_MANAGER] Ticketmaster key validation failed: ${details}`);
         throw new InvalidApiKeyError(service, details);
       }
       
+      console.log(`[API_KEY_MANAGER] Ticketmaster key validation passed`);
       return true;
     }
 
@@ -133,13 +140,23 @@ class ApiKeyManager {
       key.length >= rules.minLength &&
       key.length <= rules.maxLength;
 
+    // Add detailed validation logging
+    if (service.toLowerCase() === 'rapidapi') {
+      console.log(`[API_KEY_MANAGER] RapidAPI key validation details:`);
+      console.log(`[API_KEY_MANAGER] - Format check: ${rules.format.test(key)}`);
+      console.log(`[API_KEY_MANAGER] - Length check: ${key.length >= rules.minLength && key.length <= rules.maxLength}`);
+      console.log(`[API_KEY_MANAGER] - Overall validation: ${isValid ? 'PASSED' : 'FAILED'}`);
+    }
+
     if (!isValid) {
       const details = key.length < rules.minLength ? 'too short' :
         key.length > rules.maxLength ? 'too long' :
         'invalid characters';
+      console.error(`[API_KEY_MANAGER] ${service} key validation failed: ${details}`);
       throw new InvalidApiKeyError(service, details);
     }
 
+    console.log(`[API_KEY_MANAGER] ${service} key validation passed`);
     return true;
   }
 
@@ -206,8 +223,24 @@ class ApiKeyManager {
       } else if (serviceLower === 'rapidapi') {
         // Try multiple possible environment variable names for RapidAPI
         // @ts-ignore: Deno is available at runtime
-        key = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('REAL_TIME_EVENTS_API_KEY') || Deno.env.get('X_RAPIDAPI_KEY');
-        console.log('[API_KEY_MANAGER] RapidAPI key retrieval result:', key ? 'Found' : 'Not found');
+        const possibleKeys = {
+          'RAPIDAPI_KEY': Deno.env.get('RAPIDAPI_KEY'),
+          'REAL_TIME_EVENTS_API_KEY': Deno.env.get('REAL_TIME_EVENTS_API_KEY'),
+          'X_RAPIDAPI_KEY': Deno.env.get('X_RAPIDAPI_KEY')
+        };
+        
+        // Log which keys are available (without revealing their values)
+        console.log('[API_KEY_MANAGER] Checking RapidAPI key environment variables:');
+        for (const [keyName, keyValue] of Object.entries(possibleKeys)) {
+          console.log(`[API_KEY_MANAGER] - ${keyName} exists: ${!!keyValue}`);
+        }
+        
+        // Try each key in order of preference
+        key = possibleKeys['RAPIDAPI_KEY'] ||
+              possibleKeys['REAL_TIME_EVENTS_API_KEY'] ||
+              possibleKeys['X_RAPIDAPI_KEY'];
+              
+        console.log('[API_KEY_MANAGER] RapidAPI key retrieval result:', key ? `Found (length: ${key.length})` : 'Not found');
       } else {
         // Fallback to standard naming convention
         key = Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);

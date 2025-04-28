@@ -1,72 +1,79 @@
-import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
+// @ts-ignore: Deno types
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
-// Function to get the API key from environment variables
-function getApiKey(name: string): string | null {
-  const key = Deno.env.get(name);
-  return key || null;
+// Simple CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
+};
+
+// Handle CORS preflight requests
+function handleOptionsRequest() {
+  return new Response(null, {
+    headers: {
+      ...corsHeaders,
+      'Content-Type': 'application/json',
+    },
+    status: 204,
+  });
 }
 
-serve(async (req) => {
+serve(async (req: Request) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return handleOptionsRequest();
+  }
+
   try {
-    // Get the RapidAPI key
-    const rapidApiKey = getApiKey('RAPIDAPI_KEY');
-    const xRapidApiKey = getApiKey('X_RAPIDAPI_KEY');
-    
-    // Test if the key works with a simple request
-    let testResult = null;
-    
-    if (rapidApiKey) {
-      try {
-        const response = await fetch('https://real-time-events-search.p.rapidapi.com/search-events?query=popular%20events&date=week&is_virtual=false&start=0', {
-          method: 'GET',
-          headers: {
-            'x-rapidapi-key': rapidApiKey,
-            'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          testResult = {
-            status: response.status,
-            success: true,
-            dataLength: data.data?.length || 0,
-            eventsLength: data.events?.length || 0
-          };
-        } else {
-          testResult = {
-            status: response.status,
-            success: false,
-            error: await response.text()
-          };
-        }
-      } catch (error) {
-        testResult = {
-          success: false,
-          error: error.message
-        };
-      }
-    }
-    
+    // Get environment variables
+    const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
+    const xRapidApiKey = Deno.env.get('X_RAPIDAPI_KEY');
+    const realTimeEventsApiKey = Deno.env.get('REAL_TIME_EVENTS_API_KEY');
+
+    // Mask keys for security
+    const maskKey = (key: string | undefined) => {
+      if (!key) return 'NOT SET';
+      if (key.length <= 8) return '********';
+      return `${key.slice(0, 4)}...${key.slice(-4)}`;
+    };
+
+    // Return environment variable status
     return new Response(
       JSON.stringify({
-        rapidApiKeyAvailable: !!rapidApiKey,
-        xRapidApiKeyAvailable: !!xRapidApiKey,
-        rapidApiKeyMasked: rapidApiKey ? `${rapidApiKey.substring(0, 4)}...${rapidApiKey.substring(rapidApiKey.length - 4)}` : null,
-        xRapidApiKeyMasked: xRapidApiKey ? `${xRapidApiKey.substring(0, 4)}...${xRapidApiKey.substring(xRapidApiKey.length - 4)}` : null,
-        testResult
+        status: 'success',
+        message: 'RapidAPI key check',
+        environment: {
+          RAPIDAPI_KEY: rapidApiKey ? `SET: ${maskKey(rapidApiKey)}` : 'NOT SET',
+          X_RAPIDAPI_KEY: xRapidApiKey ? `SET: ${maskKey(xRapidApiKey)}` : 'NOT SET',
+          REAL_TIME_EVENTS_API_KEY: realTimeEventsApiKey ? `SET: ${maskKey(realTimeEventsApiKey)}` : 'NOT SET',
+        },
+        timestamp: new Date().toISOString()
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
-      },
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
+        status: 200,
+      }
     );
   } catch (error) {
+    // Return error response
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        status: 'error',
+        message: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      }),
       {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json',
+        },
         status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      },
+      }
     );
   }
 });

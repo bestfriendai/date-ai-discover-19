@@ -338,6 +338,8 @@ function transformRapidAPIEvent(input: RapidAPIEvent): Event {
  * Transform a new format RapidAPI event to our common Event interface
  */
 function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
+  console.log(`[RAPIDAPI] Transforming event: ${input.name || 'Unnamed event'}`);
+  
   // Get the image or use a placeholder
   const eventImage = input.thumbnail || 'https://placehold.co/600x400?text=No+Image';
 
@@ -345,8 +347,12 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
   let dateTime: Date | null = null;
   if (input.start_time) {
     dateTime = new Date(input.start_time);
+    console.log(`[RAPIDAPI] Parsed start_time: ${input.start_time} -> ${dateTime.toISOString()}`);
   } else if (input.start_time_utc) {
     dateTime = new Date(input.start_time_utc);
+    console.log(`[RAPIDAPI] Parsed start_time_utc: ${input.start_time_utc} -> ${dateTime.toISOString()}`);
+  } else {
+    console.log(`[RAPIDAPI] No start time available for event: ${input.name}`);
   }
 
   // Use date_human_readable if available, otherwise format the date
@@ -384,14 +390,30 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
 
       location = venueParts.join(', ');
     }
+    
+    // Log venue details for debugging
+    console.log(`[RAPIDAPI] Venue details:`, {
+      name: input.venue.name || 'Not provided',
+      address: input.venue.full_address || 'Not provided',
+      city: input.venue.city || 'Not provided',
+      state: input.venue.state || 'Not provided',
+      country: input.venue.country || 'Not provided',
+      hasCoordinates: !!(input.venue.latitude && input.venue.longitude)
+    });
+  } else {
+    console.log(`[RAPIDAPI] No venue information for event: ${input.name}`);
   }
 
   // Determine category from venue subtype or default to 'other'
   let category = 'other';
   if (input.venue?.subtype) {
     category = mapEventCategoryToCategory(input.venue.subtype);
+    console.log(`[RAPIDAPI] Mapped venue subtype "${input.venue.subtype}" to category "${category}"`);
   } else if (input.venue?.subtypes && input.venue.subtypes.length > 0) {
     category = mapEventCategoryToCategory(input.venue.subtypes[0]);
+    console.log(`[RAPIDAPI] Mapped venue subtypes[0] "${input.venue.subtypes[0]}" to category "${category}"`);
+  } else {
+    console.log(`[RAPIDAPI] No venue subtype available, using default category "other"`);
   }
 
   // Get the best URL from ticket_links or info_links
@@ -408,6 +430,7 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
       if (!eventUrl) {
         eventUrl = ticketUrl;
       }
+      console.log(`[RAPIDAPI] Found ticket link: ${ticketUrl}`);
     }
   }
 
@@ -416,6 +439,7 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
     const infoLink = input.info_links.find(link => link && link.link);
     if (infoLink) {
       eventUrl = infoLink.link || '';
+      console.log(`[RAPIDAPI] Found info link: ${eventUrl}`);
     }
   }
 
@@ -424,40 +448,81 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
   const nameLower = input.name?.toLowerCase() || '';
   const descriptionLower = input.description?.toLowerCase() || '';
   
+  // Enhanced party detection with detailed logging
+  let partyKeywordsFound: string[] = [];
+  
+  // Check title for party keywords
+  partyKeywords.forEach(keyword => {
+    if (nameLower.includes(keyword)) {
+      partyKeywordsFound.push(`title:${keyword}`);
+    }
+  });
+  
+  // Check description for party keywords
+  if (descriptionLower) {
+    partyKeywords.forEach(keyword => {
+      if (descriptionLower.includes(keyword)) {
+        partyKeywordsFound.push(`description:${keyword}`);
+      }
+    });
+  }
+  
   const isPartyEvent = (
-    category === 'party' || 
+    category === 'party' ||
     category === 'nightlife' ||
-    partyKeywords.some(keyword => nameLower.includes(keyword)) ||
-    (descriptionLower && partyKeywords.some(keyword => descriptionLower.includes(keyword)))
+    partyKeywordsFound.length > 0
   );
+
+  // Log party detection details
+  if (partyKeywordsFound.length > 0 || category === 'party' || category === 'nightlife') {
+    console.log(`[RAPIDAPI] Party event detection:`, {
+      eventName: input.name,
+      isPartyEvent,
+      category,
+      keywordsFound: partyKeywordsFound,
+      keywordCount: partyKeywordsFound.length
+    });
+  }
 
   // For party events, make sure we have coordinates if possible
   let coordinates = undefined;
   let eventLongitude = input.venue?.longitude;
   let eventLatitude = input.venue?.latitude;
   
-  // Only set coordinates if we have both latitude and longitude
-  if (eventLatitude !== undefined && eventLongitude !== undefined && 
-      eventLatitude !== null && eventLongitude !== null && 
-      !isNaN(Number(eventLatitude)) && !isNaN(Number(eventLongitude))) {
-    coordinates = [Number(eventLongitude), Number(eventLatitude)];
+  // Enhanced coordinate validation with detailed logging
+  if (eventLatitude !== undefined && eventLongitude !== undefined) {
+    console.log(`[RAPIDAPI] Validating coordinates for event: ${input.name}`);
+    console.log(`[RAPIDAPI] Raw coordinates: [${eventLongitude}, ${eventLatitude}]`);
+    
+    // Check for null values
+    if (eventLatitude === null || eventLongitude === null) {
+      console.log(`[RAPIDAPI] Coordinates contain null values`);
+    }
+    // Check for NaN values
+    else if (isNaN(Number(eventLatitude)) || isNaN(Number(eventLongitude))) {
+      console.log(`[RAPIDAPI] Coordinates contain NaN values`);
+    }
+    // Check for valid range
+    else if (Math.abs(Number(eventLatitude)) > 90 || Math.abs(Number(eventLongitude)) > 180) {
+      console.log(`[RAPIDAPI] Coordinates out of valid range`);
+    }
+    // Valid coordinates
+    else {
+      coordinates = [Number(eventLongitude), Number(eventLatitude)];
+      console.log(`[RAPIDAPI] Valid coordinates: [${coordinates[0]}, ${coordinates[1]}]`);
+    }
+  } else {
+    console.log(`[RAPIDAPI] No coordinates available for event: ${input.name}`);
   }
   
-  // Log party events for debugging
+  // Special logging for party events
   if (isPartyEvent) {
     console.log(`[RAPIDAPI] Found party event (new format): ${input.name}`);
     console.log(`[RAPIDAPI] Party event coordinates: ${coordinates ? 'Yes' : 'No'}`);
     if (coordinates) {
       console.log(`[RAPIDAPI] Party event coordinates: [${coordinates[0]}, ${coordinates[1]}]`);
-    }
-  }
-
-  // Log party events for debugging
-  if (isPartyEvent) {
-    console.log(`[RAPIDAPI] Found party event (new format): ${input.name}`);
-    console.log(`[RAPIDAPI] Party event coordinates: ${coordinates ? 'Yes' : 'No'}`);
-    if (coordinates) {
-      console.log(`[RAPIDAPI] Coordinates: [${coordinates[0]}, ${coordinates[1]}]`);
+    } else {
+      console.log(`[RAPIDAPI] WARNING: Party event without coordinates: ${input.name}`);
     }
   }
 
@@ -507,12 +572,28 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
  * Extract RapidAPI-specific parameters from SearchParams
  */
 function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
+  console.log('[RAPIDAPI] extractRapidAPIParams called with params:', {
+    keyword: params.keyword || 'not provided',
+    location: params.location || 'not provided',
+    latitude: params.latitude || 'not provided',
+    longitude: params.longitude || 'not provided',
+    lat: params.lat || 'not provided',
+    lng: params.lng || 'not provided',
+    userLat: params.userLat || 'not provided',
+    userLng: params.userLng || 'not provided',
+    radius: params.radius || 'not provided',
+    categories: params.categories || [],
+    startDate: params.startDate || 'not provided',
+    endDate: params.endDate || 'not provided'
+  });
+
   const apiParams: RapidAPIParams = {};
 
   // Add query parameter from keyword and/or location
   const queryParts = [];
   if (params.keyword) {
     queryParts.push(params.keyword);
+    console.log(`[RAPIDAPI] Added keyword to query: "${params.keyword}"`);
   }
 
   // Enhanced location parameter handling
@@ -698,6 +779,17 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
 
     // Store all queries for multiple API calls
     apiParams.allQueries = queryParts;
+    
+    // Log the number of queries generated
+    console.log(`[RAPIDAPI] Generated ${queryParts.length} queries for API calls`);
+    console.log(`[RAPIDAPI] First query: "${queryParts[0]}"`);
+    
+    // Log a sample of queries if there are many
+    if (queryParts.length > 10) {
+      console.log(`[RAPIDAPI] Sample of queries (first 5):`, queryParts.slice(0, 5));
+    }
+  } else {
+    console.warn('[RAPIDAPI] No queries generated! Search may return no results.');
   }
 
   // Prioritize queries with higher relevance for party searches
@@ -775,6 +867,15 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
 
   // Set start parameter for pagination
   apiParams.start = params.page && params.page > 1 ? (params.page - 1) * (params.limit || 20) : 0;
+
+  // Log the final API parameters
+  console.log('[RAPIDAPI] Final API parameters:', {
+    query: apiParams.query || 'not set',
+    date: apiParams.date || 'not set',
+    is_virtual: apiParams.is_virtual,
+    start: apiParams.start,
+    queryCount: apiParams.allQueries?.length || 0
+  });
 
   return apiParams;
 }
@@ -1010,9 +1111,24 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
       console.log(`[RAPIDAPI] Filtering events by distance: ${radius} miles from ${userLat},${userLng}`);
 
       // Count events with coordinates before filtering
-      const eventsWithCoordinates = transformedEvents.filter(event => 
+      const eventsWithCoordinates = transformedEvents.filter(event =>
         (event.coordinates || (event.latitude && event.longitude)));
       console.log(`[RAPIDAPI] Events with coordinates before filtering: ${eventsWithCoordinates.length} of ${transformedEvents.length}`);
+      
+      // Log events without coordinates
+      const eventsWithoutCoordinates = transformedEvents.filter(event =>
+        !event.coordinates && (!event.latitude || !event.longitude));
+      console.log(`[RAPIDAPI] Events without coordinates: ${eventsWithoutCoordinates.length} of ${transformedEvents.length}`);
+      
+      // Log party events without coordinates
+      const partyEventsWithoutCoordinates = eventsWithoutCoordinates.filter(event =>
+        event.category === 'party' || event.category === 'nightlife' || (event as any).isPartyEvent);
+      if (partyEventsWithoutCoordinates.length > 0) {
+        console.log(`[RAPIDAPI] Party events without coordinates: ${partyEventsWithoutCoordinates.length}`);
+        partyEventsWithoutCoordinates.forEach(event => {
+          console.log(`[RAPIDAPI] Party event without coordinates: "${event.title}" (${event.venue || 'No venue'})`);
+        });
+      }
       
       // Filter events that have coordinates and are within the radius
       const filteredEvents = transformedEvents.filter(event => {
@@ -1060,6 +1176,15 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
           Number(eventLng)
         );
 
+        // Log distance for party events
+        const isPartyEvent = event.category === 'party' ||
+                            event.category === 'nightlife' ||
+                            (event as any).isPartyEvent;
+        if (isPartyEvent) {
+          console.log(`[RAPIDAPI] Party event "${event.title}" distance: ${distance.toFixed(2)} miles (radius: ${radius} miles)`);
+          console.log(`[RAPIDAPI] Party event within radius: ${distance <= radius ? 'YES' : 'NO'}`);
+        }
+
         // Return true if the event is within the radius
         return distance <= radius;
       });
@@ -1071,7 +1196,18 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
       });
       console.log(`[RAPIDAPI] Events by category after filtering:`, categoryCounts);
 
+      // Log filtering results by category
       console.log(`[RAPIDAPI] Filtered ${transformedEvents.length} events down to ${filteredEvents.length} within ${radius} miles`);
+      
+      // Count party events before and after filtering
+      const partyEventsBefore = transformedEvents.filter(event =>
+        event.category === 'party' || event.category === 'nightlife' || (event as any).isPartyEvent).length;
+      const partyEventsAfter = filteredEvents.filter(event =>
+        event.category === 'party' || event.category === 'nightlife' || (event as any).isPartyEvent).length;
+      
+      console.log(`[RAPIDAPI] Party events before filtering: ${partyEventsBefore}, after filtering: ${partyEventsAfter}`);
+      console.log(`[RAPIDAPI] Party events retention rate: ${partyEventsBefore > 0 ? Math.round((partyEventsAfter / partyEventsBefore) * 100) : 0}%`);
+      
       return filteredEvents;
     }
 
