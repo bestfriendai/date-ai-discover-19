@@ -45,7 +45,10 @@ export interface RapidAPIParams {
   is_virtual?: boolean;
   start?: number;
   event_id?: string;
-  allQueries?: string[]; // Added to support multiple queries
+  allQueries?: string[];
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
 }
 
 /**
@@ -187,10 +190,10 @@ function mapEventCategoryToCategory(category: string): string {
   } else if (lowerCategory.includes('dance') && !lowerCategory.includes('party') && !lowerCategory.includes('club')) {
     return 'dance';
   } else if (
-    lowerCategory.includes('party') || 
-    lowerCategory.includes('nightlife') || 
-    lowerCategory.includes('club') || 
-    lowerCategory.includes('dj') || 
+    lowerCategory.includes('party') ||
+    lowerCategory.includes('nightlife') ||
+    lowerCategory.includes('club') ||
+    lowerCategory.includes('dj') ||
     lowerCategory.includes('lounge') ||
     lowerCategory.includes('rave') ||
     lowerCategory.includes('mixer') ||
@@ -270,9 +273,9 @@ function transformRapidAPIEvent(input: RapidAPIEvent): Event {
   const partyKeywords = ['party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave', 'nightclub', 'mixer', 'social'];
   const titleLower = input.title?.toLowerCase() || '';
   const descriptionLower = input.description?.toLowerCase() || '';
-  
+
   const isPartyEvent = (
-    category === 'party' || 
+    category === 'party' ||
     category === 'nightlife' ||
     partyKeywords.some(keyword => titleLower.includes(keyword)) ||
     (descriptionLower && partyKeywords.some(keyword => descriptionLower.includes(keyword)))
@@ -282,10 +285,10 @@ function transformRapidAPIEvent(input: RapidAPIEvent): Event {
   let coordinates = undefined;
   let eventLongitude = input.venue?.location?.lng;
   let eventLatitude = input.venue?.location?.lat;
-  
+
   // Only set coordinates if we have both latitude and longitude
-  if (eventLatitude !== undefined && eventLongitude !== undefined && 
-      eventLatitude !== null && eventLongitude !== null && 
+  if (eventLatitude !== undefined && eventLongitude !== undefined &&
+      eventLatitude !== null && eventLongitude !== null &&
       !isNaN(Number(eventLatitude)) && !isNaN(Number(eventLongitude))) {
     coordinates = [Number(eventLongitude), Number(eventLatitude)];
   }
@@ -339,7 +342,7 @@ function transformRapidAPIEvent(input: RapidAPIEvent): Event {
  */
 function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
   console.log(`[RAPIDAPI] Transforming event: ${input.name || 'Unnamed event'}`);
-  
+
   // Get the image or use a placeholder
   const eventImage = input.thumbnail || 'https://placehold.co/600x400?text=No+Image';
 
@@ -390,7 +393,7 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
 
       location = venueParts.join(', ');
     }
-    
+
     // Log venue details for debugging
     console.log(`[RAPIDAPI] Venue details:`, {
       name: input.venue.name || 'Not provided',
@@ -444,20 +447,24 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
   }
 
   // Check if this is potentially a party event - enhanced detection
-  const partyKeywords = ['party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave', 'nightclub', 'mixer', 'social'];
+  const partyKeywords = [
+    'party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave',
+    'nightclub', 'mixer', 'social', 'festival', 'celebration',
+    'cocktail', 'happy hour', 'gala', 'bar crawl', 'rooftop'
+  ];
   const nameLower = input.name?.toLowerCase() || '';
   const descriptionLower = input.description?.toLowerCase() || '';
-  
+
   // Enhanced party detection with detailed logging
   let partyKeywordsFound: string[] = [];
-  
+
   // Check title for party keywords
   partyKeywords.forEach(keyword => {
     if (nameLower.includes(keyword)) {
       partyKeywordsFound.push(`title:${keyword}`);
     }
   });
-  
+
   // Check description for party keywords
   if (descriptionLower) {
     partyKeywords.forEach(keyword => {
@@ -466,7 +473,18 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
       }
     });
   }
-  
+
+  // Check venue subtype for party-related terms
+  if (input.venue?.subtype) {
+    const subtypeLower = input.venue.subtype.toLowerCase();
+    if (subtypeLower.includes('club') ||
+        subtypeLower.includes('bar') ||
+        subtypeLower.includes('lounge') ||
+        subtypeLower.includes('nightlife')) {
+      partyKeywordsFound.push(`venue:${input.venue.subtype}`);
+    }
+  }
+
   const isPartyEvent = (
     category === 'party' ||
     category === 'nightlife' ||
@@ -485,15 +503,15 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
   }
 
   // For party events, make sure we have coordinates if possible
-  let coordinates = undefined;
+  let coordinates: [number, number] | undefined = undefined;
   let eventLongitude = input.venue?.longitude;
   let eventLatitude = input.venue?.latitude;
-  
+
   // Enhanced coordinate validation with detailed logging
   if (eventLatitude !== undefined && eventLongitude !== undefined) {
     console.log(`[RAPIDAPI] Validating coordinates for event: ${input.name}`);
     console.log(`[RAPIDAPI] Raw coordinates: [${eventLongitude}, ${eventLatitude}]`);
-    
+
     // Check for null values
     if (eventLatitude === null || eventLongitude === null) {
       console.log(`[RAPIDAPI] Coordinates contain null values`);
@@ -514,7 +532,7 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
   } else {
     console.log(`[RAPIDAPI] No coordinates available for event: ${input.name}`);
   }
-  
+
   // Special logging for party events
   if (isPartyEvent) {
     console.log(`[RAPIDAPI] Found party event (new format): ${input.name}`);
@@ -559,12 +577,7 @@ function transformRapidAPIEventNew(input: RapidAPIEventNew): Event {
       tickets: ticketUrl || eventUrl,
       official: eventUrl
     },
-    // Add additional data for debugging
-    additionalData: {
-      publisher: input.publisher,
-      ticketLinkCount: input.ticket_links?.length || 0,
-      infoLinkCount: input.info_links?.length || 0
-    }
+    // Additional data is handled in the frontend
   };
 }
 
@@ -590,7 +603,7 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
   const apiParams: RapidAPIParams = {};
 
   // Add query parameter from keyword and/or location
-  const queryParts = [];
+  const queryParts: string[] = [];
   if (params.keyword) {
     queryParts.push(params.keyword);
     console.log(`[RAPIDAPI] Added keyword to query: "${params.keyword}"`);
@@ -619,10 +632,10 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
     (params.categories.includes('party') ||
      params.categories.includes('nightlife') ||
      params.categories.includes('music'));
-  
+
   // Make party search even more explicit when it's the primary category
-  const isPrimaryPartySearch = isPartySearch && 
-    params.categories && 
+  const isPrimaryPartySearch = isPartySearch &&
+    params.categories &&
     params.categories[0] === 'party';
 
   // Special party-related keywords - enhanced with more specific terms
@@ -631,21 +644,21 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
     'nightclub events', 'dance clubs', 'club events', 'party events', 'nightlife events',
     'EDM events', 'DJ events', 'rave events', 'dance party', 'nightclub party',
     'night clubs', 'clubbing events', 'weekend parties', 'top nightclubs',
-    
+
     // Medium priority terms
     'parties', 'nightlife', 'nightclub', 'club night', 'dance clubs',
     'bottle service', 'VIP tables', 'DJ party', 'dance party', 'club parties',
     'nightlife hotspots', 'popular clubs', 'best clubs', 'nightclub scene', 'party venues',
-    
+
     // More general terms
     'music festival', 'rave', 'DJ', 'live music', 'rooftop party',
     'pool party', 'bar crawl', 'happy hour', 'social events', 'lounge',
     'celebration', 'party scene', 'entertainment venues', 'disco', 'electronic music'
   ];
-  
+
   // Special cocktail/club/bar related terms for party searches
   const venueKeywords = [
-    'nightclub', 'dance club', 'lounge', 'cocktail bar', 'rooftop bar', 
+    'nightclub', 'dance club', 'lounge', 'cocktail bar', 'rooftop bar',
     'club', 'dance venue', 'bar', 'party venue', 'entertainment venue',
     'dance floor', 'disco', 'night spot', 'bottle service club', 'VIP nightclub',
     'DJ venue', 'popular nightclub', 'top-rated club', 'mixology bar', 'speakeasy'
@@ -662,7 +675,7 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
     // If we're looking for party events, add more specific queries
     if (isPartySearch) {
       console.log('[RAPIDAPI] Party category detected, adding party-specific queries');
-      
+
       // For primary party searches, prioritize the most relevant terms first
       if (isPrimaryPartySearch) {
         console.log('[RAPIDAPI] Primary party category detected, using priority party terms');
@@ -670,126 +683,120 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
         partyKeywords.slice(0, 10).forEach(keyword => {
           queryParts.push(`${keyword} in ${params.location}`);
         });
-        
+
         // Add venue-specific searches
-        venueKeywords.forEach(venue => {
+        venueKeywords.slice(0, 8).forEach(venue => {
           queryParts.push(`${venue} in ${params.location}`);
         });
+      } else {
+        // Not primary but still party-related, use a smaller subset
+        partyKeywords.slice(0, 5).forEach(keyword => {
+          queryParts.push(`${keyword} in ${params.location}`);
+        });
       }
-      
-      // Add remaining party keywords
-      partyKeywords.forEach(keyword => {
-        queryParts.push(`${keyword} in ${params.location}`);
-      });
-    }
-
-    // If we have a keyword, add specific queries for that keyword
-    if (params.keyword) {
-      queryParts.push(`${params.keyword} events in ${params.location}`);
-      queryParts.push(`${params.keyword} in ${params.location}`);
-    }
-
-    // Log coordinates for debugging
-    if (hasCoordinates) {
-      console.log(`[RAPIDAPI] Also have coordinates: ${params.latitude},${params.longitude} (will be used for filtering)`);
-    } else if (hasLegacyCoordinates) {
-      console.log(`[RAPIDAPI] Also have legacy coordinates: ${params.lat},${params.lng} (will be used for filtering)`);
-    } else if (hasUserCoordinates) {
-      console.log(`[RAPIDAPI] Also have user coordinates: ${params.userLat},${params.userLng} (will be used for filtering)`);
     }
   }
-  // If no location name but we have coordinates
-  else if (hasCoordinates || hasLegacyCoordinates || hasUserCoordinates) {
-    console.log(`[RAPIDAPI] No location name available, using generic location query with coordinates`);
+  // If we have geographic coordinates, use "nearby" queries
+  else if ((hasCoordinates || hasLegacyCoordinates || hasUserCoordinates) && !params.location) {
+    // Without specific city, use "nearby" search terms to find local events
+    console.log('[RAPIDAPI] Using coordinates-based "nearby" search');
 
-    // Use multiple generic queries to increase chances of finding events
-    queryParts.push(`events nearby`);
-    queryParts.push(`concerts nearby`);
-    queryParts.push(`festivals nearby`);
+    // Basic nearby searches
+    queryParts.push("events nearby");
+    queryParts.push("concerts nearby");
+    queryParts.push("festivals nearby");
 
     // If we're looking for party events, add more specific queries
     if (isPartySearch) {
-      console.log('[RAPIDAPI] Party category detected, adding party-specific queries');
-      
-      // For primary party searches, prioritize the most relevant terms first
+      console.log('[RAPIDAPI] Party category with coordinates, adding nearby party queries');
+
+      // For primary party searches with coordinates
       if (isPrimaryPartySearch) {
-        console.log('[RAPIDAPI] Primary party category detected, using priority party terms');
-        // Add party + venue combinations for better results
-        partyKeywords.slice(0, 10).forEach(keyword => {
+        console.log('[RAPIDAPI] Primary party category with coordinates, using priority party terms');
+        // Add nearby party searches
+        partyKeywords.slice(0, 8).forEach(keyword => {
           queryParts.push(`${keyword} nearby`);
         });
-        
+
         // Add venue-specific searches
-        venueKeywords.forEach(venue => {
+        venueKeywords.slice(0, 5).forEach(venue => {
           queryParts.push(`${venue} nearby`);
         });
+      } else {
+        // Not primary but still party-related
+        partyKeywords.slice(0, 3).forEach(keyword => {
+          queryParts.push(`${keyword} nearby`);
+        });
       }
-      
-      // Add remaining party keywords
-      partyKeywords.forEach(keyword => {
-        queryParts.push(`${keyword} nearby`);
-      });
-    }
-
-    if (hasCoordinates) {
-      console.log(`[RAPIDAPI] Using coordinates: ${params.latitude},${params.longitude} for filtering`);
-    } else if (hasLegacyCoordinates) {
-      console.log(`[RAPIDAPI] Using legacy coordinates: ${params.lat},${params.lng} for filtering`);
-    } else if (hasUserCoordinates) {
-      console.log(`[RAPIDAPI] Using user coordinates: ${params.userLat},${params.userLng} for filtering`);
     }
   }
-  // No location or coordinates
+  // Fallback for no location or coordinates
   else {
-    console.warn('[RAPIDAPI] No location parameters provided, search results may lack geographic relevance');
+    console.log('[RAPIDAPI] No location or coordinates provided, using generic queries');
 
-    // Even without location, try to get some events
-    queryParts.push('popular events');
-    queryParts.push('upcoming events');
+    // Generic fallback queries
+    queryParts.push("popular events");
+    queryParts.push("upcoming events");
 
-    // If we're looking for party events, add more specific queries
+    // If we're looking for party events, add generic party queries
     if (isPartySearch) {
-      console.log('[RAPIDAPI] Party category detected, adding party-specific queries');
-      
-      // For primary party searches, prioritize the most relevant terms first
+      console.log('[RAPIDAPI] Party category without location, adding generic party queries');
+
+      // For primary party searches without location
       if (isPrimaryPartySearch) {
-        console.log('[RAPIDAPI] Primary party category detected, using priority party terms');
-        // Add higher priority terms first
-        partyKeywords.slice(0, 10).forEach(keyword => {
-          queryParts.push(`${keyword}`);
+        console.log('[RAPIDAPI] Primary party category without location, using priority party terms');
+        // Add generic party searches
+        partyKeywords.slice(0, 8).forEach(keyword => {
+          queryParts.push(keyword);
         });
-        
-        // Add venue-specific searches 
-        venueKeywords.forEach(venue => {
-          queryParts.push(`${venue}`);
+
+        // Add venue-specific searches
+        venueKeywords.slice(0, 5).forEach(venue => {
+          queryParts.push(venue);
+        });
+      } else {
+        // Not primary but still party-related
+        partyKeywords.slice(0, 3).forEach(keyword => {
+          queryParts.push(keyword);
         });
       }
-      
-      // Add remaining party keywords
-      partyKeywords.forEach(keyword => {
-        queryParts.push(`${keyword}`);
-      });
     }
   }
 
-  // Instead of joining all queries, we'll return the first one
-  // and make multiple API calls later
-  if (queryParts.length > 0) {
-    apiParams.query = queryParts[0];
-
-    // Store all queries for multiple API calls
-    apiParams.allQueries = queryParts;
-    
-    // Log the number of queries generated
-    console.log(`[RAPIDAPI] Generated ${queryParts.length} queries for API calls`);
-    console.log(`[RAPIDAPI] First query: "${queryParts[0]}"`);
-    
-    // Log a sample of queries if there are many
-    if (queryParts.length > 10) {
-      console.log(`[RAPIDAPI] Sample of queries (first 5):`, queryParts.slice(0, 5));
+  // Add keyword as standalone query if provided
+  if (params.keyword) {
+    const keywordQuery = params.keyword;
+    if (!queryParts.includes(keywordQuery)) {
+      queryParts.push(keywordQuery);
+      console.log(`[RAPIDAPI] Added standalone keyword: "${keywordQuery}"`);
     }
-  } else {
-    console.warn('[RAPIDAPI] No queries generated! Search may return no results.');
+
+    // Add category-specific combinations with keyword
+    if (params.categories && params.categories.length > 0) {
+      const categoryTerms = {
+        'music': ['concert', 'festival', 'live music'],
+        'sports': ['game', 'match', 'sporting event'],
+        'arts': ['performance', 'show', 'exhibition'],
+        'party': ['party', 'nightlife', 'club'],
+        'nightlife': ['nightclub', 'bar', 'lounge'],
+        'food': ['food festival', 'tasting', 'culinary event'],
+        'family': ['family event', 'kids', 'family-friendly']
+      };
+
+      // Check if we have any matching categories
+      params.categories.forEach(category => {
+        const terms = categoryTerms[category as keyof typeof categoryTerms];
+        if (terms) {
+          terms.forEach(term => {
+            const combinedQuery = `${keywordQuery} ${term}`;
+            if (!queryParts.includes(combinedQuery)) {
+              queryParts.push(combinedQuery);
+              console.log(`[RAPIDAPI] Added category-specific query: "${combinedQuery}"`);
+            }
+          });
+        }
+      });
+    }
   }
 
   // Prioritize queries with higher relevance for party searches
@@ -798,84 +805,61 @@ function extractRapidAPIParams(params: SearchParams): RapidAPIParams {
     // Move high-priority party queries to the front
     queryParts.sort((a, b) => {
       // Check if each query contains high-priority party terms
-      const aHasPriorityTerm = a.includes('nightclub') || a.includes('DJ') || 
+      const aHasPriorityTerm = a.includes('nightclub') || a.includes('DJ') ||
                               a.includes('dance club') || a.includes('party events');
-      const bHasPriorityTerm = b.includes('nightclub') || b.includes('DJ') || 
+      const bHasPriorityTerm = b.includes('nightclub') || b.includes('DJ') ||
                               b.includes('dance club') || b.includes('party events');
-      
+
       if (aHasPriorityTerm && !bHasPriorityTerm) return -1;
       if (!aHasPriorityTerm && bHasPriorityTerm) return 1;
       return 0;
     });
   }
-  
+
   // Log the queries for debugging
-  console.log(`[RAPIDAPI] Primary query: ${apiParams.query}`);
+  console.log(`[RAPIDAPI] Primary query: ${queryParts[0]}`);
   console.log(`[RAPIDAPI] All queries (${queryParts.length}):`, queryParts);
 
   // Set date parameter - valid values: all, today, tomorrow, week, weekend, next_week, month, next_month
-  if (params.startDate && params.endDate) {
-    // Calculate the difference in days between start and end dates
-    const startDate = new Date(params.startDate);
-    const endDate = new Date(params.endDate);
-    const diffTime = Math.abs(endDate.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  let dateParam = 'month'; // Default to month for wider range
 
-    // Choose the appropriate date range based on the difference
-    if (diffDays <= 1) {
-      apiParams.date = 'today';
-    } else if (diffDays <= 2) {
-      apiParams.date = 'tomorrow';
-    } else if (diffDays <= 7) {
-      apiParams.date = 'week';
-    } else if (diffDays <= 14) {
-      apiParams.date = 'next_week';
-    } else if (diffDays <= 30) {
-      apiParams.date = 'month';
-    } else {
-      apiParams.date = 'next_month';
-    }
-  } else if (params.startDate) {
-    const startDate = new Date(params.startDate);
-    const today = new Date();
+  if (params.startDate) {
+    // If we have a specific start date, check how far in the future it is
+    const now = new Date();
+    const start = new Date(params.startDate);
+    const daysDiff = Math.floor((start.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 
-    if (startDate.toDateString() === today.toDateString()) {
-      apiParams.date = 'today';
-    } else {
-      // Determine how far in the future the start date is
-      const diffTime = Math.abs(startDate.getTime() - today.getTime());
-      const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    // Choose appropriate date range based on how far in the future the start date is
+    if (daysDiff <= 1) dateParam = 'today';
+    else if (daysDiff <= 2) dateParam = 'tomorrow';
+    else if (daysDiff <= 7) dateParam = 'week';
+    else if (daysDiff <= 14) dateParam = 'next_week';
+    else if (daysDiff <= 30) dateParam = 'month';
+    else dateParam = 'next_month';
 
-      if (diffDays <= 1) {
-        apiParams.date = 'tomorrow';
-      } else if (diffDays <= 7) {
-        apiParams.date = 'week';
-      } else if (diffDays <= 14) {
-        apiParams.date = 'next_week';
-      } else if (diffDays <= 30) {
-        apiParams.date = 'month';
-      } else {
-        apiParams.date = 'next_month';
-      }
-    }
+    console.log(`[RAPIDAPI] Date parameter set to "${dateParam}" based on startDate (${daysDiff} days from now)`);
   } else {
-    apiParams.date = 'week'; // Default to 'week' if no date specified
+    console.log(`[RAPIDAPI] Using default date parameter: "${dateParam}"`);
   }
 
-  // Set is_virtual parameter (default to false)
-  apiParams.is_virtual = false;
+  apiParams.date = dateParam;
 
-  // Set start parameter for pagination
-  apiParams.start = params.page && params.page > 1 ? (params.page - 1) * (params.limit || 20) : 0;
+  // Add the first query as the primary query
+  apiParams.query = queryParts[0] || '';
 
-  // Log the final API parameters
-  console.log('[RAPIDAPI] Final API parameters:', {
-    query: apiParams.query || 'not set',
-    date: apiParams.date || 'not set',
-    is_virtual: apiParams.is_virtual,
-    start: apiParams.start,
-    queryCount: apiParams.allQueries?.length || 0
-  });
+  // Store all queries for multiple API calls
+  apiParams.allQueries = queryParts;
+
+  // Default to non-virtual events only
+  apiParams.is_virtual = params.isVirtual || false;
+
+  // Default start position of the API pagination - start from the first result
+  apiParams.start = 0;
+
+  // Add latitude and longitude if available
+  if (params.latitude !== undefined) apiParams.latitude = params.latitude;
+  if (params.longitude !== undefined) apiParams.longitude = params.longitude;
+  if (params.radius !== undefined) apiParams.radius = params.radius;
 
   return apiParams;
 }
@@ -935,17 +919,26 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
         // Make sure we use a valid date parameter
         // Valid values: all, today, tomorrow, week, weekend, next_week, month, next_month
         const validDateParams = ['all', 'today', 'tomorrow', 'week', 'weekend', 'next_week', 'month', 'next_month'];
-        const dateParam = validDateParams.includes(apiParams.date) ? apiParams.date : 'week';
+        const dateParam = validDateParams.includes(apiParams.date) ? apiParams.date : 'month';
         queryParams.append('date', dateParam);
       } else {
-        // Default to 'week' if no date specified
-        queryParams.append('date', 'week');
+        // Default to 'month' for wider range of results
+        queryParams.append('date', 'month');
       }
 
-      queryParams.append('is_virtual', apiParams.is_virtual.toString());
+      // Always set is_virtual based on params or default to false
+      const isVirtual = apiParams.is_virtual !== undefined ? apiParams.is_virtual : false;
+      queryParams.append('is_virtual', isVirtual.toString());
+
+      // Set start parameter (pagination)
       queryParams.append('start', apiParams.start?.toString() || '0');
 
-      const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+      // Add limit parameter to get more results (up to 100)
+      queryParams.append('limit', '100');
+
+      // Use the correct API endpoint - the one from the user's reference
+      const apiEndpoint = 'https://real-time-events-search.p.rapidapi.com/search-events';
+      const url = `${apiEndpoint}?${queryParams.toString()}`;
 
       // Browser console log for tracking request
       console.log(`[RAPIDAPI] Making API call with query: "${query}"`);
@@ -999,7 +992,7 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
     };
 
     // Make API calls for each query (in parallel)
-    const apiCallPromises = limitedQueries.map(query => makeApiCall(query));
+    const apiCallPromises = limitedQueries.map(query => makeApiCall(query || ''));
     const apiCallResults = await Promise.all(apiCallPromises);
 
     // Filter out null results and add to allResults
@@ -1037,7 +1030,7 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
       parameters: {
         query: limitedQueries.join(', '),
         is_virtual: false,
-        date: apiParams.date || 'week',
+        date: apiParams.date || 'month',
         start: apiParams.start || 0
       },
       data: [],
@@ -1050,7 +1043,7 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
         data.data = [...data.data, ...result.data];
       }
       if (result.events && Array.isArray(result.events)) {
-        data.events = [...data.events, ...result.events];
+        data.events = data.events ? [...data.events, ...result.events] : [...result.events];
       }
     });
 
@@ -1079,23 +1072,23 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
     // Before filtering, ensure all events have proper coordinates if possible
     transformedEvents.forEach(event => {
       // Check for venue information in description to help with coordinates
-      if ((!event.coordinates || !event.latitude || !event.longitude) && 
+      if ((!event.coordinates || !event.latitude || !event.longitude) &&
           event.description && event.description.length > 0) {
-        
+
         // Log for debugging
         console.log(`[RAPIDAPI] Event without coordinates: ${event.title}`);
-        
+
         // Check if event is a party event based on category or title
-        const isPartyEvent = event.category === 'party' || 
+        const isPartyEvent = event.category === 'party' ||
                             event.category === 'nightlife' ||
                             /party|club|dance|dj|rave|nightlife/i.test(event.title);
-        
+
         if (isPartyEvent) {
           console.log(`[RAPIDAPI] Found party event without coordinates: ${event.title}`);
         }
       }
     });
-    
+
     // Filter events by distance if we have coordinates
     if (transformedEvents.length > 0 && (
         (params.latitude !== undefined && params.longitude !== undefined) ||
@@ -1114,12 +1107,12 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
       const eventsWithCoordinates = transformedEvents.filter(event =>
         (event.coordinates || (event.latitude && event.longitude)));
       console.log(`[RAPIDAPI] Events with coordinates before filtering: ${eventsWithCoordinates.length} of ${transformedEvents.length}`);
-      
+
       // Log events without coordinates
       const eventsWithoutCoordinates = transformedEvents.filter(event =>
         !event.coordinates && (!event.latitude || !event.longitude));
       console.log(`[RAPIDAPI] Events without coordinates: ${eventsWithoutCoordinates.length} of ${transformedEvents.length}`);
-      
+
       // Log party events without coordinates
       const partyEventsWithoutCoordinates = eventsWithoutCoordinates.filter(event =>
         event.category === 'party' || event.category === 'nightlife' || (event as any).isPartyEvent);
@@ -1129,25 +1122,26 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
           console.log(`[RAPIDAPI] Party event without coordinates: "${event.title}" (${event.venue || 'No venue'})`);
         });
       }
-      
+
       // Filter events that have coordinates and are within the radius
       const filteredEvents = transformedEvents.filter(event => {
         // Special handling for party events - we want to prioritize these
-        const isPartyEvent = event.category === 'party' || 
-                            event.category === 'nightlife' || 
+        const isEventParty = event.category === 'party' ||
+                            event.category === 'nightlife' ||
                             event.isPartyEvent;
 
         // Skip events without coordinates
         if (!event.coordinates && (!event.latitude || !event.longitude)) {
-          if (isPartyEvent) {
+          if (isEventParty) {
             console.log(`[RAPIDAPI] Skipping party event without coordinates: ${event.title}`);
           }
           return false;
         }
 
         // Get event coordinates - handle both storage formats
-        let eventLat, eventLng;
-        
+        let eventLat: number | undefined;
+        let eventLng: number | undefined;
+
         if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length >= 2) {
           // Coordinates array format is [longitude, latitude]
           eventLng = event.coordinates[0];
@@ -1162,7 +1156,7 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
         if (eventLat === null || eventLng === null ||
             eventLat === undefined || eventLng === undefined ||
             isNaN(Number(eventLat)) || isNaN(Number(eventLng))) {
-          if (isPartyEvent) {
+          if (isEventParty) {
             console.log(`[RAPIDAPI] Skipping party event with invalid coordinates: ${event.title}`);
           }
           return false;
@@ -1177,10 +1171,10 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
         );
 
         // Log distance for party events
-        const isPartyEvent = event.category === 'party' ||
+        const isEventPartyType = event.category === 'party' ||
                             event.category === 'nightlife' ||
                             (event as any).isPartyEvent;
-        if (isPartyEvent) {
+        if (isEventPartyType) {
           console.log(`[RAPIDAPI] Party event "${event.title}" distance: ${distance.toFixed(2)} miles (radius: ${radius} miles)`);
           console.log(`[RAPIDAPI] Party event within radius: ${distance <= radius ? 'YES' : 'NO'}`);
         }
@@ -1188,7 +1182,7 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
         // Return true if the event is within the radius
         return distance <= radius;
       });
-      
+
       // Count events by category after filtering
       const categoryCounts = {};
       filteredEvents.forEach(event => {
@@ -1198,16 +1192,16 @@ export async function searchRapidAPIEvents(params: SearchParams): Promise<Event[
 
       // Log filtering results by category
       console.log(`[RAPIDAPI] Filtered ${transformedEvents.length} events down to ${filteredEvents.length} within ${radius} miles`);
-      
+
       // Count party events before and after filtering
       const partyEventsBefore = transformedEvents.filter(event =>
         event.category === 'party' || event.category === 'nightlife' || (event as any).isPartyEvent).length;
       const partyEventsAfter = filteredEvents.filter(event =>
         event.category === 'party' || event.category === 'nightlife' || (event as any).isPartyEvent).length;
-      
+
       console.log(`[RAPIDAPI] Party events before filtering: ${partyEventsBefore}, after filtering: ${partyEventsAfter}`);
       console.log(`[RAPIDAPI] Party events retention rate: ${partyEventsBefore > 0 ? Math.round((partyEventsAfter / partyEventsBefore) * 100) : 0}%`);
-      
+
       return filteredEvents;
     }
 

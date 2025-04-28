@@ -44,7 +44,7 @@ export async function searchEvents(params: SearchParams): Promise<{
 
     try {
       // Use our custom function invoker with retry logic
-      const data = await invokeFunctionWithRetry('search-events-fixed-final', searchParams);
+      const data = await invokeFunctionWithRetry('search-events', searchParams);
       return data;
     } catch (functionError) {
       console.error('[EVENTS] Error from function invocation:', functionError);
@@ -54,20 +54,29 @@ export async function searchEvents(params: SearchParams): Promise<{
       // Get the anon key for authorization
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
 
-      const response = await fetch(`https://akwvmljopucsnorvdwuu.supabase.co/functions/v1/search-events`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-        },
-        body: JSON.stringify(searchParams)
-      });
+      try {
+        const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/search-events`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Access-Control-Allow-Origin': '*'
+          },
+          body: JSON.stringify(searchParams)
+        });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
+        if (!response.ok) {
+          console.error(`[EVENTS] Direct fetch failed with status: ${response.status}`);
+          const errorText = await response.text();
+          console.error(`[EVENTS] Error details: ${errorText}`);
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return await response.json();
+      } catch (fetchError) {
+        console.error('[EVENTS] Direct fetch failed:', fetchError);
+        throw fetchError;
       }
-
-      return await response.json();
     }
   } catch (error) {
     console.error('[ERROR] Error searching events:', error);
@@ -83,53 +92,6 @@ export async function searchEvents(params: SearchParams): Promise<{
       }
     };
   }
-}
-
-// REMOVE THIS FUNCTION LATER - KEPT FOR REFERENCE ONLY
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export const getMockEvents = (params: any): {
-  events: Event[];
-  sourceStats?: any;
-  totalEvents?: number;
-  pageSize?: number;
-  page?: number;
-} => {
-  console.log('[DEBUG] Generating mock events around', params.lat, params.lng);
-
-  // Generate mock events around the specified coordinates
-  const centerLat = params.lat || 40.7128;
-  const centerLng = params.lng || -74.0060;
-  const mockEvents: Event[] = [];
-
-  // Generate events in a grid around the center
-  for (let i = 0; i < 100; i++) { // Increased from 10 to 100
-    // Create a variation from the center point (about 0.01 degrees is roughly 1 km)
-    const latOffset = (Math.random() - 0.5) * 0.1; // Increased spread slightly
-    const lngOffset = (Math.random() - 0.5) * 0.1; // Increased spread slightly
-
-    mockEvents.push({
-      id: `mock-${i}`,
-      title: `Mock Event ${i}`,
-      date: 'Sat, May 17',
-      time: '07:00 PM',
-      location: 'Mock Location',
-      category: ['music', 'sports', 'arts & theatre', 'family', 'food'][i % 5],
-      image: '/lovable-uploads/hamilton.jpg',
-      coordinates: [centerLng + lngOffset, centerLat + latOffset],
-      price: `$${Math.floor(Math.random() * 100)}.00`,
-      description: 'This is a mock event for testing purposes'
-    });
-  }
-
-  return {
-    events: mockEvents,
-    sourceStats: {
-      mock: { count: mockEvents.length, error: null }
-    },
-    totalEvents: mockEvents.length, // Report the actual number of mock events
-    pageSize: params.limit || 100,
-    page: params.page || 1
-  };
 }
 
 // Get event details by ID

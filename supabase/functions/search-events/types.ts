@@ -57,6 +57,9 @@ export interface Event {
     actual?: number;
   };
   demandSurge?: number;
+
+  // Party event flag
+  isPartyEvent?: boolean;
 }
 
 /**
@@ -115,6 +118,7 @@ export interface SearchParams {
   predicthqLocation?: string;
   segmentName?: string;
   classificationName?: string;
+  isVirtual?: boolean;
 }
 
 /**
