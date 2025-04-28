@@ -10,12 +10,21 @@ async function makeRequest(params, testName) {
   console.log(`Parameters: ${JSON.stringify(params, null, 2)}`);
   
   try {
+    // Add date parameter to ensure we get the maximum number of events
+    const enhancedParams = {
+      ...params,
+      date: 'all', // Use 'all' to get maximum results
+      limit: Math.max(params.limit || 50, 100) // Ensure we request at least 100 events
+    };
+    
+    console.log(`Enhanced parameters: ${JSON.stringify(enhancedParams, null, 2)}`);
+    
     const response = await fetch(LOCAL_ENDPOINT, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(params)
+      body: JSON.stringify(enhancedParams)
     });
 
     if (!response.ok) {
@@ -63,28 +72,55 @@ async function runTests() {
   results.sanFrancisco = await makeRequest({
     latitude: 37.7749,
     longitude: -122.4194,
-    radius: 25,
+    radius: 50,
     categories: ['party'],
-    limit: 10
+    limit: 50
   }, "Find my location in San Francisco");
 
   // Test Case 2: Chicago coordinates
   results.chicago = await makeRequest({
     latitude: 41.8781,
     longitude: -87.6298,
-    radius: 25,
+    radius: 50,
     categories: ['party'],
-    limit: 10
+    limit: 50
   }, "Find my location in Chicago");
 
   // Test Case 3: Random coordinates (somewhere in Texas)
   results.randomLocation = await makeRequest({
     latitude: 31.9686,
     longitude: -99.9018,
-    radius: 25,
+    radius: 50,
     categories: ['party'],
-    limit: 10
+    limit: 50
   }, "Find my location in random location (Texas)");
+  
+  // Test Case 4: International location (London)
+  results.london = await makeRequest({
+    latitude: 51.5074,
+    longitude: -0.1278,
+    radius: 50,
+    categories: ['party'],
+    limit: 50
+  }, "Find my location in London");
+  
+  // Test Case 5: International location (Tokyo)
+  results.tokyo = await makeRequest({
+    latitude: 35.6762,
+    longitude: 139.6503,
+    radius: 50,
+    categories: ['party'],
+    limit: 50
+  }, "Find my location in Tokyo");
+  
+  // Test Case 6: Remote location (middle of nowhere)
+  results.remote = await makeRequest({
+    latitude: 46.8797,
+    longitude: -110.3626, // Middle of Montana
+    radius: 100, // Larger radius for remote area
+    categories: ['party'],
+    limit: 50
+  }, "Find my location in remote area");
 
   // Print summary
   console.log("\n--- Test Summary ---");

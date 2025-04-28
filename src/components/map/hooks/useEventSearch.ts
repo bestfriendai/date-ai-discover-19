@@ -133,7 +133,7 @@ export const useEventSearch = () => {
 
   const fetchEvents = useCallback(async (
     filters: EventFilters,
-    centerCoords?: { latitude: number; longitude: number },
+    centerCoords?: { latitude: number; longitude: number; locationName?: string },
     radiusOverride?: number,
     useCache: boolean = true
   ) => {
@@ -178,7 +178,7 @@ export const useEventSearch = () => {
         endDate: filters.dateRange?.to ? formatISO(filters.dateRange.to, { representation: 'date' }) : undefined,
         categories: filters.categories || [],
         keyword: filters.keyword,
-        location: filters.location,
+        location: centerCoords.locationName || filters.location || 'New York',
       };
 
       // Ensure 'party' is included in categories if it's selected in filters

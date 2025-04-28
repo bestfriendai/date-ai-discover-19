@@ -12,7 +12,7 @@ export const useMapControls = (
   map: mapboxgl.Map | null,
   onLoadingChange?: (isLoading: boolean) => void,
   onEventSelect?: (event: Event | null) => void,
-  onLocationFound?: (coords: { latitude: number; longitude: number }) => void,
+  onLocationFound?: (coords: { latitude: number; longitude: number; locationName?: string }) => void,
 ) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [currentLocation, setCurrentLocation] = useState<string>('New York');
@@ -62,10 +62,11 @@ export const useMapControls = (
           duration: 1500
         });
 
-        // Trigger event loading with the new coordinates
+        // Trigger event loading with the new coordinates and location name
+        // Use the original search term instead of just the placeName to preserve the full location name
         if (onLocationFound) {
-          console.log('[MAP_CONTROLS] Triggering event loading for searched location:', { latitude, longitude });
-          onLocationFound({ latitude, longitude });
+          console.log('[MAP_CONTROLS] Triggering event loading for searched location:', { latitude, longitude, locationName: location });
+          onLocationFound({ latitude, longitude, locationName: location });
         } else {
           console.warn('[MAP_CONTROLS] onLocationFound callback is not defined');
         }
@@ -112,7 +113,7 @@ export const useMapControls = (
       // Trigger event loading with the new coordinates
       if (onLocationFound) {
         console.log('[MAP_CONTROLS] Location found, triggering event loading:', { latitude, longitude });
-        onLocationFound({ latitude, longitude });
+        onLocationFound({ latitude, longitude, locationName: currentLocation });
       }
 
       // Try reverse geocode
@@ -183,10 +184,10 @@ export const useMapControls = (
       essential: true
     });
 
-    // Trigger event loading with the fallback coordinates
+    // Trigger event loading with the fallback coordinates and location name
     if (onLocationFound) {
-      console.log('[MAP_CONTROLS] Using fallback location, triggering event loading:', { latitude: fallback.lat, longitude: fallback.lng });
-      onLocationFound({ latitude: fallback.lat, longitude: fallback.lng });
+      console.log('[MAP_CONTROLS] Using fallback location, triggering event loading:', { latitude: fallback.lat, longitude: fallback.lng, locationName: fallback.name });
+      onLocationFound({ latitude: fallback.lat, longitude: fallback.lng, locationName: fallback.name });
     }
   };
 

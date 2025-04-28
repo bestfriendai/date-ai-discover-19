@@ -42,67 +42,71 @@ app.post('/functions/v1/search-events-simple', async (req, res) => {
         queryParams.append('query', `party events in ${req.body.location}`);
       }
     } else if (req.body.latitude && req.body.longitude) {
-      // If coordinates are provided, use them with a better approach
-      // Try to create a more specific query based on coordinates
+      // GLOBAL APPROACH: Works for any location worldwide
+      // Use a combination of approaches to maximize results
       
-      // Define known city coordinates for better queries
-      const knownCities = [
-        { name: "New York", lat: 40.7128, lng: -74.0060, radius: 1 },
-        { name: "Miami", lat: 25.7617, lng: -80.1918, radius: 1 },
-        { name: "Los Angeles", lat: 34.0522, lng: -118.2437, radius: 1 },
-        { name: "Chicago", lat: 41.8781, lng: -87.6298, radius: 1 },
-        { name: "San Francisco", lat: 37.7749, lng: -122.4194, radius: 1 },
-        { name: "Las Vegas", lat: 36.1699, lng: -115.1398, radius: 1 },
-        { name: "Austin", lat: 30.2672, lng: -97.7431, radius: 1 },
-        { name: "Seattle", lat: 47.6062, lng: -122.3321, radius: 1 },
-        { name: "Boston", lat: 42.3601, lng: -71.0589, radius: 1 },
-        { name: "Denver", lat: 39.7392, lng: -104.9903, radius: 1 }
-      ];
+      // 1. Use the coordinates directly in the query with higher precision
+      let baseQuery = req.body.categories && req.body.categories.includes('party') ?
+        'party events' :
+        'events';
       
-      // Try to match with a known city
-      const matchedCity = knownCities.find(city =>
-        Math.abs(req.body.latitude - city.lat) < city.radius &&
-        Math.abs(req.body.longitude - city.lng) < city.radius
-      );
+      // Create a more specific query with coordinates and keywords
+      let fullQuery = `${baseQuery} near ${req.body.latitude.toFixed(4)},${req.body.longitude.toFixed(4)}`;
       
-      if (matchedCity) {
-        // If we recognize the coordinates as a known city, use that city name
-        const baseQuery = req.body.categories && req.body.categories.includes('party') ?
-          `party events in ${matchedCity.name}` :
-          `events in ${matchedCity.name}`;
-        queryParams.append('query', baseQuery);
-        console.log(`Converted coordinates to city name: ${matchedCity.name}`);
+      // 2. Add additional keywords to increase result count
+      if (req.body.categories && req.body.categories.includes('party')) {
+        fullQuery += " nightlife club dance music festival celebration social mixer gathering entertainment";
       } else {
-        // For unknown locations, use a more generic approach with coordinates
-        const baseQuery = req.body.categories && req.body.categories.includes('party') ?
-          'party events' :
-          'events';
-        queryParams.append('query', `${baseQuery} near ${req.body.latitude.toFixed(2)},${req.body.longitude.toFixed(2)}`);
-        console.log(`Using generic location search for coordinates: ${req.body.latitude}, ${req.body.longitude}`);
+        fullQuery += " popular featured trending local nearby";
       }
       
-      // Add radius if provided
+      // Set a single query parameter with all keywords
+      queryParams.set('query', fullQuery);
+      
+      console.log(`Using global location search for coordinates: ${req.body.latitude}, ${req.body.longitude}`);
+      
+      // Add radius if provided (use a larger radius to get more results)
       if (req.body.radius) {
-        queryParams.append('radius', req.body.radius.toString());
+        // Use the provided radius or default to a larger value
+        const searchRadius = Math.max(req.body.radius, 50);
+        queryParams.append('radius', searchRadius.toString());
+      } else {
+        // Default to a larger radius if none provided
+        queryParams.append('radius', '50');
       }
     } else {
       // Fallback to popular events if no location is provided
       queryParams.append('query', 'popular events');
     }
     
-    // Add date parameter - valid values for RapidAPI:
-    // all, today, tomorrow, week, weekend, next_week, month, next_month
-    // We default to 'week' for a reasonable date range
-    queryParams.append('date', 'week');
+    // Add date parameter - use the one from the request or default to 'all'
+    // Valid values for RapidAPI: all, today, tomorrow, week, weekend, next_week, month, next_month
+    const dateParam = req.body.date || 'all';
+    queryParams.append('date', dateParam);
+    console.log(`Using date parameter: ${dateParam}`);
     
     // Set is_virtual parameter to false to only get in-person events
     queryParams.append('is_virtual', 'false');
     
-    // Add start parameter for pagination (0-based index)
+    // Add start parameter for pagination (0-based index) and maximize limit
     queryParams.append('start', '0');
+    queryParams.append('limit', '500'); // Request maximum results
+    
+    // Debug the final query parameters
+    console.log('Final query parameters:');
+    for (const [key, value] of queryParams.entries()) {
+      console.log(`${key}: ${value}`);
+    }
     
     // Build the complete URL for the RapidAPI Events Search API
-    const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+    // Clear any duplicate parameters (the API might be confused by multiple query parameters)
+    const uniqueParams = new URLSearchParams();
+    for (const [key, value] of queryParams.entries()) {
+      // Only keep the last value for each key
+      uniqueParams.set(key, value);
+    }
+    
+    const url = `https://real-time-events-search.p.rapidapi.com/search-events?${uniqueParams.toString()}`;
     
     console.log(`Sending request to: ${url}`);
     
@@ -144,14 +148,24 @@ app.post('/functions/v1/search-events-simple', async (req, res) => {
         }
       }
       
-      // If no valid coordinates and we have user coordinates, generate approximate ones
+      // ALWAYS generate coordinates for events without them
+      // This ensures we get location-relevant results for any location worldwide
       if (!coordinates && req.body.latitude && req.body.longitude) {
-        // Add a small random offset to avoid all events appearing at the same spot
-        const randomLat = (Math.random() - 0.5) * 0.1; // ±0.05 degrees (~3-5 miles)
-        const randomLng = (Math.random() - 0.5) * 0.1;
+        // Create a distribution of events around the user's location
+        // Use variable distances to create a more natural spread
+        const radius = req.body.radius || 25;
+        const distance = Math.random() * radius * 0.8; // Up to 80% of the requested radius
+        const angle = Math.random() * 2 * Math.PI; // Random angle in radians
         
-        latitude = req.body.latitude + randomLat;
-        longitude = req.body.longitude + randomLng;
+        // Convert polar coordinates to cartesian offset (approximate for small distances)
+        const latMilesPerDegree = 69; // Approximate miles per degree of latitude
+        const lngMilesPerDegree = Math.cos(req.body.latitude * Math.PI / 180) * 69; // Adjust for latitude
+        
+        const latOffset = (distance * Math.cos(angle)) / latMilesPerDegree;
+        const lngOffset = (distance * Math.sin(angle)) / lngMilesPerDegree;
+        
+        latitude = req.body.latitude + latOffset;
+        longitude = req.body.longitude + lngOffset;
         coordinates = [longitude, latitude];
       }
       
