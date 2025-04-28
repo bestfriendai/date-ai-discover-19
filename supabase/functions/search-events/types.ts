@@ -22,12 +22,32 @@ export interface Event {
   category: string;
   partySubcategory?: PartySubcategory; // Added for party event subcategorization
   image: string;
+  imageAlt?: string; // Alt text for the main image
+  additionalImages?: string[]; // Additional event images
   coordinates?: [number, number]; // [longitude, latitude]
   latitude?: number; // Added for backward compatibility
   longitude?: number; // Added for backward compatibility
-  url?: string;
-  price?: string;
+  url?: string; // Event URL (official website or ticket page)
+  price?: string; // Basic price information
   rawDate?: string; // Added for storing original date format
+
+  // Enhanced ticket information
+  ticketInfo?: {
+    price?: string; // Formatted price string
+    minPrice?: number; // Minimum price (numeric)
+    maxPrice?: number; // Maximum price (numeric)
+    currency?: string; // Currency code (USD, EUR, etc.)
+    availability?: string; // Availability status (available, limited, sold_out)
+    purchaseUrl?: string; // Direct URL to purchase tickets
+    provider?: string; // Ticket provider name
+  };
+
+  // Enhanced website information
+  websites?: {
+    official?: string; // Official event website
+    tickets?: string; // Ticket purchase website
+    venue?: string; // Venue website
+  };
 
   // PredictHQ specific fields
   rank?: number;
@@ -112,8 +132,6 @@ export interface SearchEventsResponse {
   events: Event[];
   sourceStats: {
     ticketmaster: SourceStats;
-    eventbrite: SourceStats;
-    serpapi: SourceStats;
     predicthq: SourceStats;
   };
   meta: {

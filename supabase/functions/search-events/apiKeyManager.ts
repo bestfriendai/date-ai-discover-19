@@ -31,11 +31,7 @@ const validationRules: Record<string, KeyValidationRules> = {
     minLength: 32,
     maxLength: 64
   },
-  serpapi: {
-    format: /^[a-z0-9]+$/,
-    minLength: 20,
-    maxLength: 64
-  },
+
   mapbox: {
     format: /^pk\.[A-Za-z0-9_-]+$/,
     minLength: 50,
@@ -56,7 +52,6 @@ class ApiKeyManager {
     this.usageThresholds = new Map([
       ['ticketmaster', 5000], // Example: 5000 requests per day
       ['predicthq', 10000],   // Example: 10000 requests per day
-      ['serpapi', 1000],      // Example: 1000 requests per day
       ['mapbox', 50000]       // Example: 50000 requests per day
     ]);
     this.requestStartTimes = new Map();
@@ -133,10 +128,6 @@ class ApiKeyManager {
         key = Deno.env.get('PREDICTHQ_API_KEY');
       } else if (serviceLower === 'ticketmaster') {
         key = Deno.env.get('TICKETMASTER_KEY');
-      } else if (serviceLower === 'serpapi') {
-        key = Deno.env.get('SERPAPI_KEY');
-      } else if (serviceLower === 'eventbrite') {
-        key = Deno.env.get('EVENTBRITE_API_KEY') || Deno.env.get('EVENTBRITE_TOKEN');
       } else if (serviceLower === 'mapbox') {
         key = Deno.env.get('MAPBOX_TOKEN');
       } else {
@@ -147,8 +138,6 @@ class ApiKeyManager {
       console.log(`[API_KEY_MANAGER] Looking for ${serviceLower} key with env var:`,
         serviceLower === 'predicthq' ? 'PREDICTHQ_API_KEY' :
         serviceLower === 'ticketmaster' ? 'TICKETMASTER_KEY' :
-        serviceLower === 'serpapi' ? 'SERPAPI_KEY' :
-        serviceLower === 'eventbrite' ? 'EVENTBRITE_API_KEY or EVENTBRITE_TOKEN' :
         serviceLower === 'mapbox' ? 'MAPBOX_TOKEN' :
         `${serviceLower.toUpperCase()}_KEY`
       );

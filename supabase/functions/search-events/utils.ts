@@ -6,11 +6,22 @@ import { SearchParams, TicketmasterParams, PredictHQParams } from './types.ts';
 function formatTicketmasterDate(dateStr: string | undefined): string | undefined {
   if (!dateStr) return undefined;
 
-  // If the date already has a time component, return it as is
-  if (dateStr.includes('T')) return dateStr;
+  try {
+    // Create a date object to ensure proper ISO format
+    const dateObj = new Date(dateStr);
 
-  // Otherwise, add the time component
-  return `${dateStr}`;
+    // Check if date is valid
+    if (isNaN(dateObj.getTime())) {
+      console.error(`[TICKETMASTER_DATE] Invalid date: ${dateStr}`);
+      return undefined;
+    }
+
+    // Return ISO string which is in the format YYYY-MM-DDTHH:mm:ss.sssZ
+    return dateObj.toISOString();
+  } catch (e) {
+    console.error(`[TICKETMASTER_DATE] Error formatting date: ${dateStr}`, e);
+    return undefined;
+  }
 }
 
 /**

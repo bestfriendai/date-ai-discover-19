@@ -91,21 +91,65 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
 
     // Add date range parameters (using underscore naming as per v2 docs)
     if (startDate) {
-      // Format date for Ticketmaster API (YYYY-MM-DDTHH:mm:ssZ)
-      const formattedStartDate = startDate.includes('T')
-        ? startDate
-        : `${startDate}T00:00:00Z`;
+      // Create a new date object to ensure proper formatting
+      let dateObj;
+      try {
+        // Try to parse the date string
+        dateObj = new Date(startDate);
+        if (isNaN(dateObj.getTime())) {
+          throw new Error('Invalid date');
+        }
+
+        // Set time to start of day for consistency
+        dateObj.setHours(0, 0, 0, 0);
+      } catch (e) {
+        console.error(`[TICKETMASTER] Invalid startDate: ${startDate}`, e);
+        // Use current date as fallback
+        dateObj = new Date();
+        dateObj.setHours(0, 0, 0, 0);
+      }
+
+      // Format to exact Ticketmaster format: YYYY-MM-DDTHH:mm:ssZ
+      const formattedStartDate = dateObj.toISOString();
+
       queryParams.append('startDateTime', formattedStartDate);
       console.log(`[TICKETMASTER] Using startDateTime: ${formattedStartDate}`);
     }
+
     if (endDate) {
-      // Format date for Ticketmaster API (YYYY-MM-DDTHH:mm:ssZ)
-      const formattedEndDate = endDate.includes('T')
-        ? endDate
-        : `${endDate}T23:59:59Z`;
+      // Create a new date object to ensure proper formatting
+      let dateObj;
+      try {
+        // Try to parse the date string
+        dateObj = new Date(endDate);
+        if (isNaN(dateObj.getTime())) {
+          throw new Error('Invalid date');
+        }
+
+        // For end date, set time to end of day
+        dateObj.setHours(23, 59, 59, 999);
+      } catch (e) {
+        console.error(`[TICKETMASTER] Invalid endDate: ${endDate}`, e);
+        // Use 7 days from now as fallback
+        dateObj = new Date();
+        dateObj.setDate(dateObj.getDate() + 7);
+        dateObj.setHours(23, 59, 59, 999);
+      }
+
+      // Format to exact Ticketmaster format: YYYY-MM-DDTHH:mm:ssZ
+      const formattedEndDate = dateObj.toISOString();
+
       queryParams.append('endDateTime', formattedEndDate);
       console.log(`[TICKETMASTER] Using endDateTime: ${formattedEndDate}`);
     }
+
+    // Add debug logging for date parameters
+    console.log('[TICKETMASTER] Date parameters:', {
+      originalStartDate: startDate,
+      originalEndDate: endDate,
+      formattedStartDate: queryParams.get('startDateTime'),
+      formattedEndDate: queryParams.get('endDateTime')
+    });
 
     // Add keyword parameter
     if (keyword) {

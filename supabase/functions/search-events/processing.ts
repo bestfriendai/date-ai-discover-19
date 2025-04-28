@@ -107,8 +107,6 @@ export function generateSourceStats(
 ) {
   return {
     ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
-    eventbrite: { count: 0, error: 'API not implemented' },
-    serpapi: { count: 0, error: 'API not implemented' },
     predicthq: { count: predicthqCount, error: predicthqError }
   };
 }

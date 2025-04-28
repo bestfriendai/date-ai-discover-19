@@ -1059,10 +1059,66 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Get image URL
     let imageUrl = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
+    let imageAlt = event.title || 'Event image';
+    let additionalImages: string[] = [];
 
     // Try to get image from event
     if (event.images && Array.isArray(event.images) && event.images.length > 0) {
+      // Get the first image as the main image
       imageUrl = event.images[0].url;
+      console.log(`[PREDICTHQ] Found image in event.images: ${imageUrl}`);
+
+      // Store alt text if available
+      if (event.images[0].alt) {
+        imageAlt = event.images[0].alt;
+      }
+
+      // Store additional images if available (up to 5)
+      if (event.images.length > 1) {
+        additionalImages = event.images.slice(1, 6).map(img => img.url);
+      }
+    }
+
+    // Try to get images from entities (performers, venues, etc.)
+    if ((!event.images || event.images.length === 0) && event.entities) {
+      for (const entity of event.entities) {
+        if (entity.images && Array.isArray(entity.images) && entity.images.length > 0) {
+          imageUrl = entity.images[0].url;
+          console.log(`[PREDICTHQ] Found image in entity.images: ${imageUrl}`);
+
+          if (entity.images[0].alt) {
+            imageAlt = entity.images[0].alt;
+          }
+
+          // Store additional images if available (up to 5)
+          if (entity.images.length > 1) {
+            additionalImages = entity.images.slice(1, 6).map(img => img.url);
+          }
+
+          break; // Use the first entity with images
+        }
+      }
+    }
+
+    // Try to get image from performers
+    if ((!event.images || event.images.length === 0) && event.performers && Array.isArray(event.performers)) {
+      for (const performer of event.performers) {
+        if (performer.images && Array.isArray(performer.images) && performer.images.length > 0) {
+          imageUrl = performer.images[0].url;
+          console.log(`[PREDICTHQ] Found image in performer.images: ${imageUrl}`);
+
+          if (performer.images[0].alt) {
+            imageAlt = performer.images[0].alt;
+          }
+
+          // Store additional images if available (up to 5)
+          if (performer.images.length > 1) {
+            additionalImages = performer.images.slice(1, 6).map(img => img.url);
+          }
+
+          break; // Use the first performer with images
+        }
+      }
     }
 
     // Category-based fallback images
@@ -1071,11 +1127,12 @@ function normalizePredictHQEvent(event: any): Event {
       'sports': 'https://images.unsplash.com/photo-1471295253337-3ceaaedca402?w=800&auto=format&fit=crop',
       'arts': 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=800&auto=format&fit=crop',
       'family': 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop',
-      'food': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&auto=format&fit=crop'
+      'food': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&auto=format&fit=crop',
+      'party': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop'
     };
 
     // Use category image if no event image
-    if (!event.images && category !== 'other' && categoryImages[category]) {
+    if ((!event.images || event.images.length === 0) && category !== 'other' && categoryImages[category]) {
       imageUrl = categoryImages[category];
     }
 
@@ -1087,6 +1144,53 @@ function normalizePredictHQEvent(event: any): Event {
       actual: event.actual_attendance || undefined
     };
     const demandSurge = event.labels?.includes('demand_surge') ? 1 : 0;
+
+    // Process ticket information
+    let ticketInfo = undefined;
+    if (event.ticket_info) {
+      ticketInfo = {
+        price: event.ticket_info.price,
+        minPrice: typeof event.ticket_info.minimum_price === 'number' ? event.ticket_info.minimum_price : undefined,
+        maxPrice: typeof event.ticket_info.maximum_price === 'number' ? event.ticket_info.maximum_price : undefined,
+        currency: event.ticket_info.currency,
+        availability: event.ticket_info.availability,
+        purchaseUrl: event.ticket_info.url || event.ticket_info.link,
+        provider: event.ticket_info.provider
+      };
+    }
+
+    // Process website information
+    let websites = undefined;
+    if (event.websites && Array.isArray(event.websites) && event.websites.length > 0) {
+      websites = {};
+
+      // Process each website by type
+      for (const site of event.websites) {
+        if (site.type === 'official') {
+          websites.official = site.url;
+        } else if (site.type === 'tickets' || site.type === 'purchase') {
+          websites.tickets = site.url;
+        } else if (site.type === 'venue') {
+          websites.venue = site.url;
+        }
+      }
+    }
+
+    // Determine the best URL to use
+    let bestUrl = event.url;
+
+    // If we have ticket info with a URL, use that
+    if (ticketInfo?.purchaseUrl) {
+      bestUrl = ticketInfo.purchaseUrl;
+    }
+    // Otherwise if we have a tickets website, use that
+    else if (websites?.tickets) {
+      bestUrl = websites.tickets;
+    }
+    // Otherwise if we have an official website, use that
+    else if (websites?.official) {
+      bestUrl = websites.official;
+    }
 
     return {
       id,
@@ -1100,9 +1204,13 @@ function normalizePredictHQEvent(event: any): Event {
       category,
       partySubcategory,
       image: imageUrl,
+      imageAlt,
+      additionalImages: additionalImages.length > 0 ? additionalImages : undefined,
       coordinates,
-      url: event.url,
+      url: bestUrl,
       price: event.ticket_info?.price,
+      ticketInfo,
+      websites,
       // Add PredictHQ specific fields
       rank,
       localRelevance,
@@ -1124,6 +1232,10 @@ function normalizePredictHQEvent(event: any): Event {
       location: 'Location unavailable',
       category: 'other',
       image: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop',
+      imageAlt: 'Event image placeholder',
+      url: event?.url || undefined,
+      ticketInfo: undefined,
+      websites: undefined,
       rank: 0,
       localRelevance: 0,
       attendance: {
