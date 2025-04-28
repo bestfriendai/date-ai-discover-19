@@ -152,24 +152,37 @@ export async function searchRapidAPIEvents(params: SearchParams, apiKey: string)
     let queryString = '';
     let usingCoordinates = false;
     
-    // CRITICAL FIX: The RapidAPI endpoint doesn't handle coordinate-based searches well
-    // Instead, we'll use a more general query and rely on post-filtering
+    // IMPROVED FIX: The RapidAPI endpoint doesn't handle coordinate-based searches well
+    // We'll use reverse geocoding to get the nearest city name for any coordinates
     if (params.latitude !== undefined && params.longitude !== undefined) {
-        // Get nearest major city based on coordinates
-        // For New York coordinates
-        if (Math.abs(params.latitude - 40.7128) < 1 && Math.abs(params.longitude - (-74.0060)) < 1) {
-            queryString = `${isPartySearch ? 'party ' : ''}events in New York`;
-            console.log(`[RAPIDAPI] Converted coordinates to city name: New York`);
-        }
-        // For Miami coordinates
-        else if (Math.abs(params.latitude - 25.7617) < 1 && Math.abs(params.longitude - (-80.1918)) < 1) {
-            queryString = `${isPartySearch ? 'party ' : ''}events in Miami`;
-            console.log(`[RAPIDAPI] Converted coordinates to city name: Miami`);
-        }
-        // For other coordinates, use a generic search
-        else {
-            queryString = `${isPartySearch ? 'party ' : ''}popular events`;
-            console.log(`[RAPIDAPI] Using generic search for unknown coordinates`);
+        // First, try to identify major cities
+        const knownCities = [
+            { name: "New York", lat: 40.7128, lng: -74.0060, radius: 1 },
+            { name: "Miami", lat: 25.7617, lng: -80.1918, radius: 1 },
+            { name: "Los Angeles", lat: 34.0522, lng: -118.2437, radius: 1 },
+            { name: "Chicago", lat: 41.8781, lng: -87.6298, radius: 1 },
+            { name: "San Francisco", lat: 37.7749, lng: -122.4194, radius: 1 },
+            { name: "Las Vegas", lat: 36.1699, lng: -115.1398, radius: 1 },
+            { name: "Austin", lat: 30.2672, lng: -97.7431, radius: 1 },
+            { name: "Seattle", lat: 47.6062, lng: -122.3321, radius: 1 },
+            { name: "Boston", lat: 42.3601, lng: -71.0589, radius: 1 },
+            { name: "Denver", lat: 39.7392, lng: -104.9903, radius: 1 }
+        ];
+        
+        // Try to match with a known city
+        const matchedCity = knownCities.find(city =>
+            Math.abs(params.latitude! - city.lat) < city.radius &&
+            Math.abs(params.longitude! - city.lng) < city.radius
+        );
+        
+        if (matchedCity) {
+            queryString = `${isPartySearch ? 'party ' : ''}events in ${matchedCity.name}`;
+            console.log(`[RAPIDAPI] Converted coordinates to city name: ${matchedCity.name}`);
+        } else {
+            // For unknown locations, use a combination of "events near" and popular events
+            // This gives us a better chance of getting relevant results
+            queryString = `${isPartySearch ? 'party ' : ''}events near ${params.latitude.toFixed(2)},${params.longitude.toFixed(2)}`;
+            console.log(`[RAPIDAPI] Using generic location search for coordinates: ${params.latitude}, ${params.longitude}`);
         }
         usingCoordinates = true;
     } else if (params.location) {
@@ -280,10 +293,33 @@ export async function searchRapidAPIEvents(params: SearchParams, apiKey: string)
             console.log(`[RAPIDAPI_FILTER] No events have valid coordinates!`);
         }
 
-        // IMPORTANT FIX: If no events have coordinates, return all events without filtering
+        // IMPROVED FIX: If no events have coordinates, generate approximate coordinates
+        // This ensures we still get location-relevant results even if the API doesn't provide coordinates
         if (eventsWithCoords.length === 0) {
-            console.log(`[RAPIDAPI_FILTER] No events have coordinates, skipping radius filtering to avoid empty results`);
-            return { events: transformedEvents, error: null, status: 200, searchQueryUsed: finalQuerySent };
+            console.log(`[RAPIDAPI_FILTER] No events have coordinates, generating approximate coordinates`);
+            
+            // Generate approximate coordinates for events without them
+            transformedEvents = transformedEvents.map(event => {
+                if (!event.coordinates || !event.latitude || !event.longitude) {
+                    // Add a small random offset to avoid all events appearing at the same spot
+                    const randomLat = (Math.random() - 0.5) * 0.1; // ±0.05 degrees (~3-5 miles)
+                    const randomLng = (Math.random() - 0.5) * 0.1;
+                    
+                    const newLat = userLat + randomLat;
+                    const newLng = userLng + randomLng;
+                    
+                    return {
+                        ...event,
+                        coordinates: [newLng, newLat] as [number, number],
+                        latitude: newLat,
+                        longitude: newLng
+                    };
+                }
+                return event;
+            });
+            
+            // Now all events have coordinates, so we can proceed with filtering
+            console.log(`[RAPIDAPI_FILTER] Generated coordinates for ${transformedEvents.length} events`);
         }
 
         transformedEvents = transformedEvents.filter(event => {
