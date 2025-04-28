@@ -135,7 +135,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     let phqLabels: string[] = [];
     let phqKeyword = keyword;
 
-    // Define a mapping from application categories to valid PredictHQ categories
+    // Enhanced mapping from application categories to valid PredictHQ categories
     const categoryMapping: Record<string, string[]> = {
       'music': ['concerts', 'festivals'],
       'sports': ['sports'],
@@ -147,35 +147,47 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       'community': ['community']
     };
 
-    // Define a mapping from application categories to PredictHQ labels
+    // Enhanced mapping from application categories to PredictHQ labels
     const labelMapping: Record<string, string[]> = {
       'music': ['music', 'entertainment'],
       'sports': ['sport'],
       'arts': ['entertainment', 'arts'],
       'family': ['family-friendly'],
       'food': ['food'],
-      'party': ['nightlife', 'music', 'entertainment'],
+      'party': ['nightlife', 'music', 'entertainment', 'social', 'dance'],
       'conference': ['business'],
       'community': ['community']
     };
 
-    // Special handling for party category
+    // Enhanced party event detection
     if (categories.includes('party')) {
-      console.log('[PARTY_DEBUG] Party category requested - enhancing PredictHQ parameters');
+      console.log('[PARTY_DEBUG] Party category requested - applying enhanced detection');
 
       // Add party-related categories based on latest API documentation
       phqCategories = categoryMapping['party'];
 
-      // Add party-related labels
+      // Add expanded party-related labels
       phqLabels = labelMapping['party'];
 
-      // Enhance keyword search for parties if no keyword is provided
+      // Comprehensive list of party-related keywords
+      const partyKeywords = [
+        'party', 'club', 'nightlife', 'festival', 'dance', 'dj',
+        'celebration', 'mixer', 'social', 'gala', 'bash', 'rave',
+        'disco', 'lounge', 'nightclub', 'rooftop', 'entertainment'
+      ];
+
+      // Enhance keyword search with expanded terms
       if (!phqKeyword) {
-        phqKeyword = 'party OR club OR nightlife OR festival OR dance OR dj';
+        phqKeyword = partyKeywords.join(' OR ');
       } else {
-        // Add party-related terms to existing keyword
-        phqKeyword = `${phqKeyword} OR party OR club OR nightlife OR festival OR dance OR dj`;
+        // Combine user keywords with party keywords
+        phqKeyword = `${phqKeyword} OR ${partyKeywords.join(' OR ')}`;
       }
+
+      // Add rank boost for party-related events
+      queryParams.append('rank.boost', 'local_rank,1.5');
+      queryParams.append('rank.boost', 'category_rank,1.3');
+      queryParams.append('rank.boost', 'attendance_rank,1.2');
 
       console.log('[PARTY_DEBUG] Enhanced PredictHQ parameters:', {
         categories: phqCategories,

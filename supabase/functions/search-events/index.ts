@@ -55,21 +55,50 @@ serve(async (req: Request) => {
   try {
     console.log('[SEARCH-EVENTS] Received request');
 
-    // Validate request body exists
-    const contentLength = req.headers.get('content-length');
-    if (!contentLength || parseInt(contentLength) === 0) {
+    // Validate request method and content type
+    if (req.method !== 'POST') {
       return safeResponse({
-        error: 'Missing request body',
+        error: 'Method not allowed',
         errorType: 'ValidationError',
-        details: 'Request body is required',
+        details: 'Only POST requests are supported',
         events: [],
-        sourceStats: generateSourceStats(0, 'Missing request body', 0, 'Missing request body'),
+        sourceStats: generateSourceStats(0, 'Invalid method', 0, 'Invalid method'),
+        meta: generateMetadata(startTime, 0, 0, null, null)
+      }, 405);
+    }
+
+    // Validate content type
+    const contentType = req.headers.get('content-type');
+    if (!contentType || !contentType.includes('application/json')) {
+      return safeResponse({
+        error: 'Invalid content type',
+        errorType: 'ValidationError',
+        details: 'Content-Type must be application/json',
+        events: [],
+        sourceStats: generateSourceStats(0, 'Invalid content type', 0, 'Invalid content type'),
+        meta: generateMetadata(startTime, 0, 0, null, null)
+      }, 400);
+    }
+
+    // Parse request body with proper error handling
+    let requestBody;
+    try {
+      requestBody = await req.json();
+      if (!requestBody || Object.keys(requestBody).length === 0) {
+        throw new Error('Empty request body');
+      }
+    } catch (error) {
+      return safeResponse({
+        error: 'Invalid request body',
+        errorType: 'ValidationError',
+        details: error instanceof Error ? error.message : 'Failed to parse request body',
+        events: [],
+        sourceStats: generateSourceStats(0, 'Invalid request body', 0, 'Invalid request body'),
         meta: generateMetadata(startTime, 0, 0, null, null)
       }, 400);
     }
 
     // Parse and validate request parameters
-    const requestBody = await req.json();
     let params: SearchParams;
     try {
       params = validateAndParseSearchParams(requestBody);

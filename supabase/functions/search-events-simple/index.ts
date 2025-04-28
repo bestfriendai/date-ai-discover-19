@@ -193,14 +193,14 @@ async function fetchTicketmasterEvents(apiKey: string, params: any): Promise<Eve
     queryParams.append('keyword', params.keyword);
   }
 
-  // Add category parameter
+  // Enhanced category mapping for better event classification
   const categoryMapping: Record<string, string> = {
     'music': 'Music',
     'sports': 'Sports',
     'arts': 'Arts & Theatre',
     'family': 'Family',
     'food': 'Miscellaneous',
-    'party': 'Music', // Map party to Music since Ticketmaster doesn't have a party category
+    'party': 'Music', // Map party to Music for broader coverage
     'conference': 'Miscellaneous',
     'community': 'Miscellaneous'
   };
@@ -215,12 +215,24 @@ async function fetchTicketmasterEvents(apiKey: string, params: any): Promise<Eve
       }
     }
 
-    // If searching for parties, add party-related keywords
+    // Enhanced party event detection
     if (params.categories.includes('party')) {
+      // Expanded keyword list for better party detection
+      const partyKeywords = [
+        'party', 'club', 'nightlife', 'dance', 'dj', 'festival',
+        'celebration', 'mixer', 'social', 'gala', 'bash', 'rave',
+        'disco', 'lounge', 'nightclub', 'rooftop'
+      ];
+
+      // Combine user keywords with party keywords
       const partyKeyword = params.keyword
-        ? `${params.keyword} OR party OR club OR nightlife OR dance`
-        : 'party OR club OR nightlife OR dance OR dj OR festival';
+        ? `${params.keyword} OR ${partyKeywords.join(' OR ')}`
+        : partyKeywords.join(' OR ');
+
       queryParams.append('keyword', partyKeyword);
+
+      // Add classificationName for more targeted results
+      queryParams.append('classificationName', 'Dance/Electronic OR Club Dance OR Pop');
     }
   }
 
