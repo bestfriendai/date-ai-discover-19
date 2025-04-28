@@ -39,7 +39,7 @@ serve(async (req: Request) => {
 
   const startTime = Date.now();
   const responseHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
-  
+
   // Helper function for consistent response formatting
   const safeResponse = (data: any, status = 200) =>
     new Response(JSON.stringify(data), { headers: responseHeaders, status });
@@ -80,12 +80,23 @@ serve(async (req: Request) => {
       }, 400);
     }
 
+    if (!req.body || parseInt(req.headers.get('content-length') || '0') === 0) {
+      return safeResponse({
+        error: 'Empty request body',
+        errorType: 'ValidationError',
+        details: 'Request body is required with search parameters',
+        events: [],
+        sourceStats: generateSourceStats(0, 'Empty request body', 0, 'Empty request body'),
+        meta: generateMetadata(startTime, 0, 0, null, null)
+      }, 400);
+    }
+
     // Parse request body with proper error handling
     let requestBody;
     try {
       requestBody = await req.json();
       if (!requestBody || Object.keys(requestBody).length === 0) {
-        throw new Error('Empty request body');
+        throw new Error('Empty request parameters');
       }
     } catch (error) {
       return safeResponse({
@@ -121,19 +132,36 @@ serve(async (req: Request) => {
     let predicthqKey: string | undefined;
 
     try {
+      console.log('[SEARCH-EVENTS] Attempting to get Ticketmaster API key');
       ticketmasterKey = apiKeyManager.getActiveKey('ticketmaster');
       hasValidTicketmasterKey = true;
-      console.log('[SEARCH-EVENTS] Successfully validated Ticketmaster API key');
+      console.log('[SEARCH-EVENTS] Successfully validated Ticketmaster API key:',
+        ticketmasterKey ? `${ticketmasterKey.substring(0, 4)}...${ticketmasterKey.substring(ticketmasterKey.length - 4)}` : 'NOT SET');
     } catch (error) {
       console.warn('[SEARCH-EVENTS] Ticketmaster API key error:', error);
+      console.warn('[SEARCH-EVENTS] Ticketmaster API key error details:', error instanceof Error ? error.message : String(error));
+
+      // List all environment variables for debugging (masking values)
+      console.log('[SEARCH-EVENTS] Environment variables:');
+      // @ts-ignore: Deno is available at runtime
+      for (const [key, value] of Object.entries(Deno.env.toObject())) {
+        if (key.includes('KEY') || key.includes('TOKEN') || key.includes('SECRET')) {
+          console.log(`  ${key}: ${value ? `${value.substring(0, 4)}...${value.substring(value.length - 4)}` : 'NOT SET'}`);
+        } else {
+          console.log(`  ${key}: ${value || 'NOT SET'}`);
+        }
+      }
     }
 
     try {
+      console.log('[SEARCH-EVENTS] Attempting to get PredictHQ API key');
       predicthqKey = apiKeyManager.getActiveKey('predicthq');
       hasValidPredictHQKey = true;
-      console.log('[SEARCH-EVENTS] Successfully validated PredictHQ API key');
+      console.log('[SEARCH-EVENTS] Successfully validated PredictHQ API key:',
+        predicthqKey ? `${predicthqKey.substring(0, 4)}...${predicthqKey.substring(predicthqKey.length - 4)}` : 'NOT SET');
     } catch (error) {
       console.warn('[SEARCH-EVENTS] PredictHQ API key error:', error);
+      console.warn('[SEARCH-EVENTS] PredictHQ API key error details:', error instanceof Error ? error.message : String(error));
     }
 
     if (!hasValidTicketmasterKey && !hasValidPredictHQKey) {
@@ -152,7 +180,7 @@ serve(async (req: Request) => {
       hasValidTicketmasterKey
         ? fetchTicketmasterEvents(extractTicketmasterParams(params, ticketmasterKey!))
         : Promise.resolve({ events: [], error: 'API key not available' }),
-      
+
       hasValidPredictHQKey
         ? fetchPredictHQEvents(extractPredictHQParams(params, predicthqKey!))
         : Promise.resolve({ events: [], error: 'API key not available' })
@@ -195,7 +223,7 @@ serve(async (req: Request) => {
     // Process events
     // Process and filter events
     const normalizedEvents = normalizeAndFilterEvents(allEvents, params);
-    
+
     // Ensure all events have valid coordinates
     const eventsWithCoords = normalizedEvents.map(event => {
       // If event already has valid coordinates, use them
@@ -219,7 +247,7 @@ serve(async (req: Request) => {
       const jitterAmount = 0.01; // About 1km
       const lat = params.latitude + (Math.random() - 0.5) * jitterAmount;
       const lng = params.longitude + (Math.random() - 0.5) * jitterAmount;
-      
+
       return {
         ...event,
         coordinates: [lng, lat] as [number, number]
@@ -247,7 +275,7 @@ serve(async (req: Request) => {
   } catch (error) {
     console.error('[SEARCH-EVENTS] CRITICAL ERROR:', error);
     const formattedError = formatApiError(error);
-    
+
     return safeResponse({
       events: [],
       error: formattedError.error,

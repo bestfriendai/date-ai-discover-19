@@ -8,19 +8,21 @@ async function testSearchEvents() {
     const url = `https://${projectRef}.supabase.co/functions/v1/${functionName}`;
 
     // Test parameters - specifically for party events
+    const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
     const params = {
-      location: "New York",
+      location: "Los Angeles",
       radius: 25,
       categories: ['party'],
       limit: 20,
-      page: 1
+      page: 1,
+      startDate: today
     };
 
     console.log(`Testing function at: ${url}`);
     console.log(`With parameters: ${JSON.stringify(params, null, 2)}`);
 
     // Get the anon key from Supabase project settings
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE2OTk0NzA0NzcsImV4cCI6MjAxNTA0NjQ3N30.Zt5AxiIPXwfIjcSBQDO9zDGpOY7yIZNwkOI2y5Dl1Ks';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
 
     const response = await fetch(url, {
       method: 'POST',

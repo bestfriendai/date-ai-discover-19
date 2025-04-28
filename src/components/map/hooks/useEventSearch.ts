@@ -144,6 +144,8 @@ export const useEventSearch = () => {
 
     setIsEventsLoading(true);
     console.log('[EVENTS] Starting event fetch with coordinates:', centerCoords);
+    console.log('[EVENTS] Filters:', filters);
+    console.log('[EVENTS] Radius override:', radiusOverride);
 
     try {
       if (!centerCoords) {

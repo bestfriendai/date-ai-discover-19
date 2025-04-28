@@ -64,21 +64,42 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     console.log('[PREDICTHQ] API Key prefix:', apiKey.substring(0, 4) + '...');
     console.log('[PREDICTHQ] API Key suffix:', '...' + apiKey.substring(apiKey.length - 4));
 
-    // Validate date formats if provided
-    if (startDate && !/^\d{4}-\d{2}-\d{2}$/.test(startDate)) {
-      return {
-        events: [],
-        error: 'Invalid startDate format. Use YYYY-MM-DD',
-        status: 400
-      };
+    // Validate and format date formats if provided
+    let formattedStartDate = startDate;
+    let formattedEndDate = endDate;
+
+    // Format startDate to YYYY-MM-DD if it has a time component
+    if (startDate) {
+      if (startDate.includes('T')) {
+        formattedStartDate = startDate.split('T')[0];
+        console.log(`[PREDICTHQ] Formatted startDate from ${startDate} to ${formattedStartDate}`);
+      }
+
+      // Validate the formatted date
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedStartDate)) {
+        return {
+          events: [],
+          error: 'Invalid startDate format. Use YYYY-MM-DD',
+          status: 400
+        };
+      }
     }
 
-    if (endDate && !/^\d{4}-\d{2}-\d{2}$/.test(endDate)) {
-      return {
-        events: [],
-        error: 'Invalid endDate format. Use YYYY-MM-DD',
-        status: 400
-      };
+    // Format endDate to YYYY-MM-DD if it has a time component
+    if (endDate) {
+      if (endDate.includes('T')) {
+        formattedEndDate = endDate.split('T')[0];
+        console.log(`[PREDICTHQ] Formatted endDate from ${endDate} to ${formattedEndDate}`);
+      }
+
+      // Validate the formatted date
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedEndDate)) {
+        return {
+          events: [],
+          error: 'Invalid endDate format. Use YYYY-MM-DD',
+          status: 400
+        };
+      }
     }
 
     // Validate coordinates if provided
@@ -193,14 +214,16 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
     // Use start.gte instead of active.gte to ensure we only get events that haven't started yet
     // or are currently happening (more reliable than active.gte)
-    queryParams.append('start.gte', startDate || today);
+    queryParams.append('start.gte', formattedStartDate || today);
+    console.log(`[PREDICTHQ] Using start.gte: ${formattedStartDate || today}`);
 
     // Also add a sort parameter to get the soonest events first
     queryParams.append('sort', 'start');
 
     // Add end date if provided
-    if (endDate) {
-      queryParams.append('active.lte', endDate);
+    if (formattedEndDate) {
+      queryParams.append('active.lte', formattedEndDate);
+      console.log(`[PREDICTHQ] Using active.lte: ${formattedEndDate}`);
     }
 
     // --- Enhanced party events prioritization in PredictHQ queries ---
@@ -758,7 +781,7 @@ function normalizePredictHQEvent(event: any): Event {
           'music', 'concert', 'event'
         ]
       },
-      
+
       // Venue types (weighted)
       venueTypes: {
         strong: [
@@ -794,7 +817,7 @@ function normalizePredictHQEvent(event: any): Event {
 
     // Check title and description
     const combinedText = `${event.title || ''} ${event.description || ''}`.toLowerCase();
-    
+
     // Add points for keyword matches with higher weights
     partyScore += partySignals.titleKeywords.strong.some(kw => combinedText.includes(kw)) ? 4 : 0;
     partyScore += partySignals.titleKeywords.medium.some(kw => combinedText.includes(kw)) ? 2.5 : 0;
@@ -977,7 +1000,7 @@ function normalizePredictHQEvent(event: any): Event {
     // Determine party subcategory if it's a party
     if (category === 'party') {
       const eventText = `${event.title || ''} ${event.description || ''}`.toLowerCase();
-      
+
       if (eventText.match(/club|nightclub|dj|dance|disco/)) {
         partySubcategory = 'club';
       } else if (eventText.match(/day|afternoon|pool|rooftop|brunch/)) {
@@ -989,7 +1012,7 @@ function normalizePredictHQEvent(event: any): Event {
       } else {
         partySubcategory = 'general';
       }
-      
+
       console.log(`[PARTY_DEBUG] ✅ Event categorized as ${partySubcategory} party with score ${partyScore}`);
     }
 

@@ -122,13 +122,36 @@ class ApiKeyManager {
   public getActiveKey(service: string): string {
     const serviceLower = service.toLowerCase();
     this.startRequest(serviceLower);
-    
+
     try {
       // Get the key from environment variables
       // @ts-ignore: Deno is available at runtime
-      const key = serviceLower === 'predicthq'
-        ? Deno.env.get('PREDICTHQ_API_KEY')
-        : Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);
+      let key;
+
+      // Handle different naming conventions for different services
+      if (serviceLower === 'predicthq') {
+        key = Deno.env.get('PREDICTHQ_API_KEY');
+      } else if (serviceLower === 'ticketmaster') {
+        key = Deno.env.get('TICKETMASTER_KEY');
+      } else if (serviceLower === 'serpapi') {
+        key = Deno.env.get('SERPAPI_KEY');
+      } else if (serviceLower === 'eventbrite') {
+        key = Deno.env.get('EVENTBRITE_API_KEY') || Deno.env.get('EVENTBRITE_TOKEN');
+      } else if (serviceLower === 'mapbox') {
+        key = Deno.env.get('MAPBOX_TOKEN');
+      } else {
+        // Fallback to standard naming convention
+        key = Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);
+      }
+
+      console.log(`[API_KEY_MANAGER] Looking for ${serviceLower} key with env var:`,
+        serviceLower === 'predicthq' ? 'PREDICTHQ_API_KEY' :
+        serviceLower === 'ticketmaster' ? 'TICKETMASTER_KEY' :
+        serviceLower === 'serpapi' ? 'SERPAPI_KEY' :
+        serviceLower === 'eventbrite' ? 'EVENTBRITE_API_KEY or EVENTBRITE_TOKEN' :
+        serviceLower === 'mapbox' ? 'MAPBOX_TOKEN' :
+        `${serviceLower.toUpperCase()}_KEY`
+      );
       if (!key) {
         throw new MissingApiKeyError(service);
       }

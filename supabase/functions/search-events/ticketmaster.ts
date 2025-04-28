@@ -91,10 +91,20 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
 
     // Add date range parameters (using underscore naming as per v2 docs)
     if (startDate) {
-      queryParams.append('startDateTime', `${startDate}T00:00:00Z`);
+      // Format date for Ticketmaster API (YYYY-MM-DDTHH:mm:ssZ)
+      const formattedStartDate = startDate.includes('T')
+        ? startDate
+        : `${startDate}T00:00:00Z`;
+      queryParams.append('startDateTime', formattedStartDate);
+      console.log(`[TICKETMASTER] Using startDateTime: ${formattedStartDate}`);
     }
     if (endDate) {
-      queryParams.append('endDateTime', `${endDate}T23:59:59Z`);
+      // Format date for Ticketmaster API (YYYY-MM-DDTHH:mm:ssZ)
+      const formattedEndDate = endDate.includes('T')
+        ? endDate
+        : `${endDate}T23:59:59Z`;
+      queryParams.append('endDateTime', formattedEndDate);
+      console.log(`[TICKETMASTER] Using endDateTime: ${formattedEndDate}`);
     }
 
     // Add keyword parameter

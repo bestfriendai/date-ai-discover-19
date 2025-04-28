@@ -21,8 +21,12 @@ export const useMapControls = (
   const { getUserLocation } = useUserLocation();
 
   const handleLocationSearch = async (location: string) => {
-    if (!location.trim() || !mapboxgl.accessToken || !map) return;
+    if (!location.trim() || !mapboxgl.accessToken || !map) {
+      console.error('[MAP_CONTROLS] Cannot search location: Missing location, mapbox token, or map instance');
+      return;
+    }
 
+    console.log('[MAP_CONTROLS] Searching for location:', location);
     onLoadingChange?.(true);
 
     toast({
@@ -32,13 +36,23 @@ export const useMapControls = (
 
     try {
       const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}&limit=1`;
+      console.log('[MAP_CONTROLS] Geocoding URL:', geocodeUrl);
+
       const response = await fetch(geocodeUrl);
       const data = await response.json();
+      console.log('[MAP_CONTROLS] Geocoding response:', data);
 
       if (data.features?.length) {
         const feature = data.features[0];
         const [longitude, latitude] = feature.center;
         const placeName = feature.text || location;
+
+        console.log('[MAP_CONTROLS] Location found:', {
+          placeName,
+          longitude,
+          latitude,
+          fullFeature: feature
+        });
 
         setCurrentLocation(placeName);
 
@@ -47,11 +61,20 @@ export const useMapControls = (
           zoom: 13,
           duration: 1500
         });
+
+        // Trigger event loading with the new coordinates
+        if (onLocationFound) {
+          console.log('[MAP_CONTROLS] Triggering event loading for searched location:', { latitude, longitude });
+          onLocationFound({ latitude, longitude });
+        } else {
+          console.warn('[MAP_CONTROLS] onLocationFound callback is not defined');
+        }
       } else {
+        console.warn('[MAP_CONTROLS] Location not found in geocoding response');
         toast({ title: "Location not found", variant: "destructive" });
       }
     } catch (error) {
-      console.error('Geocoding error:', error);
+      console.error('[MAP_CONTROLS] Geocoding error:', error);
       toast({ title: "Search Error", variant: "destructive" });
     } finally {
       onLoadingChange?.(false);
