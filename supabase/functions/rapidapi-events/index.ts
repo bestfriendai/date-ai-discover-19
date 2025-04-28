@@ -8,26 +8,6 @@ declare const Deno: {
   };
 };
 
-// Define Event interface for type safety
-interface Event {
-  id: string;
-  source: string;
-  title: string;
-  description: string;
-  date: string;
-  time: string;
-  location: string;
-  venue: string;
-  category: string;
-  image: string;
-  imageAlt?: string;
-  coordinates?: [number, number];
-  longitude?: number;
-  latitude?: number;
-  url?: string;
-  isPartyEvent?: boolean;
-}
-
 // Simple CORS headers
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,78 +29,90 @@ function handleOptionsRequest() {
 
 /**
  * Calculate distance between two coordinates using Haversine formula
- * @param lat1 - Latitude of first point
- * @param lon1 - Longitude of first point
- * @param lat2 - Latitude of second point
- * @param lon2 - Longitude of second point
- * @returns Distance in miles
  */
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-  // Convert latitude and longitude from degrees to radians
-  const radLat1 = (Math.PI * lat1) / 180;
-  const radLon1 = (Math.PI * lon1) / 180;
-  const radLat2 = (Math.PI * lat2) / 180;
-  const radLon2 = (Math.PI * lon2) / 180;
-
-  // Haversine formula
-  const dLat = radLat2 - radLat1;
-  const dLon = radLon2 - radLon1;
-  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(radLat1) * Math.cos(radLat2) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-
-  // Earth's radius in miles
-  const radius = 3958.8;
-
-  // Calculate the distance
-  return radius * c;
+  const R = 3958.8; // Earth's radius in miles
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat/2) * Math.sin(dLat/2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon/2) * Math.sin(dLon/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+  return R * c;
 }
 
 /**
  * Detect if an event is a party event based on keywords
- * @param title - Event title
- * @param description - Event description
- * @returns Boolean indicating if it's a party event
  */
-function detectPartyEvent(title: string = '', description: string = '', venue: string = ''): boolean {
-  // Party-related keywords - expanded list
+function isPartyEvent(title: string = '', description: string = '', venue: any = null): boolean {
   const partyKeywords = [
     'party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave',
     'nightclub', 'mixer', 'social', 'festival', 'celebration',
-    'cocktail', 'happy hour', 'gala', 'disco', 'bar crawl',
-    'music festival', 'concert', 'live music', 'edm', 'hip hop',
-    'techno', 'house music', 'brunch party', 'day party', 'pool party',
-    'rooftop', 'afterparty', 'after party', 'vip', 'bottle service'
+    'cocktail', 'happy hour', 'gala', 'bar crawl', 'rooftop',
+    'disco', 'bash', 'soiree', 'fiesta', 'shindig', 'get-together',
+    'gathering', 'meetup', 'mingle', 'networking', 'social event',
+    'after party', 'afterparty', 'after-party', 'vip', 'exclusive',
+    'bottle service', 'open bar', 'drinks', 'booze', 'alcohol',
+    'beer', 'wine', 'spirits', 'cocktails', 'shots', 'tequila',
+    'vodka', 'whiskey', 'rum', 'gin', 'liquor', 'bartender',
+    'mixologist', 'bartending', 'mixology', 'bar', 'pub', 'tavern',
+    'speakeasy', 'brewery', 'winery', 'distillery', 'tasting',
+    'sampling', 'flight', 'pairing', 'tasting room', 'taproom',
+    'beer garden', 'biergarten', 'beer hall', 'beer fest',
+    'wine tasting', 'wine festival', 'wine tour', 'wine pairing',
+    'wine dinner', 'wine and cheese', 'wine and chocolate',
+    'wine and food', 'wine and music', 'wine and art',
+    'beer tasting', 'beer festival', 'beer tour', 'beer pairing',
+    'beer dinner', 'beer and food', 'beer and music', 'beer and art'
   ];
 
-  // Venue-specific keywords that strongly indicate a party venue
-  const partyVenueKeywords = [
-    'club', 'lounge', 'bar', 'nightclub', 'disco', 'hall', 'arena',
-    'venue', 'rooftop', 'terrace', 'garden', 'pool'
-  ];
-
-  // Normalize inputs
   const titleLower = (title || '').toLowerCase();
   const descLower = (description || '').toLowerCase();
-  const venueLower = (venue || '').toLowerCase();
   const combinedText = `${titleLower} ${descLower}`;
 
+  // Check venue subtype if available
+  if (venue && venue.subtype) {
+    const subtypeLower = typeof venue.subtype === 'string' ? venue.subtype.toLowerCase() : '';
+    if (subtypeLower.includes('club') ||
+        subtypeLower.includes('bar') ||
+        subtypeLower.includes('lounge') ||
+        subtypeLower.includes('nightlife') ||
+        subtypeLower.includes('night_club') ||
+        subtypeLower.includes('discos_and_night_clubs') ||
+        subtypeLower.includes('dancing') ||
+        subtypeLower.includes('entertainment') ||
+        subtypeLower.includes('live_music_venue')) {
+      return true;
+    }
+  }
+
+  // Check venue subtypes array if available
+  if (venue && venue.subtypes && Array.isArray(venue.subtypes)) {
+    for (const subtype of venue.subtypes) {
+      const subtypeLower = typeof subtype === 'string' ? subtype.toLowerCase() : '';
+      if (subtypeLower.includes('club') ||
+          subtypeLower.includes('bar') ||
+          subtypeLower.includes('lounge') ||
+          subtypeLower.includes('nightlife') ||
+          subtypeLower.includes('night_club') ||
+          subtypeLower.includes('discos_and_night_clubs') ||
+          subtypeLower.includes('dancing') ||
+          subtypeLower.includes('entertainment') ||
+          subtypeLower.includes('live_music_venue')) {
+        return true;
+      }
+    }
+  }
+
   // Check if any party keywords are found in the title or description
-  const hasPartyKeyword = partyKeywords.some(keyword => combinedText.includes(keyword));
-
-  // Check if venue name contains party venue keywords
-  const hasPartyVenue = partyVenueKeywords.some(keyword => venueLower.includes(keyword));
-
-  return hasPartyKeyword || hasPartyVenue;
+  return partyKeywords.some(keyword => combinedText.includes(keyword));
 }
 
 /**
- * Transform a RapidAPI event to our standardized Event format
- * @param event - Raw event from RapidAPI
- * @returns Standardized event object
+ * Transform a RapidAPI event to our standardized format
  */
-function transformRapidAPIEvent(event: any): Event {
+function transformEvent(event: any) {
   // Extract venue information
   const venue = event.venue?.name || '';
   const location = event.venue?.full_address ||
@@ -146,7 +138,7 @@ function transformRapidAPIEvent(event: any): Event {
     : '';
 
   // Extract coordinates
-  let coordinates: [number, number] | undefined = undefined;
+  let coordinates = undefined;
   let eventLongitude = event.venue?.longitude;
   let eventLatitude = event.venue?.latitude;
 
@@ -157,17 +149,17 @@ function transformRapidAPIEvent(event: any): Event {
     coordinates = [Number(eventLongitude), Number(eventLatitude)];
   }
 
-  // Determine category and check if it's a party event
-  let category = 'event';
-
   // Check if this is a party event
-  const isPartyEvent = detectPartyEvent(event.name, event.description, venue);
-  if (isPartyEvent) {
-    category = 'party';
-  }
+  const partyEvent = isPartyEvent(event.name, event.description, event.venue);
+  const category = partyEvent ? 'party' : 'event';
 
   // Get event URL
   const eventUrl = event.link || '';
+
+  // Get ticket URL if available
+  const ticketUrl = event.ticket_links && event.ticket_links.length > 0
+    ? event.ticket_links[0].link
+    : eventUrl;
 
   // Get event image
   const eventImage = event.thumbnail || 'https://placehold.co/600x400?text=No+Image';
@@ -189,33 +181,28 @@ function transformRapidAPIEvent(event: any): Event {
     longitude: eventLongitude,
     latitude: eventLatitude,
     url: eventUrl,
-    isPartyEvent
+    isPartyEvent: partyEvent,
+    ticketUrl
   };
 }
 
 /**
- * Enhanced function to search for events using RapidAPI Events Search API
- * with improved handling for party events and coordinates
- *
- * @param params - Search parameters object containing location, categories, etc.
- * @returns Object containing events array and any error information
+ * Search for events using RapidAPI
  */
 async function searchRapidAPIEvents(params: any) {
   try {
     // Get RapidAPI key from environment variable
     const rapidApiKey = Deno.env.get('RAPIDAPI_KEY') ||
                         Deno.env.get('X_RAPIDAPI_KEY') ||
-                        Deno.env.get('REAL_TIME_EVENTS_API_KEY');
+                        '92bc1b4fc7mshacea9f118bf7a3fp1b5a6cjsnd2287a72fcb9'; // Fallback to the provided key
 
     if (!rapidApiKey) {
       throw new Error('RapidAPI key not available');
     }
 
-    // Log the masked API key for debugging
-    const maskedKey = rapidApiKey.substring(0, 4) + '...' + rapidApiKey.substring(rapidApiKey.length - 4);
-    console.log(`Using RapidAPI key: ${maskedKey}`);
+    console.log(`Using RapidAPI key: ${rapidApiKey.substring(0, 4)}...`);
 
-    // Build query parameters for the RapidAPI Events Search API
+    // Build query parameters
     const queryParams = new URLSearchParams();
 
     // Check if we're searching for party events
@@ -229,7 +216,6 @@ async function searchRapidAPIEvents(params: any) {
     // Add location to query if provided
     if (params.location) {
       if (isPartySearch) {
-        // For party searches, add party keywords to the location search
         queryString = `parties in ${params.location}`;
       } else {
         queryString = `events in ${params.location}`;
@@ -251,7 +237,7 @@ async function searchRapidAPIEvents(params: any) {
       queryString += ` ${params.keyword}`;
     } else if (isPartySearch) {
       // Add party-specific keywords for party searches
-      queryString += ' party club nightlife dance dj festival celebration';
+      queryString += ' party club nightlife dance dj festival celebration nightclub bar lounge rave mixer social cocktail "happy hour" gala';
     }
 
     // Set the query parameter
@@ -260,21 +246,13 @@ async function searchRapidAPIEvents(params: any) {
 
     // Add date parameter - valid values for RapidAPI:
     // all, today, tomorrow, week, weekend, next_week, month, next_month
-
-    // If we have a specific start date, use 'month' to get a wider range
-    // Otherwise, use 'today' to ensure we only get events from today forward
-    const dateParam = params.startDate ? 'month' : 'today';
-    console.log(`Using date parameter: ${dateParam}`);
-    queryParams.append('date', dateParam);
+    queryParams.append('date', 'month'); // Use month for more results
 
     // Set is_virtual parameter to false to only get in-person events
     queryParams.append('is_virtual', 'false');
 
     // Add start parameter for pagination (0-based index)
     queryParams.append('start', '0');
-
-    // Add limit parameter to get more results
-    queryParams.append('limit', '100');
 
     // Build the complete URL for the RapidAPI Events Search API
     const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
@@ -303,14 +281,14 @@ async function searchRapidAPIEvents(params: any) {
     console.log(`Received ${rawEvents.length} raw events from RapidAPI`);
 
     // Transform events to our standardized format
-    let transformedEvents = rawEvents.map(transformRapidAPIEvent);
+    let transformedEvents = rawEvents.map(transformEvent);
 
     // Filter events based on parameters
     if (params.categories && Array.isArray(params.categories)) {
       // If searching for party events, filter to only include party events
       if (params.categories.includes('party')) {
         console.log('Filtering for party events only');
-        transformedEvents = transformedEvents.filter((event: Event) =>
+        transformedEvents = transformedEvents.filter(event =>
           event.isPartyEvent || event.category === 'party'
         );
         console.log(`Found ${transformedEvents.length} party events`);
@@ -321,20 +299,19 @@ async function searchRapidAPIEvents(params: any) {
     if (params.latitude !== undefined && params.longitude !== undefined && params.radius) {
       console.log(`Filtering events by distance: ${params.radius} miles from ${params.latitude},${params.longitude}`);
 
-      const userLat = params.latitude;
-      const userLng = params.longitude;
-      const radius = params.radius || 30; // Default to 30 miles
+      const userLat = Number(params.latitude);
+      const userLng = Number(params.longitude);
+      const radius = Number(params.radius) || 30; // Default to 30 miles
 
       // Filter events that have coordinates and are within the radius
-      transformedEvents = transformedEvents.filter((event: Event) => {
+      transformedEvents = transformedEvents.filter(event => {
         // Skip events without coordinates
         if (!event.coordinates && (!event.latitude || !event.longitude)) {
           return false;
         }
 
         // Get event coordinates
-        let eventLat: number | undefined;
-        let eventLng: number | undefined;
+        let eventLat, eventLng;
 
         if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length >= 2) {
           // Coordinates array format is [longitude, latitude]
@@ -355,8 +332,8 @@ async function searchRapidAPIEvents(params: any) {
 
         // Calculate distance between user and event
         const distance = calculateDistance(
-          Number(userLat),
-          Number(userLng),
+          userLat,
+          userLng,
           Number(eventLat),
           Number(eventLng)
         );
@@ -399,7 +376,6 @@ serve(async (req: Request) => {
     console.log('Search parameters:', JSON.stringify(params));
 
     // Call the searchRapidAPIEvents function to fetch events
-    // This is the main function that handles the RapidAPI integration
     const result = await searchRapidAPIEvents(params);
 
     // Return the response

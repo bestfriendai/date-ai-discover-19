@@ -55,7 +55,9 @@ export async function searchEvents(params: SearchParams): Promise<{
       const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
 
       try {
-        const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/search-events`, {
+        // Use the dedicated rapidapi-events function
+        console.log('[EVENTS] Using dedicated rapidapi-events function...');
+        const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/rapidapi-events`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

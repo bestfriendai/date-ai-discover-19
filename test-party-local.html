@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Party Events Local Test</title>
+  <title>Party Events Direct API Test</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -28,7 +28,7 @@
       gap: 10px;
       flex-wrap: wrap;
     }
-    .search-form input, .search-form button {
+    .search-form input, .search-form button, .search-form select {
       padding: 10px;
       border: 1px solid #ddd;
       border-radius: 4px;
@@ -91,176 +91,276 @@
       margin-bottom: 20px;
       border-radius: 8px;
     }
+    .stats {
+      margin-bottom: 20px;
+      padding: 10px;
+      background-color: #f0f8ff;
+      border-radius: 4px;
+      border: 1px solid #b8daff;
+    }
+    .party-badge {
+      display: inline-block;
+      background-color: #ff4081;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 5px;
+    }
+    .subcategory-badge {
+      display: inline-block;
+      background-color: #673ab7;
+      color: white;
+      padding: 2px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-left: 5px;
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>Party Events Local Test</h1>
-    <p>This page tests the integration with the local RapidAPI server.</p>
-    
+    <h1>Party Events Direct API Test</h1>
+    <p>This page tests direct integration with the RapidAPI Events Search API.</p>
+
     <div class="search-form">
       <input type="text" id="location" placeholder="Enter location (e.g., New York)" value="New York">
       <input type="number" id="radius" placeholder="Radius (miles)" value="25">
+      <input type="text" id="keyword" placeholder="Additional keywords (optional)">
+      <select id="party-type">
+        <option value="all">All Party Types</option>
+        <option value="nightclub">Nightclub</option>
+        <option value="festival">Festival</option>
+        <option value="brunch">Brunch</option>
+        <option value="day party">Day Party</option>
+      </select>
       <button id="search-btn">Search</button>
       <button id="search-coords-btn">Search with Coordinates</button>
     </div>
-    
+
     <div id="error-container" class="error" style="display: none;"></div>
-    
+
+    <div id="stats" class="stats">
+      Ready to search for party events.
+    </div>
+
     <div id="map"></div>
-    
+
     <div id="loading" class="loading" style="display: none;">Loading events...</div>
-    
+
     <div id="events-container" class="events-container"></div>
   </div>
+
+  <!-- Include the direct RapidAPI client -->
+  <script src="rapidapi-direct.js"></script>
 
   <script>
     // Initialize map
     let map;
     let markers = [];
-    
+
     function initMap() {
       map = new google.maps.Map(document.getElementById('map'), {
         center: { lat: 40.7128, lng: -74.0060 }, // New York
         zoom: 12
       });
     }
-    
+
     // Function to search for events
     async function searchEvents() {
       const location = document.getElementById('location').value;
       const radius = document.getElementById('radius').value;
-      
+      const keyword = document.getElementById('keyword').value;
+      const partyType = document.getElementById('party-type').value;
+
       document.getElementById('loading').style.display = 'block';
       document.getElementById('events-container').innerHTML = '';
       document.getElementById('error-container').style.display = 'none';
-      
+      document.getElementById('stats').textContent = 'Searching...';
+
       try {
-        const response = await fetch('http://localhost:3001/functions/v1/search-events-simple', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            location,
-            radius: parseInt(radius),
-            categories: ['party'],
-            limit: 20
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Use the direct RapidAPI client instead of the Supabase function
+        const searchParams = {
+          location,
+          radius: parseInt(radius),
+          categories: ['party'],
+          keyword: keyword,
+          limit: 100
+        };
+
+        // Call the direct RapidAPI function
+        const data = await searchEventsDirectly(searchParams);
+
+        // Filter by party subcategory if selected
+        let filteredEvents = data.events;
+        if (partyType !== 'all') {
+          filteredEvents = data.events.filter(event =>
+            event.partySubcategory === partyType
+          );
         }
-        
-        const data = await response.json();
-        displayEvents(data.events);
-        
+
+        // Update stats
+        document.getElementById('stats').innerHTML = `
+          Found ${data.events.length} total party events.
+          Displaying ${filteredEvents.length} events${partyType !== 'all' ? ` of type "${partyType}"` : ''}.
+        `;
+
+        // Display the filtered events
+        displayEvents(filteredEvents);
+
         // Center map on the first event
-        if (data.events && data.events.length > 0 && data.events[0].coordinates) {
-          const [lng, lat] = data.events[0].coordinates;
+        if (filteredEvents && filteredEvents.length > 0 && filteredEvents[0].coordinates) {
+          const [lng, lat] = filteredEvents[0].coordinates;
           map.setCenter({ lat, lng });
         }
       } catch (error) {
         console.error('Error searching events:', error);
         document.getElementById('error-container').textContent = `Error: ${error.message}`;
         document.getElementById('error-container').style.display = 'block';
+        document.getElementById('stats').textContent = 'Error occurred during search.';
       } finally {
         document.getElementById('loading').style.display = 'none';
       }
     }
-    
+
     // Function to search for events with coordinates
     async function searchEventsWithCoords() {
+      const radius = document.getElementById('radius').value;
+      const keyword = document.getElementById('keyword').value;
+      const partyType = document.getElementById('party-type').value;
+
       document.getElementById('loading').style.display = 'block';
       document.getElementById('events-container').innerHTML = '';
       document.getElementById('error-container').style.display = 'none';
-      
+      document.getElementById('stats').textContent = 'Searching with coordinates...';
+
       try {
-        const response = await fetch('http://localhost:3001/functions/v1/search-events-simple', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            latitude: 40.7128,
-            longitude: -74.0060,
-            radius: parseInt(document.getElementById('radius').value),
-            categories: ['party'],
-            limit: 20
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        // Use the direct RapidAPI client with coordinates
+        const searchParams = {
+          latitude: 40.7128,
+          longitude: -74.0060,
+          radius: parseInt(radius),
+          categories: ['party'],
+          keyword: keyword,
+          limit: 100
+        };
+
+        // Call the direct RapidAPI function
+        const data = await searchEventsDirectly(searchParams);
+
+        // Filter by party subcategory if selected
+        let filteredEvents = data.events;
+        if (partyType !== 'all') {
+          filteredEvents = data.events.filter(event =>
+            event.partySubcategory === partyType
+          );
         }
-        
-        const data = await response.json();
-        displayEvents(data.events);
-        
+
+        // Update stats
+        document.getElementById('stats').innerHTML = `
+          Found ${data.events.length} total party events.
+          Displaying ${filteredEvents.length} events${partyType !== 'all' ? ` of type "${partyType}"` : ''}.
+        `;
+
+        // Display the filtered events
+        displayEvents(filteredEvents);
+
         // Center map on New York
         map.setCenter({ lat: 40.7128, lng: -74.0060 });
       } catch (error) {
         console.error('Error searching events with coordinates:', error);
         document.getElementById('error-container').textContent = `Error: ${error.message}`;
         document.getElementById('error-container').style.display = 'block';
+        document.getElementById('stats').textContent = 'Error occurred during search.';
       } finally {
         document.getElementById('loading').style.display = 'none';
       }
     }
-    
+
     // Function to display events
     function displayEvents(events) {
       const container = document.getElementById('events-container');
-      
+
       // Clear existing markers
       markers.forEach(marker => marker.setMap(null));
       markers = [];
-      
+
       if (!events || events.length === 0) {
         container.innerHTML = '<p>No events found.</p>';
         return;
       }
-      
+
       events.forEach(event => {
         // Create event card
         const card = document.createElement('div');
         card.className = 'event-card';
-        
+
         // Add event image
         const image = document.createElement('img');
         image.className = 'event-image';
         image.src = event.image || 'https://via.placeholder.com/300x150?text=No+Image';
         image.alt = event.title;
         card.appendChild(image);
-        
+
         // Add event details
         const details = document.createElement('div');
         details.className = 'event-details';
-        
+
         const title = document.createElement('h3');
         title.className = 'event-title';
         title.textContent = event.title;
         details.appendChild(title);
-        
+
         const date = document.createElement('p');
         date.className = 'event-info';
         date.textContent = `Date: ${event.date}`;
+        if (event.time) {
+          date.textContent += ` at ${event.time}`;
+        }
         details.appendChild(date);
-        
+
         const location = document.createElement('p');
         location.className = 'event-info';
         location.textContent = `Location: ${event.location}`;
         details.appendChild(location);
-        
+
         const category = document.createElement('p');
         category.className = 'event-info';
-        category.textContent = `Category: ${event.category}`;
+        category.innerHTML = `Category: ${event.category}`;
+
+        // Add party badge if it's a party event
+        if (event.isPartyEvent) {
+          const partyBadge = document.createElement('span');
+          partyBadge.className = 'party-badge';
+          partyBadge.textContent = 'PARTY';
+          category.appendChild(partyBadge);
+        }
+
+        // Add subcategory badge if available
+        if (event.partySubcategory && event.partySubcategory !== 'general') {
+          const subcategoryBadge = document.createElement('span');
+          subcategoryBadge.className = 'subcategory-badge';
+          subcategoryBadge.textContent = event.partySubcategory.toUpperCase();
+          category.appendChild(subcategoryBadge);
+        }
+
         details.appendChild(category);
-        
+
+        // Add URL if available
+        if (event.url) {
+          const url = document.createElement('p');
+          url.className = 'event-info';
+          const link = document.createElement('a');
+          link.href = event.url;
+          link.target = '_blank';
+          link.textContent = 'Event Details';
+          url.appendChild(link);
+          details.appendChild(url);
+        }
+
         card.appendChild(details);
         container.appendChild(card);
-        
+
         // Add marker to map
         if (event.coordinates && event.coordinates.length === 2) {
           const [lng, lat] = event.coordinates;
@@ -269,34 +369,36 @@
             map,
             title: event.title
           });
-          
+
           // Add info window
           const infoWindow = new google.maps.InfoWindow({
             content: `
               <div>
                 <h3>${event.title}</h3>
-                <p>${event.date}</p>
+                <p>${event.date}${event.time ? ` at ${event.time}` : ''}</p>
                 <p>${event.location}</p>
+                ${event.partySubcategory ? `<p>Type: ${event.partySubcategory}</p>` : ''}
+                ${event.url ? `<p><a href="${event.url}" target="_blank">Event Details</a></p>` : ''}
               </div>
             `
           });
-          
+
           marker.addListener('click', () => {
             infoWindow.open(map, marker);
           });
-          
+
           markers.push(marker);
         }
       });
     }
-    
+
     // Add event listeners
     document.addEventListener('DOMContentLoaded', () => {
       document.getElementById('search-btn').addEventListener('click', searchEvents);
       document.getElementById('search-coords-btn').addEventListener('click', searchEventsWithCoords);
     });
   </script>
-  
+
   <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=initMap" async defer></script>
 </body>
 </html>

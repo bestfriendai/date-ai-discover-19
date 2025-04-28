@@ -40,7 +40,11 @@ export async function invokeFunctionWithRetry<T = any>(
         try {
           const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
 
-          const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/${functionName}`, {
+          // If the function is search-events, use the dedicated rapidapi-events function
+          const actualFunctionName = functionName === 'search-events' ? 'rapidapi-events' : functionName;
+          console.log(`[FUNCTIONS_CLIENT] Using function: ${actualFunctionName}`);
+
+          const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/${actualFunctionName}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

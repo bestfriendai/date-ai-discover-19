@@ -41,8 +41,8 @@ export function usePartyAIHandlers({
       ...searchParams,
       categories: ['party'],
       keyword: searchParams.keyword
-        ? `${searchParams.keyword} party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music`
-        : 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
+        ? `${searchParams.keyword} party club nightlife dance dj festival celebration nightclub bar lounge rave mixer social cocktail "happy hour" gala disco bash soiree fiesta shindig gathering meetup mingle networking "social event" "after party" afterparty "after-party" vip exclusive`
+        : 'party club nightlife dance dj festival celebration nightclub bar lounge rave mixer social cocktail "happy hour" gala disco bash soiree fiesta shindig gathering meetup mingle networking "social event" "after party" afterparty "after-party" vip exclusive',
       limit: 100, // Show the next 100 events
       latitude: mapCenter.latitude,
       longitude: mapCenter.longitude,
@@ -80,7 +80,7 @@ export function usePartyAIHandlers({
     const filtersWithPartyCategory = {
       ...filters,
       categories: ['party'],
-      keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
+      keyword: 'party club nightlife dance dj festival celebration nightclub bar lounge rave mixer social cocktail "happy hour" gala disco bash soiree fiesta shindig gathering meetup mingle networking "social event" "after party" afterparty "after-party" vip exclusive',
       limit: 100, // Show the next 100 events
       latitude: mapCenter.latitude,
       longitude: mapCenter.longitude,

@@ -163,11 +163,18 @@ export const useEventSearch = () => {
       console.log('[EVENTS] Fetching events for:', centerCoords,
         'radius:', radiusOverride || filters.distance);
 
+      // Always use today as the minimum start date
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
       const searchParams = {
         latitude: centerCoords.latitude,
         longitude: centerCoords.longitude,
         radius: radiusOverride !== undefined ? radiusOverride : filters.distance,
-        startDate: filters.dateRange?.from ? formatISO(filters.dateRange.from, { representation: 'date' }) : undefined,
+        // Use the later of today or the filter's from date
+        startDate: filters.dateRange?.from && filters.dateRange.from > today
+          ? formatISO(filters.dateRange.from, { representation: 'date' })
+          : formatISO(today, { representation: 'date' }),
         endDate: filters.dateRange?.to ? formatISO(filters.dateRange.to, { representation: 'date' }) : undefined,
         categories: filters.categories || [],
         keyword: filters.keyword,
@@ -209,7 +216,7 @@ export const useEventSearch = () => {
       const searchParamsWithPage = {
         ...searchParams,
         page: 1,
-        limit: 50 // Adjust limit as needed
+        limit: 100 // Increased limit to pull more events
       };
 
       const result = await searchEvents(searchParamsWithPage);
@@ -340,9 +347,19 @@ export const useEventSearch = () => {
         filters.categories!.some(cat => ev.category?.toLowerCase() === cat.toLowerCase())
       );
     }
-    // Apply datePreset filter
+    // Always filter out past events, regardless of datePreset
+    const now = new Date();
+    now.setHours(0, 0, 0, 0); // Start of today
+
+    // First filter to only include events from today forward
+    filtered = filtered.filter(ev => {
+      if (!ev.date) return false;
+      const evDate = new Date(ev.date);
+      return evDate >= now;
+    });
+
+    // Then apply datePreset filter if specified
     if (filters.datePreset) {
-      const now = new Date();
       let from: Date, to: Date;
       if (filters.datePreset === 'today') {
         from = new Date(now.getFullYear(), now.getMonth(), now.getDate());
