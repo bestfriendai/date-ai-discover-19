@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Party Events Map Test</title>
+    <script src='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js'></script>
+    <link href='https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css' rel='stylesheet' />
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        .header {
+            padding: 15px;
+            background-color: #333;
+            color: white;
+        }
+        .controls {
+            padding: 15px;
+            background-color: #f5f5f5;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        .map-container {
+            flex: 1;
+            position: relative;
+        }
+        #map {
+            width: 100%;
+            height: 100%;
+        }
+        input {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(255, 255, 255, 0.8);
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            z-index: 10;
+        }
+        .event-popup {
+            max-width: 300px;
+        }
+        .event-popup img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 4px;
+            margin-bottom: 10px;
+        }
+        .event-popup h3 {
+            margin: 0 0 5px 0;
+        }
+        .event-popup p {
+            margin: 5px 0;
+        }
+        .event-popup a {
+            display: inline-block;
+            margin-top: 10px;
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .event-popup a:hover {
+            text-decoration: underline;
+        }
+        .radius-circle {
+            background-color: rgba(76, 175, 80, 0.1);
+            border: 2px solid rgba(76, 175, 80, 0.5);
+        }
+        .stats {
+            position: absolute;
+            bottom: 10px;
+            right: 10px;
+            background-color: rgba(255, 255, 255, 0.9);
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+            z-index: 5;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>Party Events Map Test</h1>
+    </div>
+    
+    <div class="controls">
+        <input type="text" id="location" placeholder="Enter location (e.g., New York)" value="New York">
+        <button id="searchBtn">Search Party Events</button>
+        <span style="margin-left: 20px;">Radius: 30 miles</span>
+    </div>
+    
+    <div class="map-container">
+        <div id="map"></div>
+        <div id="loading" class="loading" style="display: none;">Loading events...</div>
+        <div id="stats" class="stats"></div>
+    </div>
+
+    <script>
+        // Configuration
+        const config = {
+            mapboxToken: 'pk.eyJ1IjoiZGF0ZWFpIiwiYSI6ImNsczRxZWVxMzBnNDQya3BnbWRtZnRtbXQifQ.Wy-XYFQlMUKaKkjFgS8yVA',
+            supabaseUrl: 'https://akwvmljopucsnorvdwuu.supabase.co/functions/v1/search-events',
+            supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk'
+        };
+
+        // Initialize Mapbox
+        mapboxgl.accessToken = config.mapboxToken;
+        const map = new mapboxgl.Map({
+            container: 'map',
+            style: 'mapbox://styles/mapbox/dark-v11',
+            center: [-74.0060, 40.7128], // Default to New York
+            zoom: 10
+        });
+
+        // Add navigation controls
+        map.addControl(new mapboxgl.NavigationControl());
+
+        // Add geolocation control
+        map.addControl(new mapboxgl.GeolocateControl({
+            positionOptions: {
+                enableHighAccuracy: true
+            },
+            trackUserLocation: true
+        }));
+
+        // Variables to store state
+        let markers = [];
+        let radiusCircle = null;
+        let currentCenter = null;
+
+        // Function to search for party events
+        async function searchPartyEvents(location) {
+            // Show loading indicator
+            document.getElementById('loading').style.display = 'block';
+            
+            // Clear existing markers
+            clearMarkers();
+            
+            try {
+                // Get coordinates for the location
+                const geocodeUrl = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(location)}.json?access_token=${mapboxgl.accessToken}`;
+                const geocodeResponse = await fetch(geocodeUrl);
+                const geocodeData = await geocodeResponse.json();
+                
+                if (!geocodeData.features || geocodeData.features.length === 0) {
+                    alert('Location not found. Please try a different location.');
+                    document.getElementById('loading').style.display = 'none';
+                    return;
+                }
+                
+                // Get the coordinates of the first result
+                const [longitude, latitude] = geocodeData.features[0].center;
+                currentCenter = { longitude, latitude };
+                
+                // Center the map on the location
+                map.flyTo({
+                    center: [longitude, latitude],
+                    zoom: 10,
+                    essential: true
+                });
+                
+                // Add a circle to represent the 30-mile radius
+                addRadiusCircle(longitude, latitude, 30);
+                
+                // Get today's date in YYYY-MM-DD format
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Search for party events
+                const params = {
+                    location: location,
+                    latitude: latitude,
+                    longitude: longitude,
+                    radius: 30, // 30-mile radius
+                    categories: ['party'],
+                    keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music',
+                    limit: 100, // Request 100 events
+                    page: 1,
+                    startDate: today
+                };
+                
+                const response = await fetch(config.supabaseUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.supabaseAnonKey}`
+                    },
+                    body: JSON.stringify(params)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                // Add markers for each event
+                if (data.events && data.events.length > 0) {
+                    addEventMarkers(data.events);
+                    updateStats(data);
+                } else {
+                    alert('No party events found in this area.');
+                    document.getElementById('stats').textContent = 'No events found';
+                }
+            } catch (error) {
+                console.error('Error searching for party events:', error);
+                alert('Error searching for party events. Please try again.');
+            } finally {
+                // Hide loading indicator
+                document.getElementById('loading').style.display = 'none';
+            }
+        }
+
+        // Function to add a circle representing the search radius
+        function addRadiusCircle(longitude, latitude, radiusMiles) {
+            // Remove existing circle if any
+            if (radiusCircle) {
+                radiusCircle.remove();
+            }
+            
+            // Convert miles to kilometers (Mapbox uses kilometers)
+            const radiusKm = radiusMiles * 1.60934;
+            
+            // Add a new source for the circle
+            if (map.getSource('radius-source')) {
+                map.removeSource('radius-source');
+            }
+            
+            if (map.getLayer('radius-layer')) {
+                map.removeLayer('radius-layer');
+            }
+            
+            // Wait for the map to be loaded
+            if (!map.loaded()) {
+                map.on('load', () => {
+                    addCircleToMap(longitude, latitude, radiusKm);
+                });
+            } else {
+                addCircleToMap(longitude, latitude, radiusKm);
+            }
+        }
+        
+        function addCircleToMap(longitude, latitude, radiusKm) {
+            map.addSource('radius-source', {
+                type: 'geojson',
+                data: {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'Point',
+                        coordinates: [longitude, latitude]
+                    },
+                    properties: {}
+                }
+            });
+            
+            map.addLayer({
+                id: 'radius-layer',
+                type: 'circle',
+                source: 'radius-source',
+                paint: {
+                    'circle-radius': {
+                        stops: [
+                            [0, 0],
+                            [20, radiusKm * 1000 / 0.075] // Scale the radius based on zoom level
+                        ],
+                        base: 2
+                    },
+                    'circle-color': 'rgba(76, 175, 80, 0.1)',
+                    'circle-stroke-width': 2,
+                    'circle-stroke-color': 'rgba(76, 175, 80, 0.5)'
+                }
+            });
+        }
+
+        // Function to add markers for events
+        function addEventMarkers(events) {
+            events.forEach(event => {
+                if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) {
+                    // Create a marker element
+                    const el = document.createElement('div');
+                    el.className = 'marker';
+                    el.style.width = '25px';
+                    el.style.height = '25px';
+                    el.style.backgroundImage = 'url(https://docs.mapbox.com/mapbox-gl-js/assets/custom_marker.png)';
+                    el.style.backgroundSize = 'cover';
+                    el.style.cursor = 'pointer';
+                    
+                    // Create a popup
+                    const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                        <div class="event-popup">
+                            ${event.image ? `<img src="${event.image}" alt="${event.title}">` : ''}
+                            <h3>${event.title}</h3>
+                            <p><strong>Date:</strong> ${event.date} ${event.time || ''}</p>
+                            <p><strong>Location:</strong> ${event.location || event.venue || 'N/A'}</p>
+                            <p><strong>Category:</strong> ${event.category || 'N/A'}</p>
+                            ${event.url ? `<a href="${event.url}" target="_blank">More Info / Buy Tickets</a>` : ''}
+                        </div>
+                    `);
+                    
+                    // Create a marker
+                    const marker = new mapboxgl.Marker(el)
+                        .setLngLat(event.coordinates)
+                        .setPopup(popup)
+                        .addTo(map);
+                    
+                    // Store the marker for later removal
+                    markers.push(marker);
+                }
+            });
+        }
+
+        // Function to clear all markers
+        function clearMarkers() {
+            markers.forEach(marker => marker.remove());
+            markers = [];
+        }
+
+        // Function to update stats
+        function updateStats(data) {
+            const statsElement = document.getElementById('stats');
+            
+            // Count events with coordinates
+            const eventsWithCoordinates = data.events.filter(event => 
+                event.coordinates && 
+                Array.isArray(event.coordinates) && 
+                event.coordinates.length === 2
+            ).length;
+            
+            // Count party events
+            const partyEvents = data.events.filter(event => 
+                event.category === 'party' || 
+                (event.title && event.title.toLowerCase().includes('party')) ||
+                (event.description && event.description.toLowerCase().includes('party'))
+            ).length;
+            
+            // Count events by source
+            const sourceCount = {};
+            data.events.forEach(event => {
+                sourceCount[event.source] = (sourceCount[event.source] || 0) + 1;
+            });
+            
+            // Format source count
+            const sourceCountText = Object.entries(sourceCount)
+                .map(([source, count]) => `${source}: ${count}`)
+                .join(', ');
+            
+            statsElement.innerHTML = `
+                <div><strong>Total Events:</strong> ${data.events.length}</div>
+                <div><strong>Events with Coordinates:</strong> ${eventsWithCoordinates}</div>
+                <div><strong>Party Events:</strong> ${partyEvents}</div>
+                <div><strong>Sources:</strong> ${sourceCountText}</div>
+            `;
+        }
+
+        // Event listener for search button
+        document.getElementById('searchBtn').addEventListener('click', () => {
+            const location = document.getElementById('location').value.trim();
+            if (location) {
+                searchPartyEvents(location);
+            } else {
+                alert('Please enter a location.');
+            }
+        });
+
+        // Event listener for Enter key in location input
+        document.getElementById('location').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const location = document.getElementById('location').value.trim();
+                if (location) {
+                    searchPartyEvents(location);
+                } else {
+                    alert('Please enter a location.');
+                }
+            }
+        });
+
+        // Initialize with New York
+        map.on('load', () => {
+            searchPartyEvents('New York');
+        });
+    </script>
+</body>
+</html>

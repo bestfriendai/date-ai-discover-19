@@ -103,11 +103,14 @@ export function generateSourceStats(
   ticketmasterCount: number,
   ticketmasterError: string | null,
   predicthqCount: number,
-  predicthqError: string | null
+  predicthqError: string | null,
+  seatgeekCount: number = 0,
+  seatgeekError: string | null = null
 ) {
   return {
     ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
-    predicthq: { count: predicthqCount, error: predicthqError }
+    predicthq: { count: predicthqCount, error: predicthqError },
+    seatgeek: { count: seatgeekCount, error: seatgeekError }
   };
 }
 
@@ -116,7 +119,8 @@ export function generateMetadata(
   totalEvents: number,
   eventsWithCoordinates: number,
   ticketmasterStats: any,
-  predicthqStats: any | null
+  predicthqStats: any | null,
+  seatgeekStats: any | null = null
 ) {
   return {
     executionTime: Date.now() - startTime,
@@ -125,7 +129,8 @@ export function generateMetadata(
     timestamp: new Date().toISOString(),
     keyUsage: {
       ticketmaster: ticketmasterStats,
-      predicthq: predicthqStats
+      predicthq: predicthqStats,
+      seatgeek: seatgeekStats
     }
   };
 }

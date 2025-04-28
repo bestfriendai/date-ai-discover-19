@@ -13,6 +13,87 @@ interface PredictHQResponse {
   warnings?: string[];
 }
 
+/**
+ * Get the best available image for an event
+ */
+function getEventImage(event: any): string {
+  // Try multiple sources for images in order of preference
+  
+  // 1. Check for images in websites
+  if (event.websites && Array.isArray(event.websites)) {
+    const websiteImage = event.websites.find((site: any) => site.url && site.logo_url);
+    if (websiteImage && websiteImage.logo_url) {
+      return websiteImage.logo_url;
+    }
+  }
+  
+  // 2. Check if the event has images directly
+  if (event.images && Array.isArray(event.images) && event.images.length > 0) {
+    // Find the largest image
+    const sortedImages = [...event.images].sort((a, b) => {
+      const aSize = (a.width || 0) * (a.height || 0);
+      const bSize = (b.width || 0) * (b.height || 0);
+      return bSize - aSize; // Sort by size (largest first)
+    });
+
+    // Return the URL of the largest image
+    return sortedImages[0].url;
+  }
+
+  // 3. Check for images in entities (performers, venues, etc.)
+  if (event.entities && Array.isArray(event.entities)) {
+    // Look for entities with images
+    for (const entity of event.entities) {
+      if (entity.entity && entity.entity.images && Array.isArray(entity.entity.images) && entity.entity.images.length > 0) {
+        // Find the largest image
+        const sortedImages = [...entity.entity.images].sort((a, b) => {
+          const aSize = (a.width || 0) * (a.height || 0);
+          const bSize = (b.width || 0) * (b.height || 0);
+          return bSize - aSize; // Sort by size (largest first)
+        });
+
+        return sortedImages[0].url;
+      }
+    }
+    
+    // 4. Check for image in the first entity
+    for (const entity of event.entities) {
+      if (entity.entity && entity.entity.image_url) {
+        return entity.entity.image_url;
+      }
+      // Look for logo_url in entity
+      if (entity.entity && entity.entity.logo_url) {
+        return entity.entity.logo_url;
+      }
+    }
+  }
+  
+  // 5. Check for venue image
+  if (event.venue && event.venue.image) {
+    return event.venue.image;
+  }
+
+  // If no images are available, use a category-based placeholder
+  const categoryImages = {
+    'concerts': 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&auto=format&fit=crop',
+    'festivals': 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop',
+    'performing-arts': 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=800&auto=format&fit=crop',
+    'sports': 'https://images.unsplash.com/photo-1471295253337-3ceaaedca402?w=800&auto=format&fit=crop',
+    'community': 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop',
+    'expos': 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop',
+    'conferences': 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&auto=format&fit=crop',
+    'food-drink': 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&auto=format&fit=crop'
+  };
+
+  // Return category-specific image if available
+  if (event.category && categoryImages[event.category]) {
+    return categoryImages[event.category];
+  }
+
+  // Default placeholder
+  return 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
+}
+
 export async function fetchPredictHQEvents(params: PredictHQParams): Promise<PredictHQResponse> {
   // Validate input parameters
   if (!params) {
@@ -76,7 +157,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       }
 
       // Validate the formatted date
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedStartDate)) {
+      if (formattedStartDate && !/^\d{4}-\d{2}-\d{2}$/.test(formattedStartDate)) {
         return {
           events: [],
           error: 'Invalid startDate format. Use YYYY-MM-DD',
@@ -93,7 +174,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
       }
 
       // Validate the formatted date
-      if (!/^\d{4}-\d{2}-\d{2}$/.test(formattedEndDate)) {
+      if (formattedEndDate && !/^\d{4}-\d{2}-\d{2}$/.test(formattedEndDate)) {
         return {
           events: [],
           error: 'Invalid endDate format. Use YYYY-MM-DD',
@@ -248,7 +329,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
 
       // Add party-related labels
       const partyLabels = [
-        'nightlife', 'club', 'dance-club', 'disco', 'dance-party', 'dj-set',
+        'nightlife', 'club', 'nightclub', 'dance-club', 'disco', 'dance-party', 'dj-set',
         'live-music', 'live-performance', 'entertainment', 'music-venue',
         'bar', 'lounge', 'nightclub', 'party-venue', 'social-gathering'
       ];
@@ -372,7 +453,7 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<Pre
     queryParams.append('limit', limit.toString());
 
     // Add include parameters for additional data - request all available fields for rich event data
-    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images,phq_labels');
+    queryParams.append('include', 'location,entities,place,local_rank,rank,category,labels,description,timezone,parent_event,child_events,country,state,location_name,geo,brand,phq_attendance,phq_organizer,phq_venue,ticket_info,url,images,websites,entities.entity.websites,entities.entity.images,phq_labels,performers,performers.images,phq_venue.images,phq_venue.websites');
 
     // Append query parameters to URL
     url += `?${queryParams.toString()}`;
@@ -1057,67 +1138,195 @@ function normalizePredictHQEvent(event: any): Event {
       description = description.replace(/[.,;:\s]+$/, '').trim();
     }
 
+    // Get ticket URL and price information
+    let ticketUrl = '';
+    let ticketPrices: { min?: number; max?: number; currency?: string } = {};
+    
+    console.log('[PREDICTHQ_TICKET_DEBUG] Attempting to extract ticket information');
+    
+    // Try to get ticket information from ticket_info
+    if (event.ticket_info) {
+      if (event.ticket_info.links && Array.isArray(event.ticket_info.links)) {
+        // Get the first valid ticket URL
+        const ticketLink = event.ticket_info.links.find(link => link && typeof link === 'string');
+        if (ticketLink) {
+          ticketUrl = ticketLink;
+          console.log(`[PREDICTHQ_TICKET_DEBUG] Found ticket URL in ticket_info.links: ${ticketUrl}`);
+        }
+      }
+      
+      // Extract price information if available
+      if (event.ticket_info.minimum_price || event.ticket_info.maximum_price) {
+        ticketPrices = {
+          min: event.ticket_info.minimum_price,
+          max: event.ticket_info.maximum_price,
+          currency: event.ticket_info.currency
+        };
+        console.log('[PREDICTHQ_TICKET_DEBUG] Found ticket prices:', ticketPrices);
+      }
+    }
+    
+    // If no ticket URL found in ticket_info, try to get it from websites array
+    if (!ticketUrl && event.websites && Array.isArray(event.websites)) {
+      // Look for ticket-related websites
+      const ticketSite = event.websites.find(site => 
+        site && typeof site === 'object' && 
+        site.url && typeof site.url === 'string' && 
+        (site.type === 'tickets' || site.type === 'booking'));
+      
+      if (ticketSite) {
+        ticketUrl = ticketSite.url;
+        console.log(`[PREDICTHQ_TICKET_DEBUG] Found ticket URL in websites: ${ticketUrl}`);
+      }
+    }
+    
     // Get image URL
-    let imageUrl = 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
+    let imageUrl = getEventImage(event);
     let imageAlt = event.title || 'Event image';
     let additionalImages: string[] = [];
+    
+    console.log('[PREDICTHQ_IMAGE_DEBUG] Attempting to extract images');
+    
+    // Debug the available image sources
+    console.log('[PREDICTHQ_IMAGE_DEBUG] Available image sources:', {
+      hasEventImages: !!(event.images && Array.isArray(event.images) && event.images.length > 0),
+      eventImagesCount: event.images && Array.isArray(event.images) ? event.images.length : 0,
+      hasEntities: !!(event.entities && Array.isArray(event.entities) && event.entities.length > 0),
+      entitiesCount: event.entities && Array.isArray(event.entities) ? event.entities.length : 0,
+      entityTypes: event.entities && Array.isArray(event.entities) ?
+        event.entities.map(e => e.type).join(', ') : 'none',
+      hasPerformers: !!(event.performers && Array.isArray(event.performers) && event.performers.length > 0),
+      performersCount: event.performers && Array.isArray(event.performers) ? event.performers.length : 0
+    });
 
-    // Try to get image from event
+    // 1. Try to get image directly from event.images
     if (event.images && Array.isArray(event.images) && event.images.length > 0) {
-      // Get the first image as the main image
-      imageUrl = event.images[0].url;
-      console.log(`[PREDICTHQ] Found image in event.images: ${imageUrl}`);
-
-      // Store alt text if available
-      if (event.images[0].alt) {
-        imageAlt = event.images[0].alt;
-      }
-
-      // Store additional images if available (up to 5)
-      if (event.images.length > 1) {
-        additionalImages = event.images.slice(1, 6).map(img => img.url);
+      // Find the first image with a valid URL
+      const validImage = event.images.find(img => img && typeof img === 'object' && img.url && typeof img.url === 'string');
+      
+      if (validImage) {
+        imageUrl = validImage.url;
+        console.log(`[PREDICTHQ_IMAGE_DEBUG] Found image in event.images: ${imageUrl}`);
+        
+        // Store alt text if available
+        if (validImage.alt) {
+          imageAlt = validImage.alt;
+        }
+        
+        // Store additional images if available (up to 5)
+        additionalImages = event.images
+          .filter(img => img && typeof img === 'object' && img.url && typeof img.url === 'string')
+          .slice(1, 6)
+          .map(img => img.url);
       }
     }
 
-    // Try to get images from entities (performers, venues, etc.)
-    if ((!event.images || event.images.length === 0) && event.entities) {
+    // 2. Try to get images from entities (performers, venues, etc.)
+    if ((!imageUrl || imageUrl === 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop') && event.entities && Array.isArray(event.entities)) {
+      // First try to find entities with entity.entity.images (nested structure)
       for (const entity of event.entities) {
-        if (entity.images && Array.isArray(entity.images) && entity.images.length > 0) {
-          imageUrl = entity.images[0].url;
-          console.log(`[PREDICTHQ] Found image in entity.images: ${imageUrl}`);
-
-          if (entity.images[0].alt) {
-            imageAlt = entity.images[0].alt;
+        // Check for nested entity structure first (entity.entity.images)
+        if (entity && entity.entity && entity.entity.images &&
+            Array.isArray(entity.entity.images) && entity.entity.images.length > 0) {
+          
+          const validImage = entity.entity.images.find(img =>
+            img && typeof img === 'object' && img.url && typeof img.url === 'string');
+          
+          if (validImage) {
+            imageUrl = validImage.url;
+            console.log(`[PREDICTHQ_IMAGE_DEBUG] Found image in entity.entity.images: ${imageUrl}`);
+            
+            if (validImage.alt) {
+              imageAlt = validImage.alt;
+            }
+            
+            // Store additional images
+            additionalImages = entity.entity.images
+              .filter(img => img && typeof img === 'object' && img.url && typeof img.url === 'string')
+              .slice(1, 6)
+              .map(img => img.url);
+            
+            break;
           }
-
-          // Store additional images if available (up to 5)
-          if (entity.images.length > 1) {
-            additionalImages = entity.images.slice(1, 6).map(img => img.url);
+        }
+        
+        // Then check for direct entity.images
+        if ((!imageUrl || imageUrl === 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop') &&
+            entity && entity.images && Array.isArray(entity.images) && entity.images.length > 0) {
+          
+          const validImage = entity.images.find(img =>
+            img && typeof img === 'object' && img.url && typeof img.url === 'string');
+          
+          if (validImage) {
+            imageUrl = validImage.url;
+            console.log(`[PREDICTHQ_IMAGE_DEBUG] Found image in entity.images: ${imageUrl}`);
+            
+            if (validImage.alt) {
+              imageAlt = validImage.alt;
+            }
+            
+            // Store additional images
+            additionalImages = entity.images
+              .filter(img => img && typeof img === 'object' && img.url && typeof img.url === 'string')
+              .slice(1, 6)
+              .map(img => img.url);
+            
+            break;
           }
-
-          break; // Use the first entity with images
         }
       }
     }
 
-    // Try to get image from performers
-    if ((!event.images || event.images.length === 0) && event.performers && Array.isArray(event.performers)) {
+    // 3. Try to get image from performers
+    if ((!imageUrl || imageUrl === 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop') &&
+        event.performers && Array.isArray(event.performers)) {
+      
       for (const performer of event.performers) {
-        if (performer.images && Array.isArray(performer.images) && performer.images.length > 0) {
-          imageUrl = performer.images[0].url;
-          console.log(`[PREDICTHQ] Found image in performer.images: ${imageUrl}`);
-
-          if (performer.images[0].alt) {
-            imageAlt = performer.images[0].alt;
+        if (performer && performer.images && Array.isArray(performer.images) && performer.images.length > 0) {
+          const validImage = performer.images.find(img =>
+            img && typeof img === 'object' && img.url && typeof img.url === 'string');
+          
+          if (validImage) {
+            imageUrl = validImage.url;
+            console.log(`[PREDICTHQ_IMAGE_DEBUG] Found image in performer.images: ${imageUrl}`);
+            
+            if (validImage.alt) {
+              imageAlt = validImage.alt;
+            }
+            
+            // Store additional images
+            additionalImages = performer.images
+              .filter(img => img && typeof img === 'object' && img.url && typeof img.url === 'string')
+              .slice(1, 6)
+              .map(img => img.url);
+            
+            break;
           }
-
-          // Store additional images if available (up to 5)
-          if (performer.images.length > 1) {
-            additionalImages = performer.images.slice(1, 6).map(img => img.url);
-          }
-
-          break; // Use the first performer with images
         }
+      }
+    }
+
+    // 4. Try to get image from phq_venue if available
+    if ((!imageUrl || imageUrl === 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop') &&
+        event.phq_venue && event.phq_venue.images &&
+        Array.isArray(event.phq_venue.images) && event.phq_venue.images.length > 0) {
+      
+      const validImage = event.phq_venue.images.find(img =>
+        img && typeof img === 'object' && img.url && typeof img.url === 'string');
+      
+      if (validImage) {
+        imageUrl = validImage.url;
+        console.log(`[PREDICTHQ_IMAGE_DEBUG] Found image in phq_venue.images: ${imageUrl}`);
+        
+        if (validImage.alt) {
+          imageAlt = validImage.alt;
+        }
+        
+        // Store additional images
+        additionalImages = event.phq_venue.images
+          .filter(img => img && typeof img === 'object' && img.url && typeof img.url === 'string')
+          .slice(1, 6)
+          .map(img => img.url);
       }
     }
 
@@ -1131,9 +1340,11 @@ function normalizePredictHQEvent(event: any): Event {
       'party': 'https://images.unsplash.com/photo-1516450360452-9312f5e86fc7?w=800&auto=format&fit=crop'
     };
 
-    // Use category image if no event image
-    if ((!event.images || event.images.length === 0) && category !== 'other' && categoryImages[category]) {
+    // Use category image if no event image was found
+    if ((!imageUrl || imageUrl === 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop') &&
+        category !== 'other' && categoryImages[category]) {
       imageUrl = categoryImages[category];
+      console.log(`[PREDICTHQ_IMAGE_DEBUG] Using category fallback image for ${category}: ${imageUrl}`);
     }
 
     // Add rank and local impact data
@@ -1146,32 +1357,141 @@ function normalizePredictHQEvent(event: any): Event {
     const demandSurge = event.labels?.includes('demand_surge') ? 1 : 0;
 
     // Process ticket information
-    let ticketInfo = undefined;
-    if (event.ticket_info) {
+    console.log('[PREDICTHQ_TICKET_DEBUG] Attempting to extract ticket information');
+    
+    // Debug the available ticket sources
+    console.log('[PREDICTHQ_TICKET_DEBUG] Available ticket sources:', {
+      hasTicketInfo: !!event.ticket_info,
+      ticketInfoType: event.ticket_info ? typeof event.ticket_info : 'undefined',
+      hasWebsites: !!(event.websites && Array.isArray(event.websites) && event.websites.length > 0),
+      websitesCount: event.websites && Array.isArray(event.websites) ? event.websites.length : 0,
+      websiteTypes: event.websites && Array.isArray(event.websites) ?
+        event.websites.map(w => w.type).join(', ') : 'none',
+      hasUrl: !!event.url,
+      urlType: event.url ? typeof event.url : 'undefined'
+    });
+    
+    // Define ticket info and websites with proper types
+    let ticketInfo: {
+      price?: string;
+      minPrice?: number;
+      maxPrice?: number;
+      currency?: string;
+      availability?: string;
+      purchaseUrl?: string;
+      provider?: string;
+    } | undefined = undefined;
+    
+    // 1. Process ticket_info if available
+    if (event.ticket_info && typeof event.ticket_info === 'object') {
       ticketInfo = {
         price: event.ticket_info.price,
         minPrice: typeof event.ticket_info.minimum_price === 'number' ? event.ticket_info.minimum_price : undefined,
         maxPrice: typeof event.ticket_info.maximum_price === 'number' ? event.ticket_info.maximum_price : undefined,
         currency: event.ticket_info.currency,
         availability: event.ticket_info.availability,
-        purchaseUrl: event.ticket_info.url || event.ticket_info.link,
+        purchaseUrl: event.ticket_info.url || event.ticket_info.link || event.ticket_info.purchase_url,
         provider: event.ticket_info.provider
       };
+      
+      if (ticketInfo.purchaseUrl) {
+        console.log(`[PREDICTHQ_TICKET_DEBUG] Found purchase URL in ticket_info: ${ticketInfo.purchaseUrl}`);
+      }
     }
 
-    // Process website information
-    let websites = undefined;
+    // 2. Process website information
+    let websites: {
+      official?: string;
+      tickets?: string;
+      venue?: string;
+    } | undefined = undefined;
+    
+    // Check for websites in the main event object
     if (event.websites && Array.isArray(event.websites) && event.websites.length > 0) {
       websites = {};
 
       // Process each website by type
       for (const site of event.websites) {
-        if (site.type === 'official') {
-          websites.official = site.url;
-        } else if (site.type === 'tickets' || site.type === 'purchase') {
-          websites.tickets = site.url;
-        } else if (site.type === 'venue') {
-          websites.venue = site.url;
+        if (site && typeof site === 'object' && site.url && typeof site.url === 'string') {
+          if (site.type === 'official') {
+            websites.official = site.url;
+            console.log(`[PREDICTHQ_TICKET_DEBUG] Found official website: ${site.url}`);
+          } else if (site.type === 'tickets' || site.type === 'purchase') {
+            websites.tickets = site.url;
+            console.log(`[PREDICTHQ_TICKET_DEBUG] Found tickets website: ${site.url}`);
+          } else if (site.type === 'venue') {
+            websites.venue = site.url;
+            console.log(`[PREDICTHQ_TICKET_DEBUG] Found venue website: ${site.url}`);
+          }
+        }
+      }
+    }
+    
+    // 3. Check for websites in entities
+    if ((!websites || !websites.tickets) && event.entities && Array.isArray(event.entities)) {
+      if (!websites) {
+        websites = {};
+      }
+      
+      // First check for nested entity structure first (entity.entity.websites)
+      for (const entity of event.entities) {
+        if (entity && entity.entity && entity.entity.websites &&
+            Array.isArray(entity.entity.websites) && entity.entity.websites.length > 0) {
+          
+          for (const site of entity.entity.websites) {
+            if (site && typeof site === 'object' && site.url && typeof site.url === 'string') {
+              if (site.type === 'official' && !websites.official) {
+                websites.official = site.url;
+                console.log(`[PREDICTHQ_TICKET_DEBUG] Found official website in entity: ${site.url}`);
+              } else if ((site.type === 'tickets' || site.type === 'purchase') && !websites.tickets) {
+                websites.tickets = site.url;
+                console.log(`[PREDICTHQ_TICKET_DEBUG] Found tickets website in entity: ${site.url}`);
+              } else if (site.type === 'venue' && !websites.venue) {
+                websites.venue = site.url;
+                console.log(`[PREDICTHQ_TICKET_DEBUG] Found venue website in entity: ${site.url}`);
+              }
+            }
+          }
+        }
+        
+        // Then check for direct entity.websites
+        if (entity && entity.websites && Array.isArray(entity.websites) && entity.websites.length > 0) {
+          for (const site of entity.websites) {
+            if (site && typeof site === 'object' && site.url && typeof site.url === 'string') {
+              if (site.type === 'official' && !websites.official) {
+                websites.official = site.url;
+                console.log(`[PREDICTHQ_TICKET_DEBUG] Found official website in entity direct: ${site.url}`);
+              } else if ((site.type === 'tickets' || site.type === 'purchase') && !websites.tickets) {
+                websites.tickets = site.url;
+                console.log(`[PREDICTHQ_TICKET_DEBUG] Found tickets website in entity direct: ${site.url}`);
+              } else if (site.type === 'venue' && !websites.venue) {
+                websites.venue = site.url;
+                console.log(`[PREDICTHQ_TICKET_DEBUG] Found venue website in entity direct: ${site.url}`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 4. Check for websites in phq_venue
+    if ((!websites || Object.keys(websites).length === 0) &&
+        event.phq_venue && event.phq_venue.websites &&
+        Array.isArray(event.phq_venue.websites) && event.phq_venue.websites.length > 0) {
+      
+      if (!websites) {
+        websites = {};
+      }
+      
+      for (const site of event.phq_venue.websites) {
+        if (site && typeof site === 'object' && site.url && typeof site.url === 'string') {
+          if (site.type === 'official' && !websites.official) {
+            websites.official = site.url;
+            console.log(`[PREDICTHQ_TICKET_DEBUG] Found official website in phq_venue: ${site.url}`);
+          } else if ((site.type === 'tickets' || site.type === 'purchase') && !websites.tickets) {
+            websites.tickets = site.url;
+            console.log(`[PREDICTHQ_TICKET_DEBUG] Found tickets website in phq_venue: ${site.url}`);
+          }
         }
       }
     }
@@ -1182,14 +1502,21 @@ function normalizePredictHQEvent(event: any): Event {
     // If we have ticket info with a URL, use that
     if (ticketInfo?.purchaseUrl) {
       bestUrl = ticketInfo.purchaseUrl;
+      console.log(`[PREDICTHQ_TICKET_DEBUG] Using ticket_info.purchaseUrl as best URL: ${bestUrl}`);
     }
     // Otherwise if we have a tickets website, use that
     else if (websites?.tickets) {
       bestUrl = websites.tickets;
+      console.log(`[PREDICTHQ_TICKET_DEBUG] Using websites.tickets as best URL: ${bestUrl}`);
     }
     // Otherwise if we have an official website, use that
     else if (websites?.official) {
       bestUrl = websites.official;
+      console.log(`[PREDICTHQ_TICKET_DEBUG] Using websites.official as best URL: ${bestUrl}`);
+    } else if (bestUrl) {
+      console.log(`[PREDICTHQ_TICKET_DEBUG] Using event.url as best URL: ${bestUrl}`);
+    } else {
+      console.log('[PREDICTHQ_TICKET_DEBUG] No URL found for event');
     }
 
     return {
@@ -1205,6 +1532,13 @@ function normalizePredictHQEvent(event: any): Event {
       partySubcategory,
       image: imageUrl,
       imageAlt,
+      additionalImages,
+      ticketUrl: bestUrl || '',
+      ticketPrices: ticketInfo ? {
+        min: ticketInfo.minPrice,
+        max: ticketInfo.maxPrice,
+        currency: ticketInfo.currency
+      } : undefined,
       additionalImages: additionalImages.length > 0 ? additionalImages : undefined,
       coordinates,
       url: bestUrl,

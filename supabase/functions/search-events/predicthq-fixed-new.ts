@@ -443,6 +443,74 @@ function normalizePredictHQEvent(event: any): Event | null { // --- FIX 3a: Retu
     };
     const demandSurge = event.labels?.includes('demand_surge') ? 1 : 0;
 
+    // --- FIX 3d: Enhanced ticket information extraction ---
+    const ticketInfo = {
+      price: undefined,
+      minPrice: undefined,
+      maxPrice: undefined,
+      currency: undefined,
+      availability: undefined,
+      purchaseUrl: undefined,
+      provider: undefined
+    };
+
+    // Extract ticket information from multiple possible sources
+    if (event.ticket_info) {
+      ticketInfo.price = event.ticket_info.price || undefined;
+      ticketInfo.minPrice = event.ticket_info.minimum_price || undefined;
+      ticketInfo.maxPrice = event.ticket_info.maximum_price || undefined;
+      ticketInfo.currency = event.ticket_info.currency || undefined;
+      ticketInfo.availability = event.ticket_info.availability || undefined;
+      ticketInfo.purchaseUrl = event.ticket_info.url || undefined;
+      ticketInfo.provider = event.ticket_info.provider || 'PredictHQ';
+    }
+
+    // Collect website links for the event
+    const websites: Record<string, string | undefined> = {
+      official: undefined,
+      tickets: undefined,
+      venue: undefined
+    };
+
+    // Extract website URLs from multiple possible sources
+    if (url) {
+      // If we have a primary URL, determine its type
+      const isTicketUrl = url.toLowerCase().includes('ticket') || 
+                          url.toLowerCase().includes('book') || 
+                          url.toLowerCase().includes('buy');
+                          
+      if (isTicketUrl) {
+        websites.tickets = url;
+      } else {
+        websites.official = url;
+      }
+    }
+
+    // Check for websites array
+    if (event.websites && Array.isArray(event.websites)) {
+      for (const site of event.websites) {
+        if (!site || !site.url) continue;
+        
+        if (site.type === 'tickets' || site.url.toLowerCase().includes('ticket')) {
+          websites.tickets = site.url;
+          // Also update ticket purchase URL if not already set
+          if (!ticketInfo.purchaseUrl) {
+            ticketInfo.purchaseUrl = site.url;
+          }
+        } else if (site.type === 'official' || site.type === 'primary') {
+          websites.official = site.url;
+        } else if (site.type === 'venue') {
+          websites.venue = site.url;
+        }
+      }
+    }
+
+    // If ticketInfo.purchaseUrl is not set but we have a tickets website, use that
+    if (!ticketInfo.purchaseUrl && websites.tickets) {
+      ticketInfo.purchaseUrl = websites.tickets;
+    }
+    // --- END FIX 3d ---
+
     return {
       id: `predicthq-${event.id}`,
       source: 'predicthq',
@@ -456,8 +524,11 @@ function normalizePredictHQEvent(event: any): Event | null { // --- FIX 3a: Retu
       partySubcategory, // May be undefined
       image: imageUrl,
       coordinates, // May be undefined
-      url, // May be undefined
-      price: event.ticket_info?.price, // May be undefined
+      url, // Primary URL (may be official or ticket)
+      price: ticketInfo.price, // Basic price string for backward compatibility
+      // Enhanced data structures
+      ticketInfo, // Enhanced ticket information
+      websites, // Enhanced website information
       rank,
       localRelevance,
       attendance,
@@ -473,13 +544,68 @@ function normalizePredictHQEvent(event: any): Event | null { // --- FIX 3a: Retu
   }
 }
 
-// Helper function to get event image URL
+// Helper function to get event image URL with improved extraction
 function getEventImage(event: any): string | undefined {
+  // 1. Prioritize high-quality images from the event itself
   if (event.images && Array.isArray(event.images) && event.images.length > 0) {
-    // Prioritize images with a specific type or size if needed, otherwise take the first one
-    return event.images[0].url;
+    // Sort by size if dimensions are available
+    const sortedImages = [...event.images].sort((a, b) => {
+      const aSize = (a.width || 0) * (a.height || 0);
+      const bSize = (b.width || 0) * (b.height || 0);
+      return bSize - aSize; // Sort by size (largest first)
+    });
+    return sortedImages[0].url;
   }
-  return undefined;
+
+  // 2. Check for images in entities (venues, performers, etc.)
+  if (event.entities && Array.isArray(event.entities)) {
+    for (const entity of event.entities) {
+      // Look for entity images
+      if (entity.entity && entity.entity.images && Array.isArray(entity.entity.images) && entity.entity.images.length > 0) {
+        return entity.entity.images[0].url;
+      }
+      // Look for entity image_url
+      if (entity.entity && entity.entity.image_url) {
+        return entity.entity.image_url;
+      }
+      // Look for logo_url in entity
+      if (entity.entity && entity.entity.logo_url) {
+        return entity.entity.logo_url;
+      }
+    }
+  }
+
+  // 3. Check for venue images
+  if (event.venue && event.venue.image) {
+    return event.venue.image;
+  }
+
+  // 4. Check for images in websites
+  if (event.websites && Array.isArray(event.websites)) {
+    const websiteWithLogo = event.websites.find((site: any) => site && site.logo_url);
+    if (websiteWithLogo && websiteWithLogo.logo_url) {
+      return websiteWithLogo.logo_url;
+    }
+  }
+
+  // 5. Use category-based placeholder
+  const categoryImages: Record<string, string> = {
+    'concerts': 'https://images.unsplash.com/photo-1501386761578-eac5c94b800a?w=800&auto=format&fit=crop',
+    'festivals': 'https://images.unsplash.com/photo-1533174072545-7a4b6ad7a6c3?w=800&auto=format&fit=crop',
+    'performing-arts': 'https://images.unsplash.com/photo-1507676184212-d03ab07a01bf?w=800&auto=format&fit=crop',
+    'sports': 'https://images.unsplash.com/photo-1471295253337-3ceaaedca402?w=800&auto=format&fit=crop',
+    'community': 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?w=800&auto=format&fit=crop',
+    'expos': 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=800&auto=format&fit=crop',
+    'conferences': 'https://images.unsplash.com/photo-1505373877841-8d25f7d46678?w=800&auto=format&fit=crop'
+  };
+
+  // Return category-specific image if available
+  if (event.category && categoryImages[event.category]) {
+    return categoryImages[event.category];
+  }
+
+  // Default placeholder
+  return 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=800&auto=format&fit=crop';
 }
 
 // Helper function to get event description, with fallback
@@ -493,15 +619,68 @@ function getEventDescription(event: any, location: string): string | undefined {
   return `Event on ${date} at ${location}`;
 }
 
-// Helper function to get event URL
+// Helper function to get event URL with comprehensive extraction logic
 function getEventUrl(event: any): string | undefined {
-  // PredictHQ provides a url field
+  // Create an array to store all potential URLs
+  const urls: string[] = [];
+  
+  // 1. Direct event URLs
   if (event.url && typeof event.url === 'string' && event.url.trim() !== '') {
-    return event.url.trim();
+    urls.push(event.url.trim());
   }
-  // Check for ticket_info url as a fallback
+  
+  // 2. Ticket info URLs
   if (event.ticket_info?.url && typeof event.ticket_info.url === 'string' && event.ticket_info.url.trim() !== '') {
-    return event.ticket_info.url.trim();
+    urls.push(event.ticket_info.url.trim());
   }
-  return undefined;
+  
+  // 3. Official event website from websites array
+  if (event.websites && Array.isArray(event.websites)) {
+    // Look for official or tickets websites
+    for (const site of event.websites) {
+      if (site && site.url && typeof site.url === 'string') {
+        // Check if it's a ticket webpage
+        const isTicketSite = site.type === 'tickets' || 
+                            site.name?.toLowerCase().includes('ticket') || 
+                            site.url.toLowerCase().includes('ticket');
+                            
+        if (isTicketSite) {
+          // Prioritize ticket websites by pushing to front
+          urls.unshift(site.url.trim());
+        } else {
+          urls.push(site.url.trim());
+        }
+      }
+    }
+  }
+  
+  // 4. Check for booking links in the entities
+  if (event.entities && Array.isArray(event.entities)) {
+    for (const entity of event.entities) {
+      if (entity.entity?.websites && Array.isArray(entity.entity.websites)) {
+        for (const site of entity.entity.websites) {
+          if (site && site.url && typeof site.url === 'string' && site.url.trim() !== '') {
+            urls.push(site.url.trim());
+          }
+        }
+      }
+    }
+  }
+  
+  // 5. Check for links in event.links
+  if (event.links && Array.isArray(event.links)) {
+    for (const link of event.links) {
+      if (link && link.url && typeof link.url === 'string' && link.url.trim() !== '') {
+        // Prioritize booking links
+        if (link.type === 'booking' || link.type === 'tickets') {
+          urls.unshift(link.url.trim());
+        } else {
+          urls.push(link.url.trim());
+        }
+      }
+    }
+  }
+  
+  // Return the first (highest priority) URL or undefined if none found
+  return urls.length > 0 ? urls[0] : undefined;
 }

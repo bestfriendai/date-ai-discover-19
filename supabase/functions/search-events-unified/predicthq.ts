@@ -148,6 +148,8 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<{ e
       };
     }
 
+    const startTime = Date.now();
+    
     // Parse the response
     const data = await response.json();
     console.log('[PREDICTHQ] API response:', {
@@ -156,9 +158,35 @@ export async function fetchPredictHQEvents(params: PredictHQParams): Promise<{ e
     });
 
     // Transform PredictHQ events to our format
-    const events = data.results?.map(normalizePredictHQEvent) || [];
+    const transformedEvents = data.results?.map(normalizePredictHQEvent) || [];
 
-    return { events, error: null };
+    console.log(`[PREDICTHQ] Transformed ${transformedEvents.length} events`);
+    
+    // Browser console log for tracking successful events
+    console.log('%c[PREDICTHQ] Successfully fetched events', 'color: #4CAF50; font-weight: bold', {
+      totalCount: data.count,
+      returnedCount: data.results?.length || 0,
+      transformedCount: transformedEvents.length,
+      eventsWithImages: transformedEvents.filter(e => e.image && e.image !== 'https://placehold.co/600x400?text=No+Image').length,
+      eventsWithUrls: transformedEvents.filter(e => e.url).length,
+      categories: transformedEvents.reduce((acc, event) => {
+        if (event.category) {
+          acc[event.category] = (acc[event.category] || 0) + 1;
+        }
+        return acc;
+      }, {})
+    });
+
+    console.log(`[PREDICTHQ] Returning ${transformedEvents.length} events`);
+    
+    // Summary console log for tracking
+    console.log('%c[PREDICTHQ] Summary', 'color: #2196F3; font-weight: bold', {
+      eventsCount: transformedEvents.length,
+      params: params,
+      executionTime: Date.now() - startTime
+    });
+    
+    return { events: transformedEvents, error: null };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error('[PREDICTHQ] Error fetching events:', errorMessage);

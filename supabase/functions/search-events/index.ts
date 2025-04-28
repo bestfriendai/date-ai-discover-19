@@ -3,6 +3,8 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { corsHeaders } from "../_shared/cors.ts";
 import { fetchTicketmasterEvents } from "./ticketmaster.ts";
 import { fetchPredictHQEvents } from "./predicthq-fixed.ts";
+import { searchSeatGeekEvents } from "./seatgeek.ts";
+import { searchRapidAPIEvents } from "./rapidapi.ts";
 import { Event, SearchParams } from "./types.ts";
 import { apiKeyManager } from "./apiKeyManager.ts";
 import { ApiKeyError, formatApiError } from "./errors.ts";
@@ -49,8 +51,17 @@ serve(async (req: Request) => {
   let ticketmasterError: string | null = null;
   let predicthqCount = 0;
   let predicthqError: string | null = null;
+  let seatgeekCount = 0;
+  let seatgeekError: string | null = null;
+  let rapidapiCount = 0;
+  let rapidapiError: string | null = null;
   let hasValidTicketmasterKey = false;
   let hasValidPredictHQKey = false;
+  let hasValidSeatgeekKey = false;
+  let hasValidRapidAPIKey = false;
+  
+  // Initialize browser console tracking
+  console.log('%c[EVENT TRACKING] Search-Events Function Started', 'color: #9C27B0; font-weight: bold; font-size: 14px');
 
   try {
     console.log('[SEARCH-EVENTS] Received request');
@@ -113,6 +124,21 @@ serve(async (req: Request) => {
     let params: SearchParams;
     try {
       params = validateAndParseSearchParams(requestBody);
+      
+      // Add detailed logging for location parameters
+      console.log('[SEARCH-EVENTS] Location parameters:', {
+        latitude: params.latitude,
+        longitude: params.longitude,
+        radius: params.radius,
+        location: params.location,
+        hasValidCoordinates: !!(params.latitude && params.longitude),
+        radiusInKm: params.radius ? Math.round(Number(params.radius) * 1.60934) : 'N/A'
+      });
+      
+      // Log a warning if no valid coordinates are found
+      if (!params.latitude && !params.longitude) {
+        console.warn('[SEARCH-EVENTS] No valid coordinates found, falling back to location name only');
+      }
     } catch (error) {
       if (error instanceof RequestValidationError) {
         return safeResponse({
@@ -130,6 +156,7 @@ serve(async (req: Request) => {
     // Get API keys
     let ticketmasterKey: string | undefined;
     let predicthqKey: string | undefined;
+    let seatgeekKey: string | undefined;
 
     try {
       console.log('[SEARCH-EVENTS] Attempting to get Ticketmaster API key');
@@ -146,6 +173,7 @@ serve(async (req: Request) => {
       // @ts-ignore: Deno is available at runtime
       for (const [key, value] of Object.entries(Deno.env.toObject())) {
         if (key.includes('KEY') || key.includes('TOKEN') || key.includes('SECRET')) {
+          // @ts-ignore: value is a string at runtime
           console.log(`  ${key}: ${value ? `${value.substring(0, 4)}...${value.substring(value.length - 4)}` : 'NOT SET'}`);
         } else {
           console.log(`  ${key}: ${value || 'NOT SET'}`);
@@ -164,60 +192,147 @@ serve(async (req: Request) => {
       console.warn('[SEARCH-EVENTS] PredictHQ API key error details:', error instanceof Error ? error.message : String(error));
     }
 
-    if (!hasValidTicketmasterKey && !hasValidPredictHQKey) {
-      return safeResponse({
-        error: 'No valid API keys available',
-        errorType: 'ApiKeyError',
-        details: 'Both Ticketmaster and PredictHQ API keys are invalid or missing',
-        events: [],
-        sourceStats: generateSourceStats(0, 'Invalid API key', 0, 'Invalid API key'),
-        meta: generateMetadata(startTime, 0, 0, apiKeyManager.getUsageStats('ticketmaster'), null)
-      }, 401);
+    try {
+      console.log('[SEARCH-EVENTS] Attempting to get SeatGeek API key');
+      seatgeekKey = apiKeyManager.getActiveKey('seatgeek');
+      hasValidSeatgeekKey = true;
+      console.log('[SEARCH-EVENTS] Successfully validated SeatGeek API key:',
+        seatgeekKey ? `${seatgeekKey.substring(0, 4)}...${seatgeekKey.substring(seatgeekKey.length - 4)}` : 'NOT SET');
+    } catch (error) {
+      console.warn('[SEARCH-EVENTS] SeatGeek API key error:', error);
+      console.warn('[SEARCH-EVENTS] SeatGeek API key error details:', error instanceof Error ? error.message : String(error));
+    }
+    
+    // Get RapidAPI key
+    let rapidapiKey: string | undefined;
+    try {
+      console.log('[SEARCH-EVENTS] Attempting to get RapidAPI key');
+      rapidapiKey = apiKeyManager.getActiveKey('rapidapi');
+      hasValidRapidAPIKey = true;
+      console.log('[SEARCH-EVENTS] Successfully validated RapidAPI key:',
+        rapidapiKey ? `${rapidapiKey.substring(0, 4)}...${rapidapiKey.substring(rapidapiKey.length - 4)}` : 'NOT SET');
+    } catch (error) {
+      console.warn('[SEARCH-EVENTS] RapidAPI key error:', error);
+      console.warn('[SEARCH-EVENTS] RapidAPI key error details:', error instanceof Error ? error.message : String(error));
     }
 
-    // Make parallel API calls with properly extracted parameters
-    const results = await Promise.allSettled([
-      hasValidTicketmasterKey
-        ? fetchTicketmasterEvents(extractTicketmasterParams(params, ticketmasterKey!))
-        : Promise.resolve({ events: [], error: 'API key not available' }),
+    // We only need RapidAPI key since other APIs are disabled
+    if (!hasValidRapidAPIKey) {
+      return safeResponse({
+        error: 'No valid RapidAPI key available',
+        errorType: 'ApiKeyError',
+        details: 'RapidAPI key is invalid or missing - this is the only API being used',
+        events: [],
+        sourceStats: generateSourceStats(0, 'API intentionally disabled', 0, 'API intentionally disabled', 0, 'API intentionally disabled', 0, 'Invalid API key'),
+        meta: generateMetadata(startTime, 0, 0, null, null, null, apiKeyManager.getUsageStats('rapidapi'))
+      }, 401);
+    }
+    
+    // Log info about disabled APIs
+    console.log('[SEARCH-EVENTS] Using only RapidAPI for event search. Other APIs are intentionally disabled.');
+    console.warn('[SEARCH-EVENTS] Ticketmaster API intentionally disabled per user request.');
+    console.warn('[SEARCH-EVENTS] PredictHQ API intentionally disabled per user request.');
+    console.warn('[SEARCH-EVENTS] SeatGeek API intentionally disabled per user request.');
+    console.log('[SEARCH-EVENTS] RapidAPI key is valid and will be used for searching events.')
 
-      hasValidPredictHQKey
-        ? fetchPredictHQEvents(extractPredictHQParams(params, predicthqKey!))
+    // Make API calls - only using RapidAPI as requested
+    const results = await Promise.allSettled([
+      // Disabled Ticketmaster API call - keeping the code reference
+      Promise.resolve({ events: [], error: 'API intentionally disabled' }),
+
+      // Disabled PredictHQ API call - keeping the code reference
+      Promise.resolve({ events: [], error: 'API intentionally disabled' }),
+        
+      // Disabled SeatGeek API call - keeping the code reference
+      Promise.resolve({ events: [], error: 'API intentionally disabled' }),
+      hasValidRapidAPIKey
+        ? (async () => {
+            try {
+              console.log('[SEARCH-EVENTS] Calling RapidAPI Events Search API with key:',
+                rapidapiKey ? `${rapidapiKey.substring(0, 4)}...${rapidapiKey.substring(rapidapiKey.length - 4)}` : 'NOT SET');
+              
+              // Add browser console log for tracking API call start
+              console.log('%c[EVENT TRACKING] RapidAPI API call started', 'color: #2196F3; font-weight: bold');
+              
+              const result = await searchRapidAPIEvents(params);
+              console.log('[SEARCH-EVENTS_DEBUG] RapidAPI result:', {
+                eventCount: result.length,
+                success: result.length > 0
+              });
+              
+              // Browser console log for tracking successful events
+              console.log('%c[EVENT TRACKING] RapidAPI events added', 'color: #4CAF50; font-weight: bold', {
+                count: result.length,
+                eventsWithImages: result.filter(e => e.image && e.image !== 'https://placehold.co/600x400?text=No+Image').length,
+                eventsWithUrls: result.filter(e => e.url).length,
+                source: 'RapidAPI'
+              });
+              
+              return {
+                events: result,
+                error: null,
+                status: 200
+              };
+            } catch (error) {
+              console.error('[SEARCH-EVENTS] Error calling RapidAPI Events Search API:', error);
+              // Browser console log for tracking errors
+              console.log('%c[EVENT TRACKING] RapidAPI API error', 'color: #F44336; font-weight: bold', {
+                error: error instanceof Error ? error.message : String(error),
+                source: 'RapidAPI'
+              });
+              return {
+                events: [],
+                error: `Error calling RapidAPI Events Search API: ${error instanceof Error ? error.message : String(error)}`,
+                status: 500
+              };
+            }
+          })()
         : Promise.resolve({ events: [], error: 'API key not available' })
     ]);
 
     const allEvents: Event[] = [];
 
-    // Process Ticketmaster results
-    if (results[0].status === 'fulfilled') {
-      const tmResult = results[0].value;
-      if (tmResult.error) {
-        ticketmasterError = tmResult.error;
-        logApiKeyUsage('ticketmaster', 'fetch_events', 'error', Date.now() - startTime, { error: tmResult.error });
-      } else {
-        ticketmasterCount = tmResult.events.length;
-        allEvents.push(...tmResult.events);
-        logApiKeyUsage('ticketmaster', 'fetch_events', 'success', Date.now() - startTime, { eventCount: ticketmasterCount });
-      }
-    } else {
-      ticketmasterError = results[0].reason?.message || 'API call failed';
-      logApiKeyUsage('ticketmaster', 'fetch_events', 'error', Date.now() - startTime, { error: ticketmasterError });
-    }
+    // Skip processing of disabled API results (Ticketmaster, PredictHQ, SeatGeek)
+    // We only keep the error messages for tracking purposes
+    ticketmasterError = 'API intentionally disabled';
+    predicthqError = 'API intentionally disabled';
+    seatgeekError = 'API intentionally disabled';
+    
+    // Log that these APIs are intentionally disabled
+    console.log('[SEARCH-EVENTS] Ticketmaster API disabled, skipping result processing');
+    console.log('[SEARCH-EVENTS] PredictHQ API disabled, skipping result processing');
+    console.log('[SEARCH-EVENTS] SeatGeek API disabled, skipping result processing');
 
-    // Process PredictHQ results
-    if (results[1].status === 'fulfilled') {
-      const phqResult = results[1].value;
-      if (phqResult.error) {
-        predicthqError = phqResult.error;
-        logApiKeyUsage('predicthq', 'fetch_events', 'error', Date.now() - startTime, { error: phqResult.error });
+    
+    // Process RapidAPI results
+    if (results[3].status === 'fulfilled') {
+      const rapidResult = results[3].value;
+      if (rapidResult.error) {
+        rapidapiError = rapidResult.error;
+        console.error('[SEARCH-EVENTS] RapidAPI error:', rapidResult.error);
+        // Browser console log for tracking errors
+        console.log('%c[EVENT TRACKING] RapidAPI error', 'color: #F44336; font-weight: bold', {
+          error: rapidResult.error,
+          source: 'RapidAPI'
+        });
+        logApiKeyUsage('rapidapi', 'fetch_events', 'error', Date.now() - startTime, { error: rapidResult.error });
       } else {
-        predicthqCount = phqResult.events.length;
-        allEvents.push(...phqResult.events);
-        logApiKeyUsage('predicthq', 'fetch_events', 'success', Date.now() - startTime, { eventCount: predicthqCount });
+        rapidapiCount = rapidResult.events.length;
+        allEvents.push(...rapidResult.events);
+        console.log(`[SEARCH-EVENTS] Successfully fetched ${rapidapiCount} events from RapidAPI`);
+        // Browser console log for tracking successful events
+        console.log('%c[EVENT TRACKING] RapidAPI events added', 'color: #4CAF50; font-weight: bold', {
+          count: rapidResult.events.length,
+          eventsWithImages: rapidResult.events.filter(e => e.image && e.image !== 'https://placehold.co/600x400?text=No+Image').length,
+          eventsWithUrls: rapidResult.events.filter(e => e.url).length,
+          source: 'RapidAPI'
+        });
+        logApiKeyUsage('rapidapi', 'fetch_events', 'success', Date.now() - startTime, { eventCount: rapidapiCount });
       }
     } else {
-      predicthqError = results[1].reason?.message || 'API call failed';
-      logApiKeyUsage('predicthq', 'fetch_events', 'error', Date.now() - startTime, { error: predicthqError });
+      rapidapiError = results[3].reason?.message || 'API call failed';
+      console.error('[SEARCH-EVENTS] RapidAPI call rejected:', rapidapiError);
+      logApiKeyUsage('rapidapi', 'fetch_events', 'error', Date.now() - startTime, { error: rapidapiError });
     }
 
     // Process events
@@ -257,19 +372,49 @@ serve(async (req: Request) => {
     const sortedEvents = sortEventsByDate(eventsWithCoords);
 
     // Generate response
-    const sourceStats = generateSourceStats(ticketmasterCount, ticketmasterError, predicthqCount, predicthqError);
+    const sourceStats = generateSourceStats(ticketmasterCount, ticketmasterError, predicthqCount, predicthqError, seatgeekCount, seatgeekError, rapidapiCount, rapidapiError);
     const meta = generateMetadata(
       startTime,
       allEvents.length,
       eventsWithCoords.length,
       apiKeyManager.getUsageStats('ticketmaster'),
-      hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null
+      hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null,
+      hasValidSeatgeekKey ? apiKeyManager.getUsageStats('seatgeek') : null,
+      hasValidRapidAPIKey ? apiKeyManager.getUsageStats('rapidapi') : null
     );
+
+    // Add comprehensive summary of API results - only RapidAPI is enabled
+    console.log('%c[EVENT TRACKING] SUMMARY', 'color: #9C27B0; font-weight: bold; font-size: 14px', {
+      totalEvents: sortedEvents.length,
+      ticketmaster: {
+        count: 0,
+        error: ticketmasterError,
+        percentage: '0%'
+      },
+      predicthq: {
+        count: 0,
+        error: predicthqError,
+        percentage: '0%'
+      },
+      seatgeek: {
+        count: 0,
+        error: seatgeekError,
+        percentage: '0%'
+      },
+      rapidapi: {
+        count: rapidapiCount,
+        error: rapidapiError,
+        percentage: '100%'
+      },
+      eventsWithCoordinates: eventsWithCoords.length,
+      executionTime: (Date.now() - startTime) + 'ms'
+    });
 
     return safeResponse({
       events: sortedEvents,
       sourceStats,
-      meta
+      meta,
+      apiUsed: "RapidAPI Events" // Indicate that only RapidAPI is being used
     }, 200);
 
   } catch (error) {
@@ -281,13 +426,14 @@ serve(async (req: Request) => {
       error: formattedError.error,
       errorType: formattedError.errorType,
       details: formattedError.details,
-      sourceStats: generateSourceStats(0, 'Function execution failed', 0, 'Function execution failed'),
+      sourceStats: generateSourceStats(0, 'Function execution failed', 0, 'Function execution failed', 0, 'Function execution failed'),
       meta: generateMetadata(
         startTime,
         0,
         0,
         apiKeyManager.getUsageStats('ticketmaster'),
-        hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null
+        hasValidPredictHQKey ? apiKeyManager.getUsageStats('predicthq') : null,
+        hasValidSeatgeekKey ? apiKeyManager.getUsageStats('seatgeek') : null
       )
     }, error instanceof ApiKeyError ? 401 : 500);
   }

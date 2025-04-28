@@ -33,7 +33,7 @@ export async function searchEvents(params: SearchParams): Promise<{
       location: params.location || 'New York', // Default location if none provided
       latitude: params.latitude,
       longitude: params.longitude,
-      radius: params.radius || 50,
+      radius: params.radius || 30, // Default to 30 miles radius
       categories: params.categories || [],
       keyword: params.keyword || '',
       limit: params.limit || 100

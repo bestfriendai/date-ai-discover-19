@@ -145,10 +145,21 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       size: data.page?.size || 0,
       hasEvents: !!data._embedded?.events
     });
+    
+    // Browser console log for tracking
+    console.log('%c[TICKETMASTER] Response summary', 'color: #2196F3; font-weight: bold', {
+      totalEvents: data.page?.totalElements || 0,
+      returnedEvents: data._embedded?.events?.length || 0,
+      hasEvents: !!data._embedded?.events
+    });
 
     // Check if events were returned
     if (!data._embedded?.events) {
       console.log('[TICKETMASTER] No events found');
+      console.log('%c[TICKETMASTER] No events found', 'color: #FFC107; font-weight: bold', {
+        reason: 'No events in API response',
+        requestParams: params
+      });
       return {
         events: [],
         error: null,
@@ -223,6 +234,14 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     });
 
     console.log('[TICKETMASTER] Transformed events:', events.length);
+    
+    // Browser console log for tracking
+    console.log('%c[TICKETMASTER] Successfully fetched events', 'color: #4CAF50; font-weight: bold', {
+      rawEventCount: events.length,
+      transformedEventCount: events.length,
+      eventsWithImages: events.filter(e => e.image && e.image !== 'https://placehold.co/600x400?text=No+Image').length,
+      eventsWithUrls: events.filter(e => e.url).length
+    });
 
     return {
       events,

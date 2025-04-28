@@ -4,6 +4,7 @@
  */
 
 import { Event, TicketmasterParams } from './types.ts';
+import { formatTicketmasterDate } from './utils.ts';
 
 interface TicketmasterResponse {
   events: Event[];
@@ -29,12 +30,25 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
   }
 
   if (!params.apiKey) {
-    console.error('[TICKETMASTER] Missing API key');
+    console.error('[TICKETMASTER] Missing API key - TICKETMASTER_KEY environment variable is not set or is empty');
     return {
       events: [],
-      error: 'Missing API key',
+      error: 'Ticketmaster API key is missing. Please add a valid TICKETMASTER_KEY to your environment variables.',
       status: 401,
-      warnings: ['Missing API key']
+      warnings: ['Missing API key - TICKETMASTER_KEY environment variable is not set or is empty']
+    };
+  }
+  
+  // Check if the API key is a placeholder or example key
+  if (params.apiKey === 'your_ticketmaster_key_here' ||
+      params.apiKey.includes('example') ||
+      params.apiKey.includes('placeholder')) {
+    console.error('[TICKETMASTER] Invalid API key - using placeholder or example key');
+    return {
+      events: [],
+      error: 'Ticketmaster API key is invalid. Please replace the placeholder with a valid API key.',
+      status: 401,
+      warnings: ['Invalid API key - using placeholder or example key']
     };
   }
 
@@ -91,56 +105,42 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
 
     // Add date range parameters (using underscore naming as per v2 docs)
     if (startDate) {
-      // Create a new date object to ensure proper formatting
-      let dateObj;
-      try {
-        // Try to parse the date string
-        dateObj = new Date(startDate);
-        if (isNaN(dateObj.getTime())) {
-          throw new Error('Invalid date');
-        }
-
-        // Set time to start of day for consistency
-        dateObj.setHours(0, 0, 0, 0);
-      } catch (e) {
-        console.error(`[TICKETMASTER] Invalid startDate: ${startDate}`, e);
-        // Use current date as fallback
-        dateObj = new Date();
-        dateObj.setHours(0, 0, 0, 0);
+      // Format the date using the improved formatTicketmasterDate function
+      const formattedStartDate = formatTicketmasterDate(startDate, false);
+      
+      if (formattedStartDate) {
+        queryParams.append('startDateTime', formattedStartDate);
+        console.log(`[TICKETMASTER] Using startDateTime: ${formattedStartDate}`);
+      } else {
+        // Use current date as fallback if formatting fails
+        const now = new Date();
+        now.setUTCHours(0, 0, 0, 0); // Set to beginning of day in UTC
+        const fallbackDate = now.toISOString().replace(/\.\d{3}Z$/, 'Z'); // Remove milliseconds
+        
+        queryParams.append('startDateTime', fallbackDate);
+        console.log(`[TICKETMASTER] Using fallback startDateTime: ${fallbackDate}`);
       }
-
-      // Format to exact Ticketmaster format: YYYY-MM-DDTHH:mm:ssZ
-      const formattedStartDate = dateObj.toISOString();
-
-      queryParams.append('startDateTime', formattedStartDate);
-      console.log(`[TICKETMASTER] Using startDateTime: ${formattedStartDate}`);
     }
 
     if (endDate) {
-      // Create a new date object to ensure proper formatting
-      let dateObj;
-      try {
-        // Try to parse the date string
-        dateObj = new Date(endDate);
-        if (isNaN(dateObj.getTime())) {
-          throw new Error('Invalid date');
-        }
-
-        // For end date, set time to end of day
-        dateObj.setHours(23, 59, 59, 999);
-      } catch (e) {
-        console.error(`[TICKETMASTER] Invalid endDate: ${endDate}`, e);
+      // Format the date using the improved formatTicketmasterDate function
+      const formattedEndDate = formatTicketmasterDate(endDate, true);
+      
+      if (formattedEndDate) {
+        queryParams.append('endDateTime', formattedEndDate);
+        console.log(`[TICKETMASTER] Using endDateTime: ${formattedEndDate}`);
+      } else {
         // Use 7 days from now as fallback
-        dateObj = new Date();
-        dateObj.setDate(dateObj.getDate() + 7);
-        dateObj.setHours(23, 59, 59, 999);
+        const future = new Date();
+        future.setDate(future.getDate() + 7);
+        future.setUTCHours(23, 59, 59, 0);
+        
+        // Format to required Ticketmaster format without milliseconds
+        const fallbackDate = future.toISOString().replace(/\.\d{3}Z$/, 'Z');
+        
+        queryParams.append('endDateTime', fallbackDate);
+        console.log(`[TICKETMASTER] Using fallback endDateTime: ${fallbackDate}`);
       }
-
-      // Format to exact Ticketmaster format: YYYY-MM-DDTHH:mm:ssZ
-      const formattedEndDate = dateObj.toISOString();
-
-      queryParams.append('endDateTime', formattedEndDate);
-      console.log(`[TICKETMASTER] Using endDateTime: ${formattedEndDate}`);
     }
 
     // Add debug logging for date parameters
@@ -156,15 +156,26 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       queryParams.append('keyword', keyword);
     }
 
-    // Add segment parameter (music, sports, arts, etc.) (using underscore naming as per v2 docs)
+    // Add segment parameter (music, sports, arts, etc.)
     if (segmentName) {
       queryParams.append('segmentName', segmentName);
     }
 
-    // Add classification parameter (specific type of event) (using underscore naming as per v2 docs)
+    // Add classification parameter (specific type of event)
     if (classificationName) {
       queryParams.append('classificationName', classificationName);
+      console.log(`[TICKETMASTER_DEBUG] Using classificationName: ${classificationName}`);
     }
+    
+    // Log all query parameters for debugging
+    console.log('[TICKETMASTER_DEBUG] All query parameters:');
+    queryParams.forEach((value, key) => {
+      if (key === 'apikey') {
+        console.log(`  ${key}: ${value.substring(0, 4)}...${value.substring(value.length - 4)}`);
+      } else {
+        console.log(`  ${key}: ${value}`);
+      }
+    });
 
     // Add size parameter (max 200 per Ticketmaster docs)
     queryParams.append('size', Math.min(size, 200).toString());
@@ -196,12 +207,28 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     // Make the API request with proper error handling
     let response: Response;
     try {
+      // Verify API key is present before making request
+      if (!apiKey || apiKey === 'undefined' || apiKey === 'null') {
+        console.error(`[TICKETMASTER] Invalid API key detected at fetch time: ${apiKey}`);
+        return {
+          events: [],
+          error: 'Ticketmaster API key is missing or invalid. Please check your environment variables.',
+          status: 401,
+          warnings: ['Missing or invalid API key']
+        };
+      }
+      
+      console.log('[TICKETMASTER_DEBUG] Starting API request to:', url);
+      console.log('[TICKETMASTER] Sanitized URL:', url.replace(/(apikey=)([^&]+)/, '$1[REDACTED]'));
+      
       // Create a controller for the timeout
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
+        console.log('[TICKETMASTER_DEBUG] Request timed out after 15 seconds');
         controller.abort('Ticketmaster API call timed out after 15 seconds');
       }, 15000);
 
+      const requestStartTime = Date.now();
       response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -209,10 +236,12 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
         },
         signal: controller.signal
       });
+      const requestDuration = Date.now() - requestStartTime;
+      console.log(`[TICKETMASTER_DEBUG] Request completed in ${requestDuration}ms`);
 
       clearTimeout(timeoutId);
 
-      console.log('[TICKETMASTER] API response status:', response.status);
+      console.log('[TICKETMASTER] API response status:', response.status, response.statusText);
 
       // Log response headers for debugging
       const headers: Record<string, string> = {};
@@ -239,11 +268,42 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
     if (!response.ok) {
       const errorText = await response.text();
       console.error('[TICKETMASTER] API error:', response.status, errorText);
+      
+      // Try to parse the error response as JSON for more details
+      let errorDetails = errorText;
+      let errorMessages: string[] = [];
+      
+      try {
+        const errorJson = JSON.parse(errorText);
+        
+        // Handle different error formats from Ticketmaster API
+        if (errorJson.fault) {
+          errorDetails = `${errorJson.fault.faultstring || 'Unknown error'} (${errorJson.fault.detail?.errorcode || 'No code'})`;
+          errorMessages.push(errorJson.fault.faultstring || 'Unknown error');
+        } else if (errorJson.errors && Array.isArray(errorJson.errors)) {
+          // Extract error messages from the errors array
+          errorMessages = errorJson.errors.map((err: any) =>
+            `${err.code || 'Error'}: ${err.detail || 'Unknown error'}`
+          );
+          errorDetails = errorMessages.join('; ');
+        }
+        
+        // Log detailed error information
+        console.error('[TICKETMASTER] Parsed API error:', {
+          status: response.status,
+          errorJson,
+          errorMessages
+        });
+      } catch (e) {
+        // If not JSON, use the raw text
+        console.error('[TICKETMASTER] Failed to parse error response as JSON:', e);
+      }
+      
       return {
         events: [],
-        error: `Ticketmaster API error: ${response.status} ${errorText}`,
+        error: `Ticketmaster API error: ${response.status} - ${errorDetails}`,
         status: response.status,
-        warnings: [`API returned status ${response.status}`]
+        warnings: errorMessages.length > 0 ? errorMessages : [`API returned status ${response.status}`]
       };
     }
 
@@ -257,6 +317,22 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       number: data.page?.number || 0,
       hasEvents: !!data._embedded?.events
     });
+    
+    // Log detailed response information for debugging
+    console.log('[TICKETMASTER_DEBUG] Response details:');
+    console.log('  Status:', response.status);
+    console.log('  Status Text:', response.statusText);
+    console.log('  Has events:', !!data._embedded?.events);
+    console.log('  Event count:', data._embedded?.events?.length || 0);
+    
+    if (data._embedded?.events && data._embedded.events.length > 0) {
+      console.log('[TICKETMASTER_DEBUG] First event sample:');
+      const firstEvent = data._embedded.events[0];
+      console.log('  Name:', firstEvent.name);
+      console.log('  ID:', firstEvent.id);
+      console.log('  Date:', firstEvent.dates?.start?.localDate);
+      console.log('  Venue:', firstEvent._embedded?.venues?.[0]?.name);
+    }
 
     // Check if events were returned
     if (!data._embedded?.events) {
@@ -302,9 +378,22 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
 
       // Extract price information
       let price: string | undefined = undefined;
+      let ticketInfo: any = undefined;
+      
       if (event.priceRanges && event.priceRanges.length > 0) {
         const priceRange = event.priceRanges[0];
         price = `${priceRange.min} - ${priceRange.max} ${priceRange.currency}`;
+        
+        // Create enhanced ticket info
+        ticketInfo = {
+          price: `${priceRange.min} - ${priceRange.max} ${priceRange.currency}`,
+          minPrice: priceRange.min,
+          maxPrice: priceRange.max,
+          currency: priceRange.currency,
+          availability: event.dates?.status?.code || 'unknown',
+          purchaseUrl: event.url,
+          provider: 'Ticketmaster'
+        };
       }
 
       // Extract category information
@@ -314,10 +403,22 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
       const image = event.images && event.images.length > 0
         ? event.images.find((img: any) => img.ratio === '16_9' && img.width > 500)?.url || event.images[0].url
         : '';
+        
+      // Extract additional images
+      const additionalImages = event.images && event.images.length > 1
+        ? event.images.filter((img: any) => img.url !== image).map((img: any) => img.url)
+        : undefined;
 
       // Extract date and time
       const date = event.dates?.start?.localDate || '';
       const time = event.dates?.start?.localTime || '';
+      
+      // Extract websites
+      const websites = {
+        official: event.url,
+        tickets: event.url,
+        venue: venue?.url
+      };
 
       return {
         id: `ticketmaster-${event.id}`,
@@ -330,9 +431,13 @@ export async function fetchTicketmasterEvents(params: TicketmasterParams): Promi
         venue: venueName,
         category,
         image,
+        imageAlt: `${event.name} at ${venueName}`,
+        additionalImages,
         coordinates,
         url: event.url,
-        price
+        price,
+        ticketInfo,
+        websites
       };
     });
 

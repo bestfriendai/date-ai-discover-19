@@ -8,7 +8,7 @@ interface UsePartyAIHandlersProps {
   mapCenter: { latitude: number; longitude: number } | null;
   setMapHasMoved: (moved: boolean) => void;
   fetchEvents: (
-    filters: EventFilters, 
+    filters: EventFilters,
     coords: { latitude: number; longitude: number },
     radius?: number
   ) => void;
@@ -24,7 +24,7 @@ export function usePartyAIHandlers({
   // Handler for advanced search
   const handleAdvancedSearch = useCallback((searchParams: any) => {
     console.log('[PartyAI] Advanced search with params:', searchParams);
-    
+
     if (!mapCenter) {
       toast({
         title: "Location required",
@@ -34,8 +34,8 @@ export function usePartyAIHandlers({
       return;
     }
 
-    // Enforce radius limits (10-30km)
-    const radius = Math.min(Math.max(searchParams.distance || 20, 10), 30);
+    // Use a 30-mile radius for party searches
+    const radius = 30;
 
     const paramsWithPartyCategory = {
       ...searchParams,
@@ -43,7 +43,7 @@ export function usePartyAIHandlers({
       keyword: searchParams.keyword
         ? `${searchParams.keyword} party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music`
         : 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
-      limit: 500,
+      limit: 100, // Show the next 100 events
       latitude: mapCenter.latitude,
       longitude: mapCenter.longitude,
       radius
@@ -64,7 +64,7 @@ export function usePartyAIHandlers({
   // Handler for "Search This Area" button
   const handleSearchThisArea = useCallback(() => {
     console.log('[PartyAI] Search this area clicked');
-    
+
     if (!mapCenter) {
       toast({
         title: "Location required",
@@ -74,14 +74,14 @@ export function usePartyAIHandlers({
       return;
     }
 
-    // Use a reasonable radius for area search (20km default)
-    const radius = Math.min(Math.max(filters.distance || 20, 10), 30);
+    // Use a 30-mile radius for party area searches
+    const radius = 30;
 
     const filtersWithPartyCategory = {
       ...filters,
       categories: ['party'],
       keyword: 'party OR club OR social OR celebration OR dance OR dj OR nightlife OR festival OR concert OR music OR lounge OR bar OR venue OR mixer OR gathering OR gala OR reception OR meetup OR "happy hour" OR cocktail OR rave OR "live music"',
-      limit: 500,
+      limit: 100, // Show the next 100 events
       latitude: mapCenter.latitude,
       longitude: mapCenter.longitude,
       radius

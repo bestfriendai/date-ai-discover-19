@@ -9,23 +9,13 @@ async function testSearchEventsDetails() {
 
     // Test parameters - specifically for party events
     const today = new Date().toISOString().split('T')[0]; // Get today's date in YYYY-MM-DD format
-    
-    // Create a date 30 days in the future for endDate
-    const futureDate = new Date();
-    futureDate.setDate(futureDate.getDate() + 30);
-    const endDate = futureDate.toISOString().split('T')[0];
-    
-    // Los Angeles coordinates
     const params = {
       location: "Los Angeles",
-      latitude: 34.0522,
-      longitude: -118.2437,
       radius: 25,
       categories: ['party'],
       limit: 5,
       page: 1,
-      startDate: today,
-      endDate: endDate
+      startDate: today
     };
 
     console.log(`Testing function at: ${url}`);

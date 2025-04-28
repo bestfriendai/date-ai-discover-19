@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RapidAPI Events Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1 {
+            color: #333;
+        }
+        .controls {
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border-radius: 5px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 10px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #results {
+            margin-top: 20px;
+        }
+        .event-card {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 15px;
+            display: flex;
+            gap: 20px;
+        }
+        .event-image {
+            width: 200px;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 5px;
+        }
+        .event-details {
+            flex: 1;
+        }
+        .event-title {
+            font-size: 18px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        .event-date, .event-location, .event-category {
+            margin-bottom: 5px;
+            color: #555;
+        }
+        .event-links {
+            margin-top: 10px;
+        }
+        .event-links a {
+            display: inline-block;
+            margin-right: 10px;
+            color: #2196F3;
+            text-decoration: none;
+        }
+        .event-links a:hover {
+            text-decoration: underline;
+        }
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-size: 18px;
+            color: #666;
+        }
+        .error {
+            color: #f44336;
+            padding: 10px;
+            background-color: #ffebee;
+            border-radius: 4px;
+            margin-bottom: 15px;
+        }
+    </style>
+</head>
+<body>
+    <h1>RapidAPI Events Test</h1>
+    
+    <div class="controls">
+        <h2>Test RapidAPI Integration</h2>
+        <p>Click the button below to test the RapidAPI integration directly:</p>
+        <button id="testDirectButton">Test RapidAPI Directly</button>
+        <p>Or test the integration through the Supabase function:</p>
+        <button id="testFunctionButton">Test via Supabase Function</button>
+    </div>
+    
+    <div id="results">
+        <p>Results will appear here...</p>
+    </div>
+
+    <script>
+        // Configuration
+        const config = {
+            rapidApiKey: '92bc1b4fc7mshacea9f118bf7a3fp1b5a6cjsnd2287a72fcb9',
+            supabaseUrl: 'https://akwvmljopucsnorvdwuu.supabase.co/functions/v1/search-events',
+            supabaseAnonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk'
+        };
+
+        // Test RapidAPI directly
+        document.getElementById('testDirectButton').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Loading events from RapidAPI...</div>';
+            
+            try {
+                // Build the query URL
+                const queryParams = new URLSearchParams();
+                queryParams.append('query', 'events in New York');
+                queryParams.append('date', 'week');
+                queryParams.append('is_virtual', 'false');
+                queryParams.append('start', '0');
+                
+                const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+                
+                const response = await fetch(url, {
+                    method: 'GET',
+                    headers: {
+                        'x-rapidapi-key': config.rapidApiKey,
+                        'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`RapidAPI request failed with status: ${response.status}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.data || !Array.isArray(data.data)) {
+                    throw new Error('Invalid response format from RapidAPI');
+                }
+                
+                // Display the results
+                displayEvents(data.data, 'direct');
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                console.error('Error testing RapidAPI directly:', error);
+            }
+        });
+
+        // Test via Supabase function
+        document.getElementById('testFunctionButton').addEventListener('click', async () => {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<div class="loading">Loading events from Supabase function...</div>';
+            
+            try {
+                // Get today's date in YYYY-MM-DD format
+                const today = new Date().toISOString().split('T')[0];
+                
+                // Test parameters
+                const params = {
+                    location: "New York",
+                    radius: 25,
+                    categories: ['party', 'music'],
+                    limit: 20,
+                    page: 1,
+                    startDate: today
+                };
+                
+                const response = await fetch(config.supabaseUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${config.supabaseAnonKey}`
+                    },
+                    body: JSON.stringify(params)
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(`Supabase function error: ${response.status} - ${errorText}`);
+                }
+                
+                const data = await response.json();
+                
+                // Filter for RapidAPI events
+                const rapidApiEvents = data.events?.filter(event => event.source === 'rapidapi') || [];
+                
+                if (rapidApiEvents.length === 0) {
+                    resultsDiv.innerHTML = `
+                        <div class="error">
+                            <h3>No RapidAPI events found</h3>
+                            <p>Check if:</p>
+                            <ol>
+                                <li>The RapidAPI key is correctly configured in the Supabase function</li>
+                                <li>The RapidAPI service is enabled in the search-events function</li>
+                                <li>There are any errors in the source stats related to RapidAPI</li>
+                            </ol>
+                            <p>Source stats: ${JSON.stringify(data.sourceStats)}</p>
+                        </div>
+                    `;
+                    return;
+                }
+                
+                // Display the results
+                displayEvents(rapidApiEvents, 'function');
+                
+            } catch (error) {
+                resultsDiv.innerHTML = `<div class="error">Error: ${error.message}</div>`;
+                console.error('Error testing via Supabase function:', error);
+            }
+        });
+
+        // Display events in the results div
+        function displayEvents(events, source) {
+            const resultsDiv = document.getElementById('results');
+            
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+            
+            // Add header
+            resultsDiv.innerHTML += `<h2>Found ${events.length} events from ${source === 'direct' ? 'RapidAPI directly' : 'Supabase function'}</h2>`;
+            
+            // Display each event
+            events.forEach(event => {
+                if (source === 'direct') {
+                    // Format for direct API response
+                    const eventHtml = `
+                        <div class="event-card">
+                            <img src="${event.thumbnail || 'https://placehold.co/600x400?text=No+Image'}" alt="${event.name}" class="event-image">
+                            <div class="event-details">
+                                <div class="event-title">${event.name}</div>
+                                <div class="event-date">${event.date_human_readable || 'Date unavailable'}</div>
+                                <div class="event-location">${event.venue?.full_address || 'Location unavailable'}</div>
+                                <div class="event-category">${event.venue?.subtype || 'Category unavailable'}</div>
+                                <div class="event-links">
+                                    ${event.ticket_links && event.ticket_links.length > 0 ? 
+                                        `<a href="${event.ticket_links[0].link}" target="_blank">Buy Tickets</a>` : ''}
+                                    <a href="${event.link}" target="_blank">Event Details</a>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    resultsDiv.innerHTML += eventHtml;
+                } else {
+                    // Format for Supabase function response
+                    const eventHtml = `
+                        <div class="event-card">
+                            <img src="${event.image || 'https://placehold.co/600x400?text=No+Image'}" alt="${event.imageAlt || event.title}" class="event-image">
+                            <div class="event-details">
+                                <div class="event-title">${event.title}</div>
+                                <div class="event-date">${event.date} at ${event.time}</div>
+                                <div class="event-location">${event.location || 'Location unavailable'}</div>
+                                <div class="event-category">${event.category || 'Category unavailable'}</div>
+                                <div class="event-links">
+                                    ${event.ticketInfo?.purchaseUrl ? 
+                                        `<a href="${event.ticketInfo.purchaseUrl}" target="_blank">Buy Tickets</a>` : ''}
+                                    ${event.url ? 
+                                        `<a href="${event.url}" target="_blank">Event Details</a>` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    resultsDiv.innerHTML += eventHtml;
+                }
+            });
+        }
+    </script>
+</body>
+</html>

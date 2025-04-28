@@ -1,0 +1,43 @@
+{
+  "timestamp": "2025-04-28T01:46:51.308Z",
+  "summary": {
+    "predicthq": {
+      "totalEvents": 45,
+      "eventsWithImages": 45,
+      "imagePercentage": 100,
+      "eventsWithBuyLinks": 0,
+      "buyLinkPercentage": 0,
+      "imageSourceStats": {
+        "fallback": 45
+      },
+      "buyLinkSourceStats": {},
+      "errors": []
+    },
+    "ticketmaster": {
+      "totalEvents": 0,
+      "eventsWithImages": 0,
+      "imagePercentage": 0,
+      "eventsWithBuyLinks": 0,
+      "buyLinkPercentage": 0,
+      "dateFormatErrors": 3,
+      "apiKeyErrors": 0,
+      "errors": [
+        "Date format error with 2025-05-01: Ticketmaster API error: 400 {\"errors\":[{\"code\":\"DIS1015\",\"detail\":\"Query param with date must be of valid format YYYY-MM-DDTHH:mm:ssZ {example: 2020-08-01T14:00:00Z }\",\"status\":\"400\",\"_links\":{\"self\":{\"href\":\"/discovery/v2/errors.html#DIS1015\"}}},{\"code\":\"DIS1015\",\"detail\":\"Query param with date must be of valid format YYYY-MM-DDTHH:mm:ssZ {example: 2020-08-01T14:00:00Z }\",\"status\":\"400\",\"_links\":{\"self\":{\"href\":\"/discovery/v2/errors.html#DIS1015\"}}}]}",
+        "Date format error with 2025-05-01T12:30:00: Ticketmaster API error: 400 {\"errors\":[{\"code\":\"DIS1015\",\"detail\":\"Query param with date must be of valid format YYYY-MM-DDTHH:mm:ssZ {example: 2020-08-01T14:00:00Z }\",\"status\":\"400\",\"_links\":{\"self\":{\"href\":\"/discovery/v2/errors.html#DIS1015\"}}},{\"code\":\"DIS1015\",\"detail\":\"Query param with date must be of valid format YYYY-MM-DDTHH:mm:ssZ {example: 2020-08-01T14:00:00Z }\",\"status\":\"400\",\"_links\":{\"self\":{\"href\":\"/discovery/v2/errors.html#DIS1015\"}}}]}",
+        "Date format error with 2025-04-28: Ticketmaster API error: 400 {\"errors\":[{\"code\":\"DIS1015\",\"detail\":\"Query param with date must be of valid format YYYY-MM-DDTHH:mm:ssZ {example: 2020-08-01T14:00:00Z }\",\"status\":\"400\",\"_links\":{\"self\":{\"href\":\"/discovery/v2/errors.html#DIS1015\"}}},{\"code\":\"DIS1015\",\"detail\":\"Query param with date must be of valid format YYYY-MM-DDTHH:mm:ssZ {example: 2020-08-01T14:00:00Z }\",\"status\":\"400\",\"_links\":{\"self\":{\"href\":\"/discovery/v2/errors.html#DIS1015\"}}}]}"
+      ]
+    }
+  },
+  "conclusion": {
+    "predicthqImageExtractionWorking": true,
+    "predicthqBuyLinksWorking": false,
+    "ticketmasterIntegrationWorking": false,
+    "ticketmasterDateFormattingWorking": false,
+    "overallStatus": "FAIL"
+  },
+  "recommendations": [
+    "PredictHQ buy links extraction needs further improvement. Check the ticket info and website extraction logic in predicthq-fixed.ts.",
+    "Ticketmaster integration is not working. Check API key configuration and date formatting in ticketmaster.ts.",
+    "Ticketmaster date formatting still has issues. Review the date formatting logic in ticketmaster.ts."
+  ]
+}

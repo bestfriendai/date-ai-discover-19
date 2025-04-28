@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 import { fetchTicketmasterEvents } from "./ticketmaster.ts"
 import { fetchPredictHQEvents } from "./predicthq.ts"
+import { fetchSeatGeekEvents } from "./seatgeek.ts"
 import { Event, SearchParams } from "./types.ts"
 
 // CORS headers for all responses
@@ -48,12 +49,15 @@ serve(async (req: Request) => {
     // @ts-ignore: Deno is available at runtime
     let TICKETMASTER_KEY;
     let PREDICTHQ_API_KEY;
+    let SEATGEEK_CLIENT_ID;
 
     try {
       // @ts-ignore: Deno is available at runtime
       TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY');
       // @ts-ignore: Deno is available at runtime
       PREDICTHQ_API_KEY = Deno.env.get('PREDICTHQ_API_KEY');
+      // @ts-ignore: Deno is available at runtime
+      SEATGEEK_CLIENT_ID = Deno.env.get('SEATGEEK_CLIENT_ID');
     } catch (error) {
       console.warn('[SEARCH-EVENTS] Error accessing environment variables:', error);
     }
@@ -61,10 +65,12 @@ serve(async (req: Request) => {
     // Use fallback keys if environment variables are not available
     TICKETMASTER_KEY = TICKETMASTER_KEY || 'DpUgXkAg7KMNGmB9GsUjt5hIeUCJ7X5f';
     PREDICTHQ_API_KEY = PREDICTHQ_API_KEY || 'Pbax0yFsCfXX8OfpC_-wnk3aqPP_JKb2rROBuE5s';
+    // For SeatGeek, we won't provide a fallback key as it requires user registration
 
     console.log('[SEARCH-EVENTS] Using API keys:', {
       TICKETMASTER_KEY: TICKETMASTER_KEY ? `${TICKETMASTER_KEY.substring(0, 4)}...` : 'NOT SET',
-      PREDICTHQ_API_KEY: PREDICTHQ_API_KEY ? `${PREDICTHQ_API_KEY.substring(0, 4)}...` : 'NOT SET'
+      PREDICTHQ_API_KEY: PREDICTHQ_API_KEY ? `${PREDICTHQ_API_KEY.substring(0, 4)}...` : 'NOT SET',
+      SEATGEEK_CLIENT_ID: SEATGEEK_CLIENT_ID ? `${SEATGEEK_CLIENT_ID.substring(0, 4)}...` : 'NOT SET'
     });
 
     // Parse request parameters with error handling
@@ -160,6 +166,8 @@ serve(async (req: Request) => {
     let ticketmasterError: string | null = null;
     let predicthqCount = 0;
     let predicthqError: string | null = null;
+    let seatgeekCount = 0;
+    let seatgeekError: string | null = null;
 
     // Ensure radius is a number
     const radiusNumber = typeof params.radius === 'string' ? parseInt(params.radius, 10) : params.radius || 30;
@@ -167,6 +175,9 @@ serve(async (req: Request) => {
     // Fetch events from Ticketmaster
     try {
       console.log('[SEARCH-EVENTS] Fetching Ticketmaster events...');
+      // Add browser console log for tracking API call start
+      console.log('%c[EVENT TRACKING] Ticketmaster API call started', 'color: #2196F3; font-weight: bold');
+      
       const ticketmasterResponse = await fetchTicketmasterEvents({
         apiKey: TICKETMASTER_KEY,
         latitude: params.latitude,
@@ -187,10 +198,20 @@ serve(async (req: Request) => {
       if (ticketmasterResponse.error) {
         ticketmasterError = ticketmasterResponse.error;
         console.error('[SEARCH-EVENTS] Ticketmaster API error:', ticketmasterError);
+        // Browser console log for tracking errors
+        console.log('%c[EVENT TRACKING] Ticketmaster API error', 'color: #F44336; font-weight: bold', {
+          error: ticketmasterError,
+          source: 'Ticketmaster'
+        });
       } else {
         ticketmasterCount = ticketmasterResponse.events.length;
         allEvents.push(...ticketmasterResponse.events);
         console.log(`[SEARCH-EVENTS] Added ${ticketmasterCount} Ticketmaster events`);
+        // Browser console log for tracking successful events
+        console.log('%c[EVENT TRACKING] Ticketmaster events added', 'color: #4CAF50; font-weight: bold', {
+          count: ticketmasterCount,
+          source: 'Ticketmaster'
+        });
       }
     } catch (error) {
       ticketmasterError = `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
@@ -200,6 +221,9 @@ serve(async (req: Request) => {
     // Fetch events from PredictHQ
     try {
       console.log('[SEARCH-EVENTS] Fetching PredictHQ events...');
+      // Add browser console log for tracking API call start
+      console.log('%c[EVENT TRACKING] PredictHQ API call started', 'color: #2196F3; font-weight: bold');
+      
       const predicthqResponse = await fetchPredictHQEvents({
         apiKey: PREDICTHQ_API_KEY,
         latitude: params.latitude,
@@ -216,18 +240,73 @@ serve(async (req: Request) => {
       if (predicthqResponse.error) {
         predicthqError = predicthqResponse.error;
         console.error('[SEARCH-EVENTS] PredictHQ API error:', predicthqError);
+        // Browser console log for tracking errors
+        console.log('%c[EVENT TRACKING] PredictHQ API error', 'color: #F44336; font-weight: bold', {
+          error: predicthqError,
+          source: 'PredictHQ'
+        });
       } else {
         predicthqCount = predicthqResponse.events.length;
         allEvents.push(...predicthqResponse.events);
         console.log(`[SEARCH-EVENTS] Added ${predicthqCount} PredictHQ events`);
+        // Browser console log for tracking successful events
+        console.log('%c[EVENT TRACKING] PredictHQ events added', 'color: #4CAF50; font-weight: bold', {
+          count: predicthqCount,
+          source: 'PredictHQ'
+        });
       }
     } catch (error) {
       predicthqError = `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
       console.error('[SEARCH-EVENTS] Error fetching PredictHQ events:', error);
     }
+    
+    // Fetch events from SeatGeek if API key is available
+    if (SEATGEEK_CLIENT_ID) {
+      try {
+        console.log('[SEARCH-EVENTS] Fetching SeatGeek events...');
+        // Add browser console log for tracking API call start
+        console.log('%c[EVENT TRACKING] SeatGeek API call started', 'color: #2196F3; font-weight: bold');
+        
+        const seatgeekResponse = await fetchSeatGeekEvents({
+          ...params,
+          userLat: params.latitude,
+          userLng: params.longitude,
+          // Pass the API key via environment variables, the function will access it internally
+        });
 
-    // Check if both APIs failed and we have no events
-    if (allEvents.length === 0 && ticketmasterError && predicthqError) {
+        if (seatgeekResponse.error) {
+          seatgeekError = seatgeekResponse.error;
+          console.error('[SEARCH-EVENTS] SeatGeek API error:', seatgeekError);
+          // Browser console log for tracking errors
+          console.log('%c[EVENT TRACKING] SeatGeek API error', 'color: #F44336; font-weight: bold', {
+            error: seatgeekError,
+            source: 'SeatGeek'
+          });
+        } else {
+          seatgeekCount = seatgeekResponse.events.length;
+          allEvents.push(...seatgeekResponse.events);
+          console.log(`[SEARCH-EVENTS] Added ${seatgeekCount} SeatGeek events`);
+          // Browser console log for tracking successful events
+          console.log('%c[EVENT TRACKING] SeatGeek events added', 'color: #4CAF50; font-weight: bold', {
+            count: seatgeekCount,
+            source: 'SeatGeek'
+          });
+        }
+      } catch (error) {
+        seatgeekError = `Unexpected error: ${error instanceof Error ? error.message : String(error)}`;
+        console.error('[SEARCH-EVENTS] Error fetching SeatGeek events:', error);
+        // Browser console log for tracking unexpected errors
+        console.log('%c[EVENT TRACKING] SeatGeek unexpected error', 'color: #F44336; font-weight: bold', {
+          error: seatgeekError,
+          source: 'SeatGeek'
+        });
+      }
+    } else {
+      console.log('[SEARCH-EVENTS] Skipping SeatGeek API call - no API key available');
+    }
+
+    // Check if all APIs failed and we have no events
+    if (allEvents.length === 0 && ticketmasterError && predicthqError && (!SEATGEEK_CLIENT_ID || seatgeekError)) {
       console.error('[SEARCH-EVENTS] Both APIs failed, generating mock events as fallback');
 
       // Generate some mock events near the user's location as a fallback
@@ -357,8 +436,8 @@ serve(async (req: Request) => {
       // Determine the reason for no events
       let noEventsReason = 'No events found for the given parameters';
 
-      if (ticketmasterError && predicthqError) {
-        noEventsReason = 'Both Ticketmaster and PredictHQ APIs returned errors';
+      if (ticketmasterError && predicthqError && (!SEATGEEK_CLIENT_ID || seatgeekError)) {
+        noEventsReason = 'All available event APIs returned errors';
       } else if (allEvents.length > 0 && filteredEvents.length === 0) {
         noEventsReason = 'Events were found but filtered out due to missing required fields';
       }
@@ -368,7 +447,8 @@ serve(async (req: Request) => {
         warning: noEventsReason,
         sourceStats: {
           ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
-          predicthq: { count: predicthqCount, error: predicthqError }
+          predicthq: { count: predicthqCount, error: predicthqError },
+          seatgeek: { count: seatgeekCount, error: seatgeekError }
         },
         meta: {
           executionTime,
@@ -379,12 +459,35 @@ serve(async (req: Request) => {
       }, 200);
     }
 
+    // Add comprehensive summary of all API results
+    console.log('%c[EVENT TRACKING] SUMMARY', 'color: #9C27B0; font-weight: bold; font-size: 14px', {
+      totalEvents: filteredEvents.length,
+      ticketmaster: {
+        count: ticketmasterCount,
+        error: ticketmasterError,
+        percentage: ticketmasterCount > 0 ? Math.round((ticketmasterCount / filteredEvents.length) * 100) + '%' : '0%'
+      },
+      predicthq: {
+        count: predicthqCount,
+        error: predicthqError,
+        percentage: predicthqCount > 0 ? Math.round((predicthqCount / filteredEvents.length) * 100) + '%' : '0%'
+      },
+      seatgeek: {
+        count: seatgeekCount,
+        error: seatgeekError,
+        percentage: seatgeekCount > 0 ? Math.round((seatgeekCount / filteredEvents.length) * 100) + '%' : '0%'
+      },
+      eventsWithCoordinates: eventsWithCoords.length,
+      executionTime: executionTime + 'ms'
+    });
+    
     // Return the response with events
     return safeResponse({
       events: filteredEvents,
       sourceStats: {
         ticketmaster: { count: ticketmasterCount, error: ticketmasterError },
-        predicthq: { count: predicthqCount, error: predicthqError }
+        predicthq: { count: predicthqCount, error: predicthqError },
+        seatgeek: { count: seatgeekCount, error: seatgeekError }
       },
       meta: {
         executionTime,
@@ -407,7 +510,8 @@ serve(async (req: Request) => {
       timestamp: new Date().toISOString(),
       sourceStats: {
         ticketmaster: { count: 0, error: 'Function execution failed' },
-        predicthq: { count: 0, error: 'Function execution failed' }
+        predicthq: { count: 0, error: 'Function execution failed' },
+        seatgeek: { count: 0, error: 'Function execution failed' }
       },
       meta: {
         executionTime,

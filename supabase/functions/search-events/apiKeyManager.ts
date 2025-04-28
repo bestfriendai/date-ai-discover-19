@@ -22,16 +22,25 @@ interface KeyValidationRules {
 // Validation rules for different services
 const validationRules: Record<string, KeyValidationRules> = {
   ticketmaster: {
-    format: /^[A-Za-z0-9]+$/,
-    minLength: 32,
-    maxLength: 32
+    format: /^[A-Za-z0-9_-]+$/,
+    minLength: 20,
+    maxLength: 50
   },
   predicthq: {
     format: /^[A-Za-z0-9_-]+$/,
     minLength: 32,
     maxLength: 64
   },
-
+  seatgeek: {
+    format: /^[A-Za-z0-9_-]+$/,
+    minLength: 16,
+    maxLength: 64
+  },
+  rapidapi: {
+    format: /^[A-Za-z0-9_-]+$/,
+    minLength: 25,
+    maxLength: 50
+  },
   mapbox: {
     format: /^pk\.[A-Za-z0-9_-]+$/,
     minLength: 50,
@@ -52,6 +61,7 @@ class ApiKeyManager {
     this.usageThresholds = new Map([
       ['ticketmaster', 5000], // Example: 5000 requests per day
       ['predicthq', 10000],   // Example: 10000 requests per day
+      ['seatgeek', 5000],     // Example: 5000 requests per day
       ['mapbox', 50000]       // Example: 50000 requests per day
     ]);
     this.requestStartTimes = new Map();
@@ -97,6 +107,28 @@ class ApiKeyManager {
       throw new ValidationRulesNotFoundError(service);
     }
 
+    // Check for placeholder or example keys
+    if (key === 'your_ticketmaster_key_here' ||
+        key === 'your_predicthq_key_here' ||
+        key.includes('example') ||
+        key.includes('placeholder')) {
+      throw new InvalidApiKeyError(service, 'using placeholder or example key');
+    }
+
+    // For Ticketmaster, be more lenient with validation
+    if (service.toLowerCase() === 'ticketmaster') {
+      // Just check that it's not too short and has valid characters
+      const isValid = rules.format.test(key) && key.length >= 10;
+      
+      if (!isValid) {
+        const details = key.length < 10 ? 'too short' : 'invalid characters';
+        throw new InvalidApiKeyError(service, details);
+      }
+      
+      return true;
+    }
+
+    // For other services, use the standard validation
     const isValid = rules.format.test(key) &&
       key.length >= rules.minLength &&
       key.length <= rules.maxLength;
@@ -125,11 +157,57 @@ class ApiKeyManager {
 
       // Handle different naming conventions for different services
       if (serviceLower === 'predicthq') {
-        key = Deno.env.get('PREDICTHQ_API_KEY');
+        // Try multiple possible environment variable names for PredictHQ
+        // @ts-ignore: Deno is available at runtime
+        key = Deno.env.get('PREDICTHQ_API_KEY') || Deno.env.get('PREDICTHQ_KEY') || Deno.env.get('PHQ_API_KEY');
+        console.log('[API_KEY_MANAGER] PredictHQ key retrieval result:', key ? 'Found' : 'Not found');
       } else if (serviceLower === 'ticketmaster') {
-        key = Deno.env.get('TICKETMASTER_KEY');
+        // Try all possible environment variable names for Ticketmaster
+        // Enhanced logging for debugging
+        console.log('[API_KEY_MANAGER] Ticketmaster key retrieval attempt');
+        
+        // Check all possible environment variable names
+        // @ts-ignore: Deno is available at runtime
+        const possibleKeys = {
+          'SUPABASE_TICKETMASTER_KEY': Deno.env.get('SUPABASE_TICKETMASTER_KEY'),
+          'TICKETMASTER_KEY': Deno.env.get('TICKETMASTER_KEY'),
+          'TICKETMASTER_API_KEY': Deno.env.get('TICKETMASTER_API_KEY'),
+          'TM_API_KEY': Deno.env.get('TM_API_KEY')
+        };
+        
+        // Log which keys are available (without revealing their values)
+        for (const [keyName, keyValue] of Object.entries(possibleKeys)) {
+          console.log(`[API_KEY_MANAGER] ${keyName} exists:`, !!keyValue);
+        }
+        
+        // Try each key in order of preference
+        // @ts-ignore: Deno is available at runtime
+        key = possibleKeys['SUPABASE_TICKETMASTER_KEY'] || 
+              possibleKeys['TICKETMASTER_KEY'] || 
+              possibleKeys['TICKETMASTER_API_KEY'] || 
+              possibleKeys['TM_API_KEY'];
+              
+        console.log('[API_KEY_MANAGER] Retrieved Ticketmaster key:', key ? 'Found (length: ' + key.length + ')' : 'Not found');
+        
+        if (!key) {
+          // Last resort - check for any environment variable containing 'TICKETMASTER' and 'KEY'
+          // @ts-ignore: Deno is available at runtime
+          const allEnvVars = Deno.env.toObject();
+          for (const [envName, envValue] of Object.entries(allEnvVars)) {
+            if (envName.toUpperCase().includes('TICKET') && envName.toUpperCase().includes('KEY') && envValue) {
+              console.log(`[API_KEY_MANAGER] Found alternative key in environment variable: ${envName}`);
+              key = envValue;
+              break;
+            }
+          }
+        }
       } else if (serviceLower === 'mapbox') {
         key = Deno.env.get('MAPBOX_TOKEN');
+      } else if (serviceLower === 'rapidapi') {
+        // Try multiple possible environment variable names for RapidAPI
+        // @ts-ignore: Deno is available at runtime
+        key = Deno.env.get('RAPIDAPI_KEY') || Deno.env.get('REAL_TIME_EVENTS_API_KEY') || Deno.env.get('X_RAPIDAPI_KEY');
+        console.log('[API_KEY_MANAGER] RapidAPI key retrieval result:', key ? 'Found' : 'Not found');
       } else {
         // Fallback to standard naming convention
         key = Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);

@@ -56,6 +56,7 @@ export interface SearchEventsResponse {
   sourceStats: {
     ticketmaster: SourceStats;
     predicthq: SourceStats;
+    seatgeek: SourceStats;
   };
   meta: {
     executionTime: number;

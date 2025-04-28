@@ -113,25 +113,37 @@ export const PartyMapMarkers: React.FC<PartyMapMarkersProps> = ({
   // Cleanup effect
   useEffect(() => {
     return () => {
-      // Mark component as unmounted
+      console.log('[PartyMapMarkers_DEBUG] Component unmounting, active markers:', activeMarkers.size);
+      
+      // Mark component as unmounted first
       isMounted.current = false;
-
-      // Clean up all markers and roots
-      activeMarkers.forEach(({ marker, root }) => {
+      
+      // Create a local copy of markers to avoid React state issues
+      const markersToCleanup = Array.from(activeMarkers.entries());
+      console.log('[PartyMapMarkers_DEBUG] Cleaning up', markersToCleanup.length, 'markers');
+      
+      // Remove mapbox markers immediately
+      markersToCleanup.forEach(([id, { marker }]) => {
+        console.log('[PartyMapMarkers_DEBUG] Removing marker:', id);
         marker.remove();
-        // Use setTimeout to avoid React unmounting warnings
-        setTimeout(() => {
+      });
+      
+      // Clear React state safely
+      setActiveMarkers(new Map());
+      
+      // Unmount React roots after a delay and outside of render cycle
+      requestAnimationFrame(() => {
+        markersToCleanup.forEach(([id, { root }]) => {
           try {
-            if (root) {
-              root.unmount();
-            }
+            console.log('[PartyMapMarkers_DEBUG] Unmounting root for marker:', id);
+            root.unmount();
           } catch (e) {
-            console.warn('[PartyMapMarkers] Error unmounting root:', e);
+            console.warn('[PartyMapMarkers_DEBUG] Error unmounting root:', e);
           }
-        }, 0);
+        });
       });
     };
-  }, []);
+  }, [activeMarkers]);
 
   return null;
 };

@@ -259,9 +259,10 @@ function getEventUrl(event: any): string | undefined {
   // Try multiple sources for URLs in order of preference
   let bestUrl: string | undefined = undefined;
   let eventbriteUrl: string | undefined = undefined;
+  let ticketUrl: string | undefined = undefined;
 
   // Log all potential URLs for debugging
-  const allUrls: {source: string, url: string, isEventbrite: boolean}[] = [];
+  const allUrls: {source: string, url: string, isEventbrite: boolean, isTicketUrl: boolean}[] = [];
 
   // Helper function to check if a URL is from Eventbrite
   const isEventbriteUrl = (url: string): boolean => {
@@ -272,15 +273,33 @@ function getEventUrl(event: any): string | undefined {
            url.includes('evnt.is/'); // Eventbrite shortened URLs
   };
 
+  // Helper function to check if URL is a ticket URL
+  const isTicketUrl = (url: string): boolean => {
+    return url.includes('tickets') ||
+           url.includes('ticket') ||
+           url.includes('booking') ||
+           url.includes('buy') ||
+           url.includes('purchase') ||
+           url.includes('checkout') ||
+           url.includes('cart');
+  };
+
   // Helper function to add a URL to our collection and check if it's from Eventbrite
   const addUrl = (source: string, url: string) => {
     const isFromEventbrite = isEventbriteUrl(url);
-    allUrls.push({source, url, isEventbrite: isFromEventbrite});
+    const isFromTicket = isTicketUrl(url);
+    allUrls.push({source, url, isEventbrite: isFromEventbrite, isTicketUrl: isFromTicket});
 
     // If it's an Eventbrite URL and we don't have one yet, save it
     if (isFromEventbrite && !eventbriteUrl) {
       eventbriteUrl = url;
       console.log(`[PREDICTHQ] Found Eventbrite URL: ${url}`);
+    }
+    
+    // If it's a ticket URL and we don't have one yet, save it
+    if (isFromTicket && !ticketUrl) {
+      ticketUrl = url;
+      console.log(`[PREDICTHQ] Found Ticket URL: ${url}`);
     }
 
     // If we don't have any URL yet, use this one
@@ -298,8 +317,16 @@ function getEventUrl(event: any): string | undefined {
     if (eventbriteLink && eventbriteLink.url) {
       addUrl('ticket_info.links.eventbrite', eventbriteLink.url);
     }
+    
+    // Then look for ticket links
+    const ticketLink = event.ticket_info.links.find((link: any) =>
+      link.url && isTicketUrl(link.url));
+      
+    if (ticketLink && ticketLink.url) {
+      addUrl('ticket_info.links.ticket', ticketLink.url);
+    }
 
-    // If no Eventbrite link, use the first ticket link
+    // If no Eventbrite or ticket link, use the first ticket link
     else if (event.ticket_info.links.length > 0 && event.ticket_info.links[0].url) {
       addUrl('ticket_info.links[0]', event.ticket_info.links[0].url);
     }
@@ -316,7 +343,8 @@ function getEventUrl(event: any): string | undefined {
     }
 
     // Then look for ticket website
-    const ticketWebsite = event.websites.find((site: any) => site.type === 'tickets');
+    const ticketWebsite = event.websites.find((site: any) => 
+      (site.type === 'tickets' || (site.url && isTicketUrl(site.url))));
     if (ticketWebsite && ticketWebsite.url) {
       addUrl('websites.tickets', ticketWebsite.url);
     }
@@ -355,7 +383,8 @@ function getEventUrl(event: any): string | undefined {
     // Then look for entities with ticket websites
     for (const entity of event.entities) {
       if (entity.entity && entity.entity.websites && Array.isArray(entity.entity.websites)) {
-        const ticketSite = entity.entity.websites.find((site: any) => site.type === 'tickets');
+        const ticketSite = entity.entity.websites.find((site: any) => 
+          site.type === 'tickets' || (site.url && isTicketUrl(site.url)));
         if (ticketSite && ticketSite.url) {
           addUrl('entity.websites.tickets', ticketSite.url);
         }
@@ -396,13 +425,20 @@ function getEventUrl(event: any): string | undefined {
     console.log(`[PREDICTHQ] No URLs found for event ${event.id || 'unknown'}`);
   }
 
-  // Prioritize Eventbrite URLs if available
+  // Return URLs in order of preference
+  // 1. Eventbrite URLs (highest priority)
   if (eventbriteUrl) {
     console.log(`[PREDICTHQ] Using Eventbrite URL for event ${event.id || 'unknown'}: ${eventbriteUrl}`);
     return eventbriteUrl;
   }
+  
+  // 2. Ticket URLs (second priority)
+  if (ticketUrl) {
+    console.log(`[PREDICTHQ] Using Ticket URL for event ${event.id || 'unknown'}: ${ticketUrl}`);
+    return ticketUrl;
+  }
 
-  // Otherwise use the best URL we found
+  // 3. Otherwise use the best URL we found
   if (bestUrl) {
     return bestUrl;
   }
@@ -413,9 +449,9 @@ function getEventUrl(event: any): string | undefined {
     let searchLocation = '';
 
     // Try to extract location information for a better search
-    if (location && location !== 'Location not specified') {
+    if (event.location && event.location !== 'Location not specified') {
       // Extract city or state from location
-      const locationParts = location.split(',');
+      const locationParts = event.location.split(',');
       if (locationParts.length > 0) {
         // Use the first part (usually the venue) if it's short, otherwise use the second part (usually the city)
         if (locationParts[0].trim().split(' ').length <= 3) {
@@ -426,6 +462,8 @@ function getEventUrl(event: any): string | undefined {
           searchLocation = locationParts[0].trim();
         }
       }
+    } else if (event.place && event.place.name) {
+      searchLocation = event.place.name;
     }
 
     // Create a more specific search query with title and location
@@ -453,8 +491,16 @@ function getEventUrl(event: any): string | undefined {
  */
 function getEventImage(event: any): string {
   // Try multiple sources for images in order of preference
-
-  // 1. Check if the event has images directly
+  
+  // 1. Check for images in websites
+  if (event.websites && Array.isArray(event.websites)) {
+    const websiteImage = event.websites.find((site: any) => site.url && site.logo_url);
+    if (websiteImage && websiteImage.logo_url) {
+      return websiteImage.logo_url;
+    }
+  }
+  
+  // 2. Check if the event has images directly
   if (event.images && Array.isArray(event.images) && event.images.length > 0) {
     // Find the largest image
     const sortedImages = [...event.images].sort((a, b) => {
@@ -467,7 +513,7 @@ function getEventImage(event: any): string {
     return sortedImages[0].url;
   }
 
-  // 2. Check for images in entities (performers, venues, etc.)
+  // 3. Check for images in entities (performers, venues, etc.)
   if (event.entities && Array.isArray(event.entities)) {
     // Look for entities with images
     for (const entity of event.entities) {
@@ -482,6 +528,22 @@ function getEventImage(event: any): string {
         return sortedImages[0].url;
       }
     }
+    
+    // 4. Check for image in the first entity
+    for (const entity of event.entities) {
+      if (entity.entity && entity.entity.image_url) {
+        return entity.entity.image_url;
+      }
+      // Look for logo_url in entity
+      if (entity.entity && entity.entity.logo_url) {
+        return entity.entity.logo_url;
+      }
+    }
+  }
+  
+  // 5. Check for venue image
+  if (event.venue && event.venue.image) {
+    return event.venue.image;
   }
 
   // If no images are available, use a category-based placeholder
