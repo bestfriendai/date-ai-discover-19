@@ -44,7 +44,7 @@ export function validateAndNormalizeRadius(radius: number | string | undefined):
   errors: ValidationError[];
 } {
   const errors: ValidationError[] = [];
-  let normalizedRadius = 50; // Default radius
+  let normalizedRadius = 30; // Default radius in miles
 
   if (radius !== undefined) {
     const radiusNum = typeof radius === 'string' ? parseInt(radius, 10) : radius;
@@ -58,7 +58,7 @@ export function validateAndNormalizeRadius(radius: number | string | undefined):
       errors.push({
         message: 'Invalid radius value',
         field: 'radius',
-        details: 'Radius must be between 5 and 100 kilometers'
+        details: 'Radius must be between 5 and 100 miles'
       });
     } else {
       normalizedRadius = radiusNum;

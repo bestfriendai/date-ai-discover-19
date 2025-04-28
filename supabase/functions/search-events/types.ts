@@ -2,151 +2,83 @@
  * Type definitions for the search-events function
  */
 
-import { PartySubcategory } from './partyUtils.ts';
+// Import PartySubcategory if needed for party detection logic
+import { PartySubcategory } from './partyUtils.ts'; // Assuming this file exists and is correct
 
-// Re-export PartySubcategory type
-export { PartySubcategory };
+export { PartySubcategory }; // Re-export
 
-/**
- * Event interface matching the frontend type
- */
 export interface Event {
   id: string;
-  source?: string;
+  source?: string; // Will always be 'rapidapi' now
   title: string;
   description?: string;
-  date: string;
-  time: string;
-  location: string;
+  date: string; // Formatted date string
+  time: string; // Formatted time string
+  location: string; // Formatted location string
   venue?: string;
   category: string;
-  partySubcategory?: PartySubcategory; // Added for party event subcategorization
+  partySubcategory?: PartySubcategory;
   image: string;
-  imageAlt?: string; // Alt text for the main image
-  additionalImages?: string[]; // Additional event images
-  coordinates?: [number, number]; // [longitude, latitude]
-  latitude?: number; // Added for backward compatibility
-  longitude?: number; // Added for backward compatibility
-  url?: string; // Event URL (official website or ticket page)
-  price?: string; // Basic price information
-  rawDate?: string; // Added for storing original date format
-
-  // Enhanced ticket information
-  ticketInfo?: {
-    price?: string; // Formatted price string
-    minPrice?: number; // Minimum price (numeric)
-    maxPrice?: number; // Maximum price (numeric)
-    currency?: string; // Currency code (USD, EUR, etc.)
-    availability?: string; // Availability status (available, limited, sold_out)
-    purchaseUrl?: string; // Direct URL to purchase tickets
-    provider?: string; // Ticket provider name
-  };
-
-  // Enhanced website information
-  websites?: {
-    official?: string; // Official event website
-    tickets?: string; // Ticket purchase website
-    venue?: string; // Venue website
-  };
-
-  // PredictHQ specific fields
-  rank?: number;
-  localRelevance?: number;
-  attendance?: {
-    forecast?: number;
-    actual?: number;
-  };
-  demandSurge?: number;
-
-  // Party event flag
+  imageAlt?: string;
+  coordinates?: [number, number]; // [longitude, latitude] - May be missing from API
+  latitude?: number; // Added for convenience/consistency
+  longitude?: number; // Added for convenience/consistency
+  url?: string;
+  price?: string; // Basic price info if available
+  rawDate?: string; // Store original date string for sorting/filtering
   isPartyEvent?: boolean;
+
+  // Optional detailed info (might not be available from RapidAPI)
+  ticketInfo?: {
+    price?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    currency?: string;
+    availability?: string;
+    purchaseUrl?: string;
+    provider?: string;
+  };
+  websites?: {
+    official?: string;
+    tickets?: string;
+    venue?: string;
+  };
 }
 
-/**
- * Base parameters for all API calls
- */
-export interface BaseApiParams {
-  apiKey: string;
-  latitude?: number;
-  longitude?: number;
-  radius: number; // Now strictly a number after validation
-  startDate?: string;
-  endDate?: string;
-  keyword?: string;
-  limit?: number;
-}
-
-/**
- * Ticketmaster specific parameters
- */
-export interface TicketmasterParams extends BaseApiParams {
-  segmentName?: string;
-  classificationName?: string;
-  size?: number;
-}
-
-/**
- * PredictHQ specific parameters
- */
-export interface PredictHQParams extends BaseApiParams {
-  categories?: string[];
-  location?: string;
-  withinParam?: string;
-}
-
-/**
- * Search parameters for event APIs
- */
 export interface SearchParams {
   keyword?: string;
-  lat?: number; // Added for lat/lng support
-  lng?: number; // Added for lat/lng support
-  userLat?: number; // Added for backward compatibility
-  userLng?: number; // Added for backward compatibility
-  latitude?: number;
-  longitude?: number;
-  radius: number; // Now strictly a number after validation
-  startDate?: string;
-  endDate?: string;
-  categories?: string[];
-  location?: string;
-  eventType?: string;
-  serpDate?: string;
-  limit?: number;
-  page?: number;
+  location?: string;         // e.g., "New York"
+  latitude?: number;        // User's latitude
+  longitude?: number;       // User's longitude
+  radius: number;           // Search radius in miles (now required number after validation)
+  startDate?: string;       // YYYY-MM-DD
+  endDate?: string;         // YYYY-MM-DD
+  categories?: string[];    // e.g., ['party', 'music']
+  limit?: number;           // Max events per page
+  page?: number;            // Pagination page number
   excludeIds?: string[];
-  predicthqLocation?: string;
-  segmentName?: string;
-  classificationName?: string;
-  isVirtual?: boolean;
+  predicthqLocation?: string; // Format: "24km@38.89,-76.94"
 }
 
-/**
- * Source statistics for event APIs
- */
 export interface SourceStats {
   count: number;
   error: string | null;
 }
 
-/**
- * Response format for the search-events function
- */
 export interface SearchEventsResponse {
   events: Event[];
   sourceStats: {
-    ticketmaster: SourceStats;
-    predicthq: SourceStats;
+    rapidapi: SourceStats; // Only RapidAPI stats
   };
   meta: {
     executionTime: number;
-    totalEvents: number;
+    totalEvents: number; // Total *before* pagination, *after* radius filtering
     eventsWithCoordinates: number;
     timestamp: string;
-    keyUsage?: {
-      ticketmaster: any;
-      predicthq: any | null;
-    };
+    page?: number;
+    limit?: number;
+    hasMore?: boolean; // Indicate if more pages might exist
+    searchQueryUsed?: string; // Debug: Show the query sent to RapidAPI
   };
   error?: string;
   errorType?: string;

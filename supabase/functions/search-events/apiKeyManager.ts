@@ -1,75 +1,38 @@
+// supabase/functions/search-events/apiKeyManager.ts (Ensure rapidapi part is correct)
 import {
-  ApiKeyError,
-  MissingApiKeyError,
-  InvalidApiKeyError,
-  RateLimitExceededError,
-  ValidationRulesNotFoundError
+  // ... other errors
+  ValidationRulesNotFoundError,
+  InvalidApiKeyError, // Make sure this is imported
+  MissingApiKeyError, // Make sure this is imported
+  ApiKeyError // Ensure base class is imported if used directly
 } from './errors.ts';
-import {
-  logApiKeyUsage,
-  getServiceMetrics,
-  getServiceHealth,
-  resetMetrics
-} from './logger.ts';
+// ... other imports
 
-// Types for API key management
 interface KeyValidationRules {
   format: RegExp;
   minLength: number;
   maxLength: number;
 }
 
-// Validation rules for different services
 const validationRules: Record<string, KeyValidationRules> = {
-  ticketmaster: {
-    format: /^[A-Za-z0-9_-]+$/,
-    minLength: 20,
-    maxLength: 50
-  },
-  predicthq: {
-    format: /^[A-Za-z0-9_-]+$/,
-    minLength: 32,
-    maxLength: 64
-  },
-  seatgeek: {
-    format: /^[A-Za-z0-9_-]+$/,
-    minLength: 16,
-    maxLength: 64
-  },
   rapidapi: {
-    format: /^[A-Za-z0-9_-]+$/,
-    minLength: 25,
-    maxLength: 50
+    format: /^[A-Za-z0-9_-]+$/, // Standard RapidAPI key format
+    minLength: 40,             // Typical length
+    maxLength: 60              // Allow some variation
   },
-  mapbox: {
-    format: /^pk\.[A-Za-z0-9_-]+$/,
-    minLength: 50,
-    maxLength: 100
-  }
+  // Remove rules for ticketmaster, predicthq, seatgeek, mapbox if not used elsewhere
 };
 
-/**
- * API Key Manager class for handling API key operations
- */
 class ApiKeyManager {
   private static instance: ApiKeyManager;
-  private readonly usageThresholds: Map<string, number>;
-  private readonly requestStartTimes: Map<string, number>;
+  private usageStats: Map<string, { count: number; errors: number; lastUsed: number }> = new Map(); // Added for usage tracking if needed
 
+  // Private constructor for Singleton
   private constructor() {
-    // Initialize usage thresholds for rate limiting
-    this.usageThresholds = new Map([
-      ['ticketmaster', 5000], // Example: 5000 requests per day
-      ['predicthq', 10000],   // Example: 10000 requests per day
-      ['seatgeek', 5000],     // Example: 5000 requests per day
-      ['mapbox', 50000]       // Example: 50000 requests per day
-    ]);
-    this.requestStartTimes = new Map();
+    console.log('[API_KEY_MANAGER] Initialized.');
   }
 
-  /**
-   * Get the singleton instance of ApiKeyManager
-   */
+  // Get Singleton instance
   public static getInstance(): ApiKeyManager {
     if (!ApiKeyManager.instance) {
       ApiKeyManager.instance = new ApiKeyManager();
@@ -77,274 +40,116 @@ class ApiKeyManager {
     return ApiKeyManager.instance;
   }
 
-  /**
-   * Start timing a request for response time tracking
-   */
-  private startRequest(service: string): void {
-    this.requestStartTimes.set(service, Date.now());
-  }
 
-  /**
-   * End timing a request and log the usage
-   */
-  private endRequest(service: string, status: 'success' | 'error', details?: Record<string, unknown>): void {
-    const startTime = this.requestStartTimes.get(service) || Date.now();
-    const responseTime = Date.now() - startTime;
-    this.requestStartTimes.delete(service);
-
-    logApiKeyUsage(service, 'api_request', status, responseTime, {
-      ...details,
-      health: getServiceHealth(service)
-    });
-  }
-
-  /**
-   * Validate an API key format for a specific service
-   */
   public isValidKeyFormat(service: string, key: string): boolean {
-    const rules = validationRules[service.toLowerCase()];
+    const serviceLower = service.toLowerCase();
+    const rules = validationRules[serviceLower];
     if (!rules) {
       throw new ValidationRulesNotFoundError(service);
     }
+    console.log(`[API_KEY_MANAGER] Validating ${serviceLower} key format. Length: ${key.length}`);
 
-    // Add detailed logging for key validation
-    console.log(`[API_KEY_MANAGER] Validating ${service} key format`);
-    console.log(`[API_KEY_MANAGER] Key length: ${key.length}, required min: ${rules.minLength}, max: ${rules.maxLength}`);
-    
-    // Check for placeholder or example keys
-    if (key === 'your_ticketmaster_key_here' ||
-        key === 'your_predicthq_key_here' ||
-        key.includes('example') ||
-        key.includes('placeholder')) {
-      console.error(`[API_KEY_MANAGER] ${service} key validation failed: using placeholder or example key`);
-      throw new InvalidApiKeyError(service, 'using placeholder or example key');
+     // Basic checks first
+    if (!key || typeof key !== 'string') {
+        console.error(`[API_KEY_MANAGER] ${serviceLower} key validation failed: Key is not a string or is empty.`);
+        throw new InvalidApiKeyError(serviceLower, 'Key is not a string or is empty');
+    }
+    if (key.includes('placeholder') || key.includes('example') || key.includes('YOUR_') || key.includes('_KEY')) {
+       console.error(`[API_KEY_MANAGER] ${serviceLower} key validation failed: Key appears to be a placeholder.`);
+       throw new InvalidApiKeyError(serviceLower, 'Key is a placeholder');
     }
 
-    // For Ticketmaster, be more lenient with validation
-    if (service.toLowerCase() === 'ticketmaster') {
-      // Just check that it's not too short and has valid characters
-      const isValid = rules.format.test(key) && key.length >= 10;
-      
-      if (!isValid) {
-        const details = key.length < 10 ? 'too short' : 'invalid characters';
-        console.error(`[API_KEY_MANAGER] Ticketmaster key validation failed: ${details}`);
-        throw new InvalidApiKeyError(service, details);
-      }
-      
-      console.log(`[API_KEY_MANAGER] Ticketmaster key validation passed`);
-      return true;
-    }
 
-    // For other services, use the standard validation
     const isValid = rules.format.test(key) &&
       key.length >= rules.minLength &&
       key.length <= rules.maxLength;
-
-    // Add detailed validation logging
-    if (service.toLowerCase() === 'rapidapi') {
-      console.log(`[API_KEY_MANAGER] RapidAPI key validation details:`);
-      console.log(`[API_KEY_MANAGER] - Format check: ${rules.format.test(key)}`);
-      console.log(`[API_KEY_MANAGER] - Length check: ${key.length >= rules.minLength && key.length <= rules.maxLength}`);
-      console.log(`[API_KEY_MANAGER] - Overall validation: ${isValid ? 'PASSED' : 'FAILED'}`);
-    }
 
     if (!isValid) {
       const details = key.length < rules.minLength ? 'too short' :
         key.length > rules.maxLength ? 'too long' :
         'invalid characters';
-      console.error(`[API_KEY_MANAGER] ${service} key validation failed: ${details}`);
-      throw new InvalidApiKeyError(service, details);
+      console.error(`[API_KEY_MANAGER] ${serviceLower} key validation failed: ${details}`);
+      throw new InvalidApiKeyError(serviceLower, `Format/Length validation failed (${details})`);
     }
 
-    console.log(`[API_KEY_MANAGER] ${service} key validation passed`);
+    console.log(`[API_KEY_MANAGER] ${serviceLower} key validation passed.`);
     return true;
   }
 
-  /**
-   * Get an active API key for a service with validation
-   */
   public getActiveKey(service: string): string {
     const serviceLower = service.toLowerCase();
-    this.startRequest(serviceLower);
+    this.startRequest(serviceLower); // Track usage start
 
     try {
-      // Get the key from environment variables
-      // @ts-ignore: Deno is available at runtime
-      let key;
+      let key: string | undefined;
 
-      // Handle different naming conventions for different services
-      if (serviceLower === 'predicthq') {
-        // Try multiple possible environment variable names for PredictHQ
-        // @ts-ignore: Deno is available at runtime
-        key = Deno.env.get('PREDICTHQ_API_KEY') || Deno.env.get('PREDICTHQ_KEY') || Deno.env.get('PHQ_API_KEY');
-        console.log('[API_KEY_MANAGER] PredictHQ key retrieval result:', key ? 'Found' : 'Not found');
-      } else if (serviceLower === 'ticketmaster') {
-        // Try all possible environment variable names for Ticketmaster
-        // Enhanced logging for debugging
-        console.log('[API_KEY_MANAGER] Ticketmaster key retrieval attempt');
-        
-        // Check all possible environment variable names
-        // @ts-ignore: Deno is available at runtime
-        const possibleKeys = {
-          'SUPABASE_TICKETMASTER_KEY': Deno.env.get('SUPABASE_TICKETMASTER_KEY'),
-          'TICKETMASTER_KEY': Deno.env.get('TICKETMASTER_KEY'),
-          'TICKETMASTER_API_KEY': Deno.env.get('TICKETMASTER_API_KEY'),
-          'TM_API_KEY': Deno.env.get('TM_API_KEY')
-        };
-        
-        // Log which keys are available (without revealing their values)
-        for (const [keyName, keyValue] of Object.entries(possibleKeys)) {
-          console.log(`[API_KEY_MANAGER] ${keyName} exists:`, !!keyValue);
-        }
-        
-        // Try each key in order of preference
-        // @ts-ignore: Deno is available at runtime
-        key = possibleKeys['SUPABASE_TICKETMASTER_KEY'] || 
-              possibleKeys['TICKETMASTER_KEY'] || 
-              possibleKeys['TICKETMASTER_API_KEY'] || 
-              possibleKeys['TM_API_KEY'];
-              
-        console.log('[API_KEY_MANAGER] Retrieved Ticketmaster key:', key ? 'Found (length: ' + key.length + ')' : 'Not found');
-        
-        if (!key) {
-          // Last resort - check for any environment variable containing 'TICKETMASTER' and 'KEY'
-          // @ts-ignore: Deno is available at runtime
-          const allEnvVars = Deno.env.toObject();
-          for (const [envName, envValue] of Object.entries(allEnvVars)) {
-            if (envName.toUpperCase().includes('TICKET') && envName.toUpperCase().includes('KEY') && envValue) {
-              console.log(`[API_KEY_MANAGER] Found alternative key in environment variable: ${envName}`);
-              key = envValue;
-              break;
-            }
-          }
-        }
-      } else if (serviceLower === 'mapbox') {
-        key = Deno.env.get('MAPBOX_TOKEN');
-      } else if (serviceLower === 'rapidapi') {
+      if (serviceLower === 'rapidapi') {
         // Try multiple possible environment variable names for RapidAPI
         // @ts-ignore: Deno is available at runtime
-        const possibleKeys = {
-          'RAPIDAPI_KEY': Deno.env.get('RAPIDAPI_KEY'),
-          'REAL_TIME_EVENTS_API_KEY': Deno.env.get('REAL_TIME_EVENTS_API_KEY'),
-          'X_RAPIDAPI_KEY': Deno.env.get('X_RAPIDAPI_KEY')
-        };
-        
-        // Log which keys are available (without revealing their values)
-        console.log('[API_KEY_MANAGER] Checking RapidAPI key environment variables:');
-        for (const [keyName, keyValue] of Object.entries(possibleKeys)) {
-          console.log(`[API_KEY_MANAGER] - ${keyName} exists: ${!!keyValue}`);
-        }
-        
-        // Try each key in order of preference
-        key = possibleKeys['RAPIDAPI_KEY'] ||
-              possibleKeys['REAL_TIME_EVENTS_API_KEY'] ||
-              possibleKeys['X_RAPIDAPI_KEY'];
-              
-        console.log('[API_KEY_MANAGER] RapidAPI key retrieval result:', key ? `Found (length: ${key.length})` : 'Not found');
+        key = Deno.env.get('RAPIDAPI_KEY') ||
+              Deno.env.get('REAL_TIME_EVENTS_API_KEY') ||
+              Deno.env.get('X_RAPIDAPI_KEY');
+
+        console.log('[API_KEY_MANAGER] RapidAPI key retrieval attempt. Found:', !!key);
       } else {
-        // Fallback to standard naming convention
-        key = Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);
+         // @ts-ignore: Deno is available at runtime
+         key = Deno.env.get(`${serviceLower.toUpperCase()}_KEY`);
+         console.log(`[API_KEY_MANAGER] Retrieval attempt for ${serviceLower}. Found:`, !!key);
       }
 
-      console.log(`[API_KEY_MANAGER] Looking for ${serviceLower} key with env var:`,
-        serviceLower === 'predicthq' ? 'PREDICTHQ_API_KEY' :
-        serviceLower === 'ticketmaster' ? 'TICKETMASTER_KEY' :
-        serviceLower === 'mapbox' ? 'MAPBOX_TOKEN' :
-        `${serviceLower.toUpperCase()}_KEY`
-      );
+
       if (!key) {
-        throw new MissingApiKeyError(service);
+        console.error(`[API_KEY_MANAGER] MissingApiKeyError for service: ${serviceLower}`);
+        throw new MissingApiKeyError(serviceLower);
       }
 
-      // Validate key format
-      try {
-        this.isValidKeyFormat(serviceLower, key);
-      } catch (error) {
-        if (error instanceof ValidationRulesNotFoundError) {
-          throw error;
-        }
-        throw new InvalidApiKeyError(service, error instanceof Error ? error.message : undefined);
-      }
+      // Validate key format *after* retrieving it
+      this.isValidKeyFormat(serviceLower, key); // This will throw InvalidApiKeyError if invalid
 
-      // Check rate limit
-      const threshold = this.usageThresholds.get(serviceLower);
-      if (this.isRateLimitExceeded(serviceLower) && threshold) {
-        throw new RateLimitExceededError(service, threshold);
-      }
-
-      // Log successful key retrieval
-      this.endRequest(serviceLower, 'success', {
-        keyLength: key.length,
-        maskedKey: this.maskKey(key)
-      });
+      // Log success
+      this.endRequest(serviceLower, 'success', { maskedKey: this.maskKey(key) });
+       console.log(`[API_KEY_MANAGER] Successfully retrieved and validated key for ${serviceLower}`);
 
       return key;
     } catch (error) {
-      // Log failed key retrieval
-      this.endRequest(serviceLower, 'error', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorType: error instanceof Error ? error.name : 'UnknownError'
-      });
-      throw error;
+      // Log failure
+      this.endRequest(serviceLower, 'error', { error: error.message });
+       console.error(`[API_KEY_MANAGER] Failed to get active key for ${serviceLower}:`, error.message);
+      throw error; // Re-throw the original error (MissingApiKeyError, InvalidApiKeyError, etc.)
     }
   }
 
-  /**
-   * Check if rate limit is exceeded for a service
-   */
-  private isRateLimitExceeded(service: string): boolean {
-    const metrics = getServiceMetrics(service);
-    if (!metrics) return false;
-
-    const threshold = this.usageThresholds.get(service);
-    if (!threshold) return false;
-
-    // Check if requests exceed threshold in the last 24 hours
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-    const isExceeded = metrics.lastUsed > oneDayAgo && metrics.requests >= threshold;
-
-    if (isExceeded) {
-      console.warn(`[API_KEY_MANAGER] Rate limit exceeded for ${service}:`, {
-        requests: metrics.requests,
-        threshold,
-        lastUsed: metrics.lastUsed.toISOString()
-      });
+  // Track request start
+  private startRequest(service: string): void {
+    if (!this.usageStats.has(service)) {
+      this.usageStats.set(service, { count: 0, errors: 0, lastUsed: 0 });
     }
-
-    return isExceeded;
   }
 
-  /**
-   * Get usage statistics for a service
-   */
-  public getUsageStats(service: string): Record<string, unknown> {
-    const metrics = getServiceMetrics(service);
-    const health = getServiceHealth(service);
-
-    return {
-      ...metrics,
-      health: health.status,
-      healthDetails: health.details,
-      threshold: this.usageThresholds.get(service)
-    };
+  // Track request end (success or error)
+  private endRequest(service: string, status: 'success' | 'error', details: any = {}): void {
+    const stats = this.usageStats.get(service);
+    if (stats) {
+      stats.count++;
+      stats.lastUsed = Date.now();
+      if (status === 'error') {
+        stats.errors++;
+      }
+      // console.log(`[API_KEY_MANAGER] Usage updated for ${service}:`, stats, 'Details:', details);
+    }
   }
 
-  /**
-   * Reset usage statistics for a service
-   */
-  public resetUsageStats(service: string): void {
-    resetMetrics(service);
-    console.log(`[API_KEY_MANAGER] Usage stats reset for ${service}`);
+  // Get usage stats for a service
+  public getUsageStats(service: string): { count: number; errors: number; lastUsed: number } | null {
+    return this.usageStats.get(service.toLowerCase()) || null;
   }
 
-  /**
-   * Mask an API key for logging purposes
-   */
+
+  // ... (maskKey method can remain) ...
   public maskKey(key: string): string {
     if (!key || key.length <= 8) return '********';
     return `${key.slice(0, 4)}...${key.slice(-4)}`;
   }
 }
 
-// Export singleton instance
 export const apiKeyManager = ApiKeyManager.getInstance();
