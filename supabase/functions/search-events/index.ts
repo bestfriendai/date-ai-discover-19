@@ -9,7 +9,7 @@ import {
   SourceStats // Import SourceStats
 } from './types.ts';
 import { apiKeyManager } from './apiKeyManager.ts';
-import { searchRapidAPIEvents } from './rapidapi.ts';
+import { searchRapidAPIEvents } from './rapidapi-enhanced.ts';
 import {
   sortEventsByDate,
   filterEventsByCoordinates,
@@ -107,9 +107,9 @@ serve(async (req: Request) => {
     let rapidapiCount = 0;
     let searchQueryUsed: string | undefined = undefined;
 
-    // --- Call RapidAPI (only if key is valid) ---
+    // --- Call Enhanced RapidAPI (only if key is valid) ---
     if (hasValidRapidAPIKey && rapidapiKey) {
-        console.log('[RAPIDAPI_FETCH] Calling searchRapidAPIEvents...');
+        console.log('[RAPIDAPI_FETCH] Calling enhanced searchRapidAPIEvents...');
         const rapidapiResult = await searchRapidAPIEvents(params, rapidapiKey);
         allEvents = rapidapiResult.events; // These are already filtered by radius *if* coords were provided
         rapidapiError = rapidapiResult.error;

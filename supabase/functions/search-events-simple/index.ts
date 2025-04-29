@@ -1,6 +1,10 @@
 // @ts-ignore: Deno types
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
+// Import the enhanced RapidAPI integration
+import { searchRapidAPIEvents as enhancedSearchRapidAPIEvents } from "../search-events/rapidapi-enhanced.ts";
+import { SearchParams } from "../search-events/types.ts";
+
 // Add Deno namespace declaration for TypeScript
 declare const Deno: {
   env: {
@@ -194,8 +198,8 @@ function transformRapidAPIEvent(event: any): Event {
 }
 
 /**
- * Enhanced function to search for events using RapidAPI Events Search API
- * with improved handling for party events and coordinates
+ * Enhanced function to search for events using the improved RapidAPI integration
+ * This is a wrapper around the enhanced implementation to maintain backward compatibility
  *
  * @param params - Search parameters object containing location, categories, etc.
  * @returns Object containing events array and any error information
@@ -214,164 +218,35 @@ async function searchRapidAPIEvents(params: any) {
     // Log the masked API key for debugging
     const maskedKey = rapidApiKey.substring(0, 4) + '...' + rapidApiKey.substring(rapidApiKey.length - 4);
     console.log(`Using RapidAPI key: ${maskedKey}`);
-
-    // Build query parameters for the RapidAPI Events Search API
-    const queryParams = new URLSearchParams();
-
-    // Check if we're searching for party events
-    const isPartySearch = params.categories &&
-                         Array.isArray(params.categories) &&
-                         params.categories.includes('party');
-
-    // Build the query string based on parameters
-    let queryString = '';
-
-    // Add location to query if provided
-    if (params.location) {
-      if (isPartySearch) {
-        // For party searches, add party keywords to the location search
-        queryString = `parties in ${params.location}`;
-      } else {
-        queryString = `events in ${params.location}`;
-      }
-    } else if (params.latitude !== undefined && params.longitude !== undefined) {
-      // For coordinate-based searches
-      if (isPartySearch) {
-        queryString = 'parties nearby';
-      } else {
-        queryString = 'events nearby';
-      }
-    } else {
-      // Default fallback
-      queryString = isPartySearch ? 'popular parties' : 'popular events';
+    
+    // Convert params to SearchParams format expected by the enhanced implementation
+    const searchParams: SearchParams = {
+      keyword: params.keyword,
+      location: params.location,
+      latitude: params.latitude,
+      longitude: params.longitude,
+      radius: params.radius || 30, // Default to 30 miles
+      startDate: params.startDate,
+      endDate: params.endDate,
+      categories: params.categories,
+      limit: params.limit || 100,
+      page: params.page || 1
+    };
+    
+    console.log(`Using enhanced RapidAPI integration with params:`, JSON.stringify(searchParams));
+    
+    // Call the enhanced implementation
+    const result = await enhancedSearchRapidAPIEvents(searchParams, rapidApiKey);
+    
+    console.log(`Enhanced search completed. Found ${result.events.length} events.`);
+    if (result.searchQueryUsed) {
+      console.log(`Query used: "${result.searchQueryUsed}"`);
     }
-
-    // Add keyword to query if provided
-    if (params.keyword) {
-      queryString += ` ${params.keyword}`;
-    } else if (isPartySearch) {
-      // Add party-specific keywords for party searches
-      queryString += ' party club nightlife dance dj festival celebration';
-    }
-
-    // Set the query parameter
-    queryParams.append('query', queryString);
-    console.log(`Using query string: "${queryString}"`);
-
-    // Add date parameter - valid values for RapidAPI:
-    // all, today, tomorrow, week, weekend, next_week, month, next_month
-
-    // If we have a specific start date, use 'month' to get a wider range
-    // Otherwise, use 'today' to ensure we only get events from today forward
-    const dateParam = params.startDate ? 'month' : 'today';
-    console.log(`Using date parameter: ${dateParam}`);
-    queryParams.append('date', dateParam);
-
-    // Set is_virtual parameter to false to only get in-person events
-    queryParams.append('is_virtual', 'false');
-
-    // Add start parameter for pagination (0-based index)
-    queryParams.append('start', '0');
-
-    // Add limit parameter to get more results
-    queryParams.append('limit', '100');
-
-    // Build the complete URL for the RapidAPI Events Search API
-    const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
-
-    console.log(`Sending request to: ${url}`);
-
-    // Make the API call with the required RapidAPI headers
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': rapidApiKey,
-        'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
-      }
-    });
-
-    // Check if the response was successful
-    if (!response.ok) {
-      throw new Error(`RapidAPI request failed with status: ${response.status}`);
-    }
-
-    // Parse the JSON response
-    const data = await response.json();
-
-    // Get raw events from the response
-    const rawEvents = data.data || [];
-    console.log(`Received ${rawEvents.length} raw events from RapidAPI`);
-
-    // Transform events to our standardized format
-    let transformedEvents = rawEvents.map(transformRapidAPIEvent);
-
-    // Filter events based on parameters
-    if (params.categories && Array.isArray(params.categories)) {
-      // If searching for party events, filter to only include party events
-      if (params.categories.includes('party')) {
-        console.log('Filtering for party events only');
-        transformedEvents = transformedEvents.filter((event: Event) =>
-          event.isPartyEvent || event.category === 'party'
-        );
-        console.log(`Found ${transformedEvents.length} party events`);
-      }
-    }
-
-    // Filter events by distance if coordinates are provided
-    if (params.latitude !== undefined && params.longitude !== undefined && params.radius) {
-      console.log(`Filtering events by distance: ${params.radius} miles from ${params.latitude},${params.longitude}`);
-
-      const userLat = params.latitude;
-      const userLng = params.longitude;
-      const radius = params.radius || 30; // Default to 30 miles
-
-      // Filter events that have coordinates and are within the radius
-      transformedEvents = transformedEvents.filter((event: Event) => {
-        // Skip events without coordinates
-        if (!event.coordinates && (!event.latitude || !event.longitude)) {
-          return false;
-        }
-
-        // Get event coordinates
-        let eventLat: number | undefined;
-        let eventLng: number | undefined;
-
-        if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length >= 2) {
-          // Coordinates array format is [longitude, latitude]
-          eventLng = event.coordinates[0];
-          eventLat = event.coordinates[1];
-        } else {
-          // Direct latitude/longitude properties
-          eventLat = event.latitude;
-          eventLng = event.longitude;
-        }
-
-        // Skip events with invalid coordinates
-        if (eventLat === null || eventLng === null ||
-            eventLat === undefined || eventLng === undefined ||
-            isNaN(Number(eventLat)) || isNaN(Number(eventLng))) {
-          return false;
-        }
-
-        // Calculate distance between user and event
-        const distance = calculateDistance(
-          Number(userLat),
-          Number(userLng),
-          Number(eventLat),
-          Number(eventLng)
-        );
-
-        // Return true if event is within the radius
-        return distance <= radius;
-      });
-
-      console.log(`Found ${transformedEvents.length} events within ${radius} miles`);
-    }
-
-    // Return the filtered events
+    
+    // Return in the format expected by the simple API
     return {
-      events: transformedEvents,
-      error: null
+      events: result.events,
+      error: result.error
     };
   } catch (error) {
     console.error(`Error searching RapidAPI events: ${error instanceof Error ? error.message : String(error)}`);

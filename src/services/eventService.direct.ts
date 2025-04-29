@@ -1,12 +1,28 @@
 import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithRetry } from '@/integrations/supabase/functions-client';
 import type { Event } from '@/types';
+import { v4 as uuidv4 } from 'uuid';
+/* Removed duplicate import */
 
-// RapidAPI key from environment variables
-// SECURITY NOTE: In production, this should be handled by a backend proxy
-// to avoid exposing the API key in client-side code
-const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
+// RapidAPI key configuration
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY || 'YOUR_DEFAULT_KEY';
 const RAPIDAPI_HOST = 'real-time-events-search.p.rapidapi.com';
+// Type definitions for event response
+interface EventResponse {
+  events: Event[];
+  sourceStats?: any;
+  meta?: any;
+  error?: string;
+}
+/* Removed duplicate declaration */
+/* Removed duplicate declaration */
+
+// Validate key exists
+/* Removed duplicate comment */
+/* Removed duplicate comment */
+if (!RAPIDAPI_KEY || RAPIDAPI_KEY === 'YOUR_DEFAULT_KEY') {
+  throw new Error('RapidAPI key not configured. Please set VITE_RAPIDAPI_KEY in your .env file');
+}
 
 interface SearchParams {
   keyword?: string;
@@ -21,12 +37,13 @@ interface SearchParams {
   page?: number;
   excludeIds?: string[];
   fields?: string[];
+  searchType?: 'coordinates' | 'location' | 'fallback';
 }
 
 // Cache for storing recent search results
 interface CacheEntry {
   timestamp: number;
-  data: any;
+  data: EventSearchResult;
 }
 
 const searchCache: Record<string, CacheEntry> = {};
@@ -57,11 +74,7 @@ function isCacheValid(entry: CacheEntry): boolean {
  * Search for events using the direct RapidAPI integration.
  * This is the main entry point for event searches in the application.
  */
-export async function searchEvents(params: SearchParams): Promise<{
-  events: Event[];
-  sourceStats?: any;
-  meta?: any;
-}> {
+export async function searchEvents(params: SearchParams): Promise<EventSearchResult> {
   console.log('[EVENT_SERVICE] searchEvents called with params:', params);
 
   try {
@@ -148,6 +161,16 @@ export async function searchEvents(params: SearchParams): Promise<{
  * @returns The event details or null if not found
  */
 export async function getEventById(id: string): Promise<Event | null> {
+  // Add UUID validation
+  if (!uuidv4.validate(id)) {
+    console.warn(`[EVENT_SERVICE] Invalid event ID format: ${id}`);
+    return null;
+  }
+  // Add UUID validation
+  /* Removed duplicate validation */
+    /* Removed duplicate validation check */
+    return null;
+  }
   try {
     // Check if this is a RapidAPI event
     if (id.startsWith('rapidapi_')) {
@@ -251,17 +274,13 @@ export async function getEventById(id: string): Promise<Event | null> {
 /**
  * Search for events using RapidAPI directly.
  * @param {Object} params - Search parameters
- * @returns {Promise<Object>} - Search results
+ * @returns {Promise<EventSearchResult>} - Search results
  */
-async function searchEventsDirectly(params: SearchParams): Promise<{
-  events: Event[];
-  sourceStats?: any;
-  meta?: any;
-}> {
+async function searchEventsDirectly(params: SearchParams): Promise<EventSearchResult> {
   console.log('[RAPIDAPI_DIRECT] Searching events with params:', params);
 
-  if (!RAPIDAPI_KEY) {
-    console.error('[RAPIDAPI_DIRECT] RapidAPI Key is missing!');
+  if (!RAPIDAPI_KEY || RAPIDAPI_KEY === 'YOUR_DEFAULT_KEY') {
+    console.error('[RAPIDAPI_DIRECT] RapidAPI Key is missing or default value. Please configure in .env');
     return {
       events: [],
       error: 'RapidAPI key is not configured.',
@@ -322,7 +341,8 @@ async function searchEventsDirectly(params: SearchParams): Promise<{
       method: 'GET',
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': RAPIDAPI_HOST
+        'x-rapidapi-host': RAPIDAPI_HOST,
+        'Content-Type': 'application/json'
       }
     });
 
@@ -473,12 +493,9 @@ async function searchEventsDirectly(params: SearchParams): Promise<{
 /**
  * Get event details directly from RapidAPI.
  * @param {string} eventId - The RapidAPI event ID (without the 'rapidapi_' prefix).
- * @returns {Promise<Object>} - Event details response
+ * @returns {Promise<EventDetailResult>} - Event details response
  */
-async function getEventDetailsDirectly(eventId: string): Promise<{
-  event: Event | null;
-  error: string | null;
-}> {
+async function getEventDetailsDirectly(eventId: string): Promise<EventDetailResult> {
   const actualEventId = eventId.startsWith('rapidapi_') ? eventId.substring(9) : eventId;
   console.log(`[RAPIDAPI_DIRECT] Getting details for event ID: ${actualEventId}`);
 
@@ -534,6 +551,16 @@ async function getEventDetailsDirectly(eventId: string): Promise<{
  * @returns A normalized Event object or null if transformation fails.
  */
 function transformRapidAPIEvent(rawEvent: any): Event | null {
+  // Add validation for required fields
+  if (!rawEvent || !rawEvent.event_id || !rawEvent.name) {
+    console.warn('[TRANSFORM] Skipping invalid raw event:', rawEvent?.event_id);
+    return null;
+  }
+  // Add validation for required fields
+  if (!rawEvent || !rawEvent.event_id || !rawEvent.name) {
+    console.warn('[TRANSFORM] Skipping invalid raw event:', rawEvent?.event_id);
+    return null;
+  }
   try {
     if (!rawEvent || !rawEvent.event_id || !rawEvent.name) {
       console.warn('[TRANSFORM] Skipping invalid raw event:', rawEvent?.event_id);
@@ -729,6 +756,14 @@ function transformRapidAPIEvent(rawEvent: any): Event | null {
  * @returns {number} - Distance in miles
  */
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+  // Add validation for input parameters
+  if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+    throw new Error('Invalid coordinates provided for distance calculation');
+  }
+  // Add validation for input parameters
+  if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) {
+    throw new Error('Invalid coordinates provided for distance calculation');
+  }
   // Convert latitude and longitude from degrees to radians
   const radLat1 = (Math.PI * lat1) / 180;
   const radLon1 = (Math.PI * lon1) / 180;
