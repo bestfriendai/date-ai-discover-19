@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RapidAPI Events Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    input, select {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #45a049;
+    }
+    .loading {
+      display: none;
+      text-align: center;
+      margin: 20px 0;
+    }
+    .error {
+      color: red;
+      margin: 10px 0;
+      padding: 10px;
+      background-color: #ffeeee;
+      border-radius: 4px;
+      display: none;
+    }
+    .events-container {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .event-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .event-image {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+    }
+    .event-details {
+      padding: 15px;
+    }
+    .event-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 10px;
+    }
+    .event-info {
+      margin-bottom: 5px;
+      font-size: 14px;
+    }
+    .event-date {
+      color: #666;
+    }
+    .event-location {
+      color: #666;
+    }
+    .event-category {
+      display: inline-block;
+      background-color: #f0f0f0;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 12px;
+      margin-top: 10px;
+    }
+    .party-category {
+      background-color: #ff9800;
+      color: white;
+    }
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ddd;
+    }
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      border-bottom: none;
+      border-radius: 4px 4px 0 0;
+      margin-right: 5px;
+    }
+    .tab.active {
+      background-color: #f0f0f0;
+      border-color: #ddd;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <h1>RapidAPI Events Test</h1>
+  
+  <div class="tabs">
+    <div class="tab active" data-tab="direct">Direct API Call</div>
+    <div class="tab" data-tab="supabase">Supabase Function</div>
+  </div>
+  
+  <div class="tab-content active" id="direct-tab">
+    <h2>Test Direct RapidAPI Call</h2>
+    <div class="container">
+      <div class="form-group">
+        <label for="api-key">RapidAPI Key:</label>
+        <input type="text" id="api-key" value="92bc1b4fc7mshacea9f118bf7a3fp1b5a6cjsnd2287a72fcb9">
+      </div>
+      
+      <div class="form-group">
+        <label for="latitude">Latitude:</label>
+        <input type="text" id="latitude" value="38.7907584">
+      </div>
+      
+      <div class="form-group">
+        <label for="longitude">Longitude:</label>
+        <input type="text" id="longitude" value="-77.021184">
+      </div>
+      
+      <div class="form-group">
+        <label for="radius">Radius (miles):</label>
+        <input type="number" id="radius" value="15" min="1" max="100">
+      </div>
+      
+      <div class="form-group">
+        <label for="category">Category:</label>
+        <select id="category">
+          <option value="all">All Events</option>
+          <option value="party" selected>Party Events</option>
+        </select>
+      </div>
+      
+      <button id="search-direct">Search Events</button>
+    </div>
+    
+    <div id="direct-loading" class="loading">Loading events...</div>
+    <div id="direct-error" class="error"></div>
+    <div id="direct-events" class="events-container"></div>
+  </div>
+  
+  <div class="tab-content" id="supabase-tab">
+    <h2>Test Supabase Function</h2>
+    <div class="container">
+      <div class="form-group">
+        <label for="supabase-latitude">Latitude:</label>
+        <input type="text" id="supabase-latitude" value="38.7907584">
+      </div>
+      
+      <div class="form-group">
+        <label for="supabase-longitude">Longitude:</label>
+        <input type="text" id="supabase-longitude" value="-77.021184">
+      </div>
+      
+      <div class="form-group">
+        <label for="supabase-radius">Radius (miles):</label>
+        <input type="number" id="supabase-radius" value="15" min="1" max="100">
+      </div>
+      
+      <div class="form-group">
+        <label for="supabase-category">Category:</label>
+        <select id="supabase-category">
+          <option value="all">All Events</option>
+          <option value="party" selected>Party Events</option>
+        </select>
+      </div>
+      
+      <button id="search-supabase">Search Events</button>
+    </div>
+    
+    <div id="supabase-loading" class="loading">Loading events...</div>
+    <div id="supabase-error" class="error"></div>
+    <div id="supabase-events" class="events-container"></div>
+  </div>
+  
+  <script>
+    // Tab functionality
+    document.querySelectorAll('.tab').forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs and tab contents
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        
+        // Add active class to clicked tab and corresponding content
+        tab.classList.add('active');
+        document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+      });
+    });
+    
+    // Direct API call
+    document.getElementById('search-direct').addEventListener('click', async () => {
+      const apiKey = document.getElementById('api-key').value;
+      const latitude = document.getElementById('latitude').value;
+      const longitude = document.getElementById('longitude').value;
+      const radius = document.getElementById('radius').value;
+      const category = document.getElementById('category').value;
+      
+      // Show loading indicator
+      document.getElementById('direct-loading').style.display = 'block';
+      document.getElementById('direct-error').style.display = 'none';
+      document.getElementById('direct-events').innerHTML = '';
+      
+      try {
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        
+        // Use coordinates in the query
+        const queryString = category === 'party' 
+          ? `events party club nightlife dance dj festival near ${latitude},${longitude}`
+          : `events near ${latitude},${longitude}`;
+        
+        queryParams.append('query', queryString);
+        queryParams.append('date', 'month');
+        queryParams.append('is_virtual', 'false');
+        queryParams.append('start', '0');
+        queryParams.append('limit', '100');
+        
+        // Build the complete URL
+        const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+        
+        console.log(`Sending request to: ${url}`);
+        
+        // Make the API call
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': apiKey,
+            'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Request failed with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const events = data.data || [];
+        
+        console.log(`Received ${events.length} events from RapidAPI`);
+        
+        // Filter events if needed
+        let filteredEvents = events;
+        if (category === 'party') {
+          // Simple party detection
+          const partyKeywords = ['party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave', 'nightclub'];
+          filteredEvents = events.filter(event => {
+            const title = (event.name || '').toLowerCase();
+            const description = (event.description || '').toLowerCase();
+            const combinedText = `${title} ${description}`;
+            return partyKeywords.some(keyword => combinedText.includes(keyword));
+          });
+          console.log(`Filtered to ${filteredEvents.length} party events`);
+        }
+        
+        // Filter by distance
+        if (radius) {
+          filteredEvents = filteredEvents.filter(event => {
+            if (!event.venue?.latitude || !event.venue?.longitude) return false;
+            
+            const eventLat = Number(event.venue.latitude);
+            const eventLng = Number(event.venue.longitude);
+            
+            if (isNaN(eventLat) || isNaN(eventLng)) return false;
+            
+            // Calculate distance using Haversine formula
+            const distance = calculateDistance(
+              Number(latitude),
+              Number(longitude),
+              eventLat,
+              eventLng
+            );
+            
+            return distance <= Number(radius);
+          });
+          console.log(`Filtered to ${filteredEvents.length} events within ${radius} miles`);
+        }
+        
+        // Display events
+        displayEvents(filteredEvents, 'direct-events', true);
+      } catch (error) {
+        console.error('Error searching events:', error);
+        document.getElementById('direct-error').textContent = `Error: ${error.message}`;
+        document.getElementById('direct-error').style.display = 'block';
+      } finally {
+        document.getElementById('direct-loading').style.display = 'none';
+      }
+    });
+    
+    // Supabase function call
+    document.getElementById('search-supabase').addEventListener('click', async () => {
+      const latitude = document.getElementById('supabase-latitude').value;
+      const longitude = document.getElementById('supabase-longitude').value;
+      const radius = document.getElementById('supabase-radius').value;
+      const category = document.getElementById('supabase-category').value;
+      
+      // Show loading indicator
+      document.getElementById('supabase-loading').style.display = 'block';
+      document.getElementById('supabase-error').style.display = 'none';
+      document.getElementById('supabase-events').innerHTML = '';
+      
+      try {
+        // Build request parameters
+        const params = {
+          latitude: Number(latitude),
+          longitude: Number(longitude),
+          radius: Number(radius),
+          startDate: new Date().toISOString().split('T')[0], // Today's date
+          categories: category === 'party' ? ['party'] : [],
+          limit: 100
+        };
+        
+        console.log('Sending request to Supabase function with params:', params);
+        
+        // Make the API call
+        const response = await fetch('https://akwvmljopucsnorvdwuu.functions.supabase.co/rapidapi-events', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk'
+          },
+          body: JSON.stringify(params)
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Request failed with status: ${response.status} - ${errorText}`);
+        }
+        
+        const data = await response.json();
+        const events = data.events || [];
+        
+        console.log(`Received ${events.length} events from Supabase function`);
+        
+        // Display events
+        displayEvents(events, 'supabase-events', false);
+      } catch (error) {
+        console.error('Error searching events:', error);
+        document.getElementById('supabase-error').textContent = `Error: ${error.message}`;
+        document.getElementById('supabase-error').style.display = 'block';
+      } finally {
+        document.getElementById('supabase-loading').style.display = 'none';
+      }
+    });
+    
+    // Helper function to display events
+    function displayEvents(events, containerId, isDirectApi) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      
+      if (events.length === 0) {
+        container.innerHTML = '<p>No events found. Try different parameters.</p>';
+        return;
+      }
+      
+      events.forEach(event => {
+        // Extract event data based on API format
+        let title, date, time, location, venue, category, image, coordinates;
+        
+        if (isDirectApi) {
+          // Direct API format
+          title = event.name || 'Unnamed Event';
+          date = event.start_time ? new Date(event.start_time).toLocaleDateString('en-US', {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+            year: 'numeric'
+          }) : 'Date not specified';
+          time = event.start_time ? new Date(event.start_time).toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          }) : '';
+          location = event.venue?.full_address || `${event.venue?.city || ''}, ${event.venue?.state || ''}`.trim() || 'Location not specified';
+          venue = event.venue?.name || '';
+          category = 'event'; // Default category
+          image = event.thumbnail || 'https://placehold.co/600x400?text=No+Image';
+          coordinates = event.venue?.latitude && event.venue?.longitude ? 
+            [Number(event.venue.longitude), Number(event.venue.latitude)] : null;
+        } else {
+          // Supabase function format
+          title = event.title || 'Unnamed Event';
+          date = event.date || 'Date not specified';
+          time = event.time || '';
+          location = event.location || 'Location not specified';
+          venue = event.venue || '';
+          category = event.category || 'event';
+          image = event.image || 'https://placehold.co/600x400?text=No+Image';
+          coordinates = event.coordinates || (event.latitude && event.longitude ? 
+            [Number(event.longitude), Number(event.latitude)] : null);
+        }
+        
+        // Create event card
+        const card = document.createElement('div');
+        card.className = 'event-card';
+        
+        card.innerHTML = `
+          <img src="${image}" alt="${title}" class="event-image">
+          <div class="event-details">
+            <div class="event-title">${title}</div>
+            <div class="event-info event-date">${date} ${time}</div>
+            <div class="event-info event-location">${venue ? venue + ' - ' : ''}${location}</div>
+            ${coordinates ? `<div class="event-info">Coordinates: ${coordinates[1].toFixed(4)}, ${coordinates[0].toFixed(4)}</div>` : ''}
+            <div class="event-category ${category === 'party' ? 'party-category' : ''}">${category}</div>
+          </div>
+        `;
+        
+        container.appendChild(card);
+      });
+    }
+    
+    // Helper function to calculate distance using Haversine formula
+    function calculateDistance(lat1, lon1, lat2, lon2) {
+      const R = 3958.8; // Earth's radius in miles
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a =
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
+    }
+  </script>
+</body>
+</html>
