@@ -2,9 +2,11 @@ import { supabase } from '@/integrations/supabase/client';
 import { invokeFunctionWithRetry } from '@/integrations/supabase/functions-client';
 import type { Event } from '@/types';
 
-// RapidAPI key - should be stored securely in a production environment
-// In a real application, this should be stored in an environment variable or fetched from a secure source
-const RAPIDAPI_KEY = '92bc1b4fc7mshacea9f118bf7a3fp1b5a6cjsnd2287a72fcb9';
+// RapidAPI key from environment variables
+// SECURITY NOTE: In production, this should be handled by a backend proxy
+// to avoid exposing the API key in client-side code
+const RAPIDAPI_KEY = import.meta.env.VITE_RAPIDAPI_KEY;
+const RAPIDAPI_HOST = 'real-time-events-search.p.rapidapi.com';
 
 interface SearchParams {
   keyword?: string;
@@ -51,7 +53,10 @@ function isCacheValid(entry: CacheEntry): boolean {
   return Date.now() - entry.timestamp < CACHE_TTL;
 }
 
-// Fetch events from RapidAPI directly
+/**
+ * Search for events using the direct RapidAPI integration.
+ * This is the main entry point for event searches in the application.
+ */
 export async function searchEvents(params: SearchParams): Promise<{
   events: Event[];
   sourceStats?: any;
@@ -63,8 +68,8 @@ export async function searchEvents(params: SearchParams): Promise<{
     // Ensure all required parameters are present
     const searchParams = {
       startDate: params.startDate || new Date().toISOString().split('T')[0],
-      endDate: params.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-      location: params.location || 'New York', // Default location if none provided
+      endDate: params.endDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], // 30 days ahead
+      location: params.location,
       latitude: params.latitude,
       longitude: params.longitude,
       radius: params.radius || 30, // Default to 30 miles radius
@@ -84,33 +89,43 @@ export async function searchEvents(params: SearchParams): Promise<{
       return searchCache[cacheKey].data;
     }
 
-    // Try direct RapidAPI call first
-    try {
-      console.log('[EVENT_SERVICE] Making direct RapidAPI call');
-      const result = await searchEventsDirectly(searchParams);
-      
-      // Cache the results
-      searchCache[cacheKey] = {
-        timestamp: Date.now(),
-        data: result
-      };
-      
-      return result;
-    } catch (directApiError) {
-      console.error('[EVENT_SERVICE] Direct RapidAPI call failed:', directApiError);
-      
-      // Fallback to Supabase function
-      console.log('[EVENT_SERVICE] Falling back to Supabase function');
-      
-      try {
-        // Use our custom function invoker with retry logic
-        const data = await invokeFunctionWithRetry('search-events', searchParams);
-        return data;
-      } catch (functionError) {
-        console.error('[EVENT_SERVICE] Error from function invocation:', functionError);
-        throw functionError;
+    // Make the direct RapidAPI call
+    console.log('[EVENT_SERVICE] Making direct RapidAPI call');
+    const result = await searchEventsDirectly(searchParams);
+
+    // Cache the results
+    searchCache[cacheKey] = {
+      timestamp: Date.now(),
+      data: result
+    };
+
+    // If there was an error with the direct call but we still want to return something
+    if (result.error) {
+      console.error('[EVENT_SERVICE] Direct RapidAPI call had an error:', result.error);
+
+      // Only try the fallback if we have no events
+      if (result.events.length === 0) {
+        try {
+          console.log('[EVENT_SERVICE] Falling back to Supabase function');
+          // Use our custom function invoker with retry logic
+          const data = await invokeFunctionWithRetry('search-events', searchParams);
+
+          // Cache the fallback results
+          if (data.events && data.events.length > 0) {
+            searchCache[cacheKey] = {
+              timestamp: Date.now(),
+              data: data
+            };
+            return data;
+          }
+        } catch (functionError) {
+          console.error('[EVENT_SERVICE] Error from function invocation:', functionError);
+          // Continue with the original result even if fallback fails
+        }
       }
     }
+
+    return result;
   } catch (error) {
     console.error('[ERROR] Error searching events:', error);
     return {
@@ -120,13 +135,18 @@ export async function searchEvents(params: SearchParams): Promise<{
       },
       meta: {
         error: String(error),
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        totalEvents: 0
       }
     };
   }
 }
 
-// Get event details by ID
+/**
+ * Get event details by ID from RapidAPI or local database.
+ * @param id - The event ID to fetch
+ * @returns The event details or null if not found
+ */
 export async function getEventById(id: string): Promise<Event | null> {
   try {
     // Check if this is a RapidAPI event
@@ -136,6 +156,9 @@ export async function getEventById(id: string): Promise<Event | null> {
         const result = await getEventDetailsDirectly(id);
         if (result.event) {
           return result.event;
+        } else {
+          console.warn(`[EVENT_SERVICE] No event data returned from RapidAPI for ID: ${id}`);
+          console.warn(`[EVENT_SERVICE] Error: ${result.error}`);
         }
       } catch (error) {
         console.error('[EVENT_SERVICE] Error fetching RapidAPI event details:', error);
@@ -143,46 +166,63 @@ export async function getEventById(id: string): Promise<Event | null> {
     }
 
     // Check local database
-    const { data: localEvent } = await supabase
-      .from('events')
-      .select('*')
-      .eq('id', id)
-      .single();
+    try {
+      const { data: localEvent, error } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', id)
+        .single();
 
-    if (localEvent) {
-      let coordinates: [number, number] | undefined;
-
-      if (localEvent.location_coordinates) {
-        const coordStr = typeof localEvent.location_coordinates === 'string'
-          ? localEvent.location_coordinates
-          : '';
-
-        const matches = coordStr.match(/\(([-\d.]+)\s+([-\d.]+)\)/);
-        if (matches) {
-          coordinates = [parseFloat(matches[1]), parseFloat(matches[2])];
-        }
+      if (error) {
+        console.warn(`[EVENT_SERVICE] Supabase error fetching event ID ${id}:`, error.message);
       }
 
-      const metadata = localEvent.metadata || {};
-      const price = typeof metadata === 'object' && 'price' in metadata
-        ? metadata.price as string
-        : undefined;
+      if (localEvent) {
+        console.log(`[EVENT_SERVICE] Found event in local database: ${id}`);
+        let coordinates: [number, number] | undefined;
 
-      return {
-        id: localEvent.external_id,
-        source: localEvent.source,
-        title: localEvent.title,
-        description: localEvent.description,
-        date: new Date(localEvent.date_start).toISOString().split('T')[0],
-        time: new Date(localEvent.date_start).toTimeString().slice(0, 5),
-        location: localEvent.location_name,
-        venue: localEvent.venue_name,
-        category: localEvent.category,
-        image: localEvent.image_url,
-        url: localEvent.url,
-        coordinates,
-        price
-      };
+        if (localEvent.location_coordinates) {
+          const coordStr = typeof localEvent.location_coordinates === 'string'
+            ? localEvent.location_coordinates
+            : '';
+
+          const matches = coordStr.match(/\(([-\d.]+)\s+([-\d.]+)\)/);
+          if (matches) {
+            coordinates = [parseFloat(matches[1]), parseFloat(matches[2])];
+          }
+        }
+
+        const metadata = localEvent.metadata || {};
+        const price = typeof metadata === 'object' && 'price' in metadata
+          ? metadata.price as string
+          : undefined;
+
+        return {
+          id: localEvent.id || localEvent.external_id,
+          source: localEvent.source,
+          title: localEvent.title,
+          description: localEvent.description,
+          date: new Date(localEvent.date_start).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
+          }),
+          time: new Date(localEvent.date_start).toLocaleTimeString('en-US', {
+            hour: 'numeric', minute: '2-digit', hour12: true
+          }),
+          location: localEvent.location_name,
+          venue: localEvent.venue_name,
+          category: localEvent.category,
+          image: localEvent.image_url,
+          imageAlt: `${localEvent.title} event image`,
+          url: localEvent.url,
+          coordinates,
+          latitude: coordinates ? coordinates[1] : undefined,
+          longitude: coordinates ? coordinates[0] : undefined,
+          price,
+          rawDate: localEvent.date_start
+        };
+      }
+    } catch (dbError) {
+      console.error('[EVENT_SERVICE] Error querying local database:', dbError);
     }
 
     // If not found locally or in RapidAPI, try Supabase function
@@ -191,24 +231,25 @@ export async function getEventById(id: string): Promise<Event | null> {
       const data = await invokeFunctionWithRetry('get-event', { id });
 
       if (!data?.event) {
-        console.warn(`[EVENT_SERVICE] No event data returned for ID: ${id}`);
+        console.warn(`[EVENT_SERVICE] No event data returned from function for ID: ${id}`);
         return null;
       }
 
+      console.log(`[EVENT_SERVICE] Successfully retrieved event from function: ${id}`);
       return data.event;
-    } catch (error) {
-      console.error('[ERROR] Error fetching event by ID:', error);
+    } catch (functionError) {
+      console.error('[EVENT_SERVICE] Error fetching event by ID from function:', functionError);
       return null;
     }
   } catch (error) {
-    console.error('Error getting event by ID:', error);
+    console.error('[EVENT_SERVICE] Unhandled error getting event by ID:', error);
     // Return null instead of throwing to prevent app crashes
     return null;
   }
 }
 
 /**
- * Search for events using RapidAPI directly
+ * Search for events using RapidAPI directly.
  * @param {Object} params - Search parameters
  * @returns {Promise<Object>} - Search results
  */
@@ -217,411 +258,466 @@ async function searchEventsDirectly(params: SearchParams): Promise<{
   sourceStats?: any;
   meta?: any;
 }> {
+  console.log('[RAPIDAPI_DIRECT] Searching events with params:', params);
+
+  if (!RAPIDAPI_KEY) {
+    console.error('[RAPIDAPI_DIRECT] RapidAPI Key is missing!');
+    return {
+      events: [],
+      error: 'RapidAPI key is not configured.',
+      status: 500,
+      sourceStats: { rapidapi: { count: 0, error: 'API key missing' } },
+      meta: { timestamp: new Date().toISOString(), totalEvents: 0 }
+    };
+  }
+
+  const queryParams = new URLSearchParams();
+  let queryString = '';
+  const isPartySearch = params.categories?.includes('party');
+
+  // Build Query String
+  if (params.latitude !== undefined && params.longitude !== undefined) {
+    const lat = Number(params.latitude).toFixed(6);
+    const lng = Number(params.longitude).toFixed(6);
+    queryString = `events near ${lat},${lng}`;
+    if (isPartySearch) {
+      queryString = `party events near ${lat},${lng}`; // More specific for parties
+    }
+    console.log(`[RAPIDAPI_DIRECT] Using coordinates for query: ${queryString}`);
+  } else if (params.location) {
+    queryString = `events in ${params.location}`;
+    if (isPartySearch) {
+      queryString = `party events in ${params.location}`;
+    }
+    console.log(`[RAPIDAPI_DIRECT] Using location name for query: ${queryString}`);
+  } else {
+    queryString = isPartySearch ? 'popular party events' : 'popular events'; // Fallback
+    console.log(`[RAPIDAPI_DIRECT] Using fallback query: ${queryString}`);
+  }
+
+  // Add keyword if provided
+  if (params.keyword) {
+    queryString += ` ${params.keyword}`;
+  }
+  // Add more party keywords if it's a party search without specific keywords
+  else if (isPartySearch) {
+    queryString += ' club dj dance nightlife festival celebration';
+  }
+
+  queryParams.append('query', queryString);
+  console.log(`[RAPIDAPI_DIRECT] Final Query String: "${queryString}"`);
+
+  // API Parameters
+  queryParams.append('date', 'month'); // Get upcoming events for the next month
+  queryParams.append('is_virtual', 'false');
+  queryParams.append('start', params.page ? ((params.page - 1) * (params.limit || 100)).toString() : '0');
+  queryParams.append('limit', (params.limit || 100).toString()); // Get more results for filtering
+  queryParams.append('sort', 'relevance'); // Sort by relevance
+
+  const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+  console.log(`[RAPIDAPI_DIRECT] Request URL: ${url.substring(0, 150)}...`);
+
   try {
-    console.log('[RAPIDAPI] Searching for events with params:', params);
-    
-    // Build query parameters
-    const queryParams = new URLSearchParams();
-    
-    // Determine if this is a party search
-    const isPartySearch = params.categories && 
-                         Array.isArray(params.categories) && 
-                         params.categories.includes('party');
-    
-    // Build the query string based on parameters
-    let queryString = '';
-    
-    // Add location to query if provided
-    if (params.location) {
-      if (isPartySearch) {
-        // For party searches, add party keywords to the location search
-        queryString = `parties in ${params.location}`;
-      } else {
-        queryString = `events in ${params.location}`;
-      }
-    } else if (params.latitude !== undefined && params.longitude !== undefined) {
-      // For coordinate-based searches
-      if (isPartySearch) {
-        queryString = 'parties nearby';
-      } else {
-        queryString = 'events nearby';
-      }
-    } else {
-      // Default fallback
-      queryString = isPartySearch ? 'popular parties' : 'popular events';
-    }
-    
-    // If this is a party search, enhance the query with party keywords
-    if (isPartySearch && params.keyword) {
-      queryString += ` ${params.keyword}`;
-    } else if (isPartySearch) {
-      // Add party-related keywords to improve results
-      queryString += ' nightclub dj dance festival celebration';
-    } else if (params.keyword) {
-      // Add any provided keywords
-      queryString += ` ${params.keyword}`;
-    }
-    
-    // Set the query parameter
-    queryParams.append('query', queryString);
-    console.log(`[RAPIDAPI] Using query string: "${queryString}"`);
-    
-    // Add date parameter - valid values for RapidAPI:
-    // all, today, tomorrow, week, weekend, next_week, month, next_month
-    if (params.startDate) {
-      // If we have a specific start date, use 'month' to get a wider range
-      queryParams.append('date', 'month');
-    } else {
-      // Default to 'week' for a reasonable timeframe
-      queryParams.append('date', 'week');
-    }
-    
-    // Set is_virtual parameter to false to only get in-person events
-    queryParams.append('is_virtual', 'false');
-    
-    // Add start parameter for pagination (0-based index)
-    queryParams.append('start', params.page ? ((params.page - 1) * (params.limit || 20)).toString() : '0');
-    
-    // Add limit parameter to get more results
-    queryParams.append('limit', '100'); // Request 100 events to have enough after filtering
-    
-    // Build the complete URL for the RapidAPI Events Search API
-    const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
-    
-    console.log(`[RAPIDAPI] Sending request to: ${url}`);
-    
-    // Make the API call
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
+        'x-rapidapi-host': RAPIDAPI_HOST
       }
     });
-    
+
+    console.log(`[RAPIDAPI_DIRECT] Response Status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error(`RapidAPI request failed with status: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`[RAPIDAPI_DIRECT] Request failed: ${response.status}`, errorText.substring(0, 500));
+      throw new Error(`RapidAPI request failed: ${response.status}`);
     }
-    
-    // Parse the JSON response
+
     const data = await response.json();
-    
-    // Get raw events from the response
-    const rawEvents = data.data || [];
-    console.log(`[RAPIDAPI] Received ${rawEvents.length} raw events from RapidAPI`);
-    
-    // Transform events to our standardized format
-    let transformedEvents = rawEvents.map(transformRapidAPIEvent);
-    
-    // Filter events based on parameters
-    if (params.categories && Array.isArray(params.categories)) {
-      // If searching for party events, filter to only include party events
-      if (params.categories.includes('party')) {
-        console.log('[RAPIDAPI] Filtering for party events only');
-        transformedEvents = transformedEvents.filter(event => 
-          event.isPartyEvent || event.category === 'party'
-        );
-        console.log(`[RAPIDAPI] Found ${transformedEvents.length} party events`);
+    const rawEvents = data?.data || [];
+    console.log(`[RAPIDAPI_DIRECT] Received ${rawEvents.length} raw events.`);
+
+    // --- Transformation & Filtering ---
+    let transformedEvents = rawEvents
+      .map(transformRapidAPIEvent)
+      .filter((event): event is Event => event !== null); // Filter out nulls from failed transformations
+
+    console.log(`[RAPIDAPI_DIRECT] Successfully transformed ${transformedEvents.length} events.`);
+
+    // --- Post-Fetch Filtering (Radius, Date) ---
+    // 1. Filter by Date (ensure only future events)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0); // Start of today
+    const initialCountBeforeDateFilter = transformedEvents.length;
+    transformedEvents = transformedEvents.filter((event: Event) => {
+      if (!event.rawDate) return true; // Keep if date is uncertain
+      try {
+        const eventDate = new Date(event.rawDate);
+        return !isNaN(eventDate.getTime()) && eventDate >= today;
+      } catch (e) { return true; } // Keep if date parsing fails
+    });
+    console.log(`[RAPIDAPI_DIRECT] Filtered out past events: ${initialCountBeforeDateFilter} -> ${transformedEvents.length}`);
+
+    // 2. Filter by Radius (if coordinates were provided in the original request)
+    if (params.latitude !== undefined && params.longitude !== undefined && params.radius !== undefined) {
+      const initialCountBeforeRadiusFilter = transformedEvents.length;
+      const userLat = Number(params.latitude);
+      const userLng = Number(params.longitude);
+      const radiusMiles = Number(params.radius);
+
+      if (!isNaN(userLat) && !isNaN(userLng) && !isNaN(radiusMiles) && radiusMiles > 0) {
+        transformedEvents = transformedEvents.filter((event: Event) => {
+          const eventLat = event.latitude;
+          const eventLng = event.longitude;
+          if (eventLat === undefined || eventLng === undefined || isNaN(eventLat) || isNaN(eventLng)) {
+            return false; // Exclude events without valid coordinates for radius filtering
+          }
+          const distance = calculateDistance(userLat, userLng, eventLat, eventLng);
+          return distance <= radiusMiles;
+        });
+        console.log(`[RAPIDAPI_DIRECT] Filtered by radius (${radiusMiles} miles): ${initialCountBeforeRadiusFilter} -> ${transformedEvents.length}`);
+      } else {
+        console.warn('[RAPIDAPI_DIRECT] Invalid coordinates or radius for filtering.');
       }
     }
-    
-    // Filter events by radius if coordinates are provided
-    if (params.latitude !== undefined && params.longitude !== undefined && params.radius) {
-      console.log(`[RAPIDAPI] Filtering events within ${params.radius} miles of [${params.latitude}, ${params.longitude}]`);
-      
-      const userLat = params.latitude;
-      const userLng = params.longitude;
-      const radius = params.radius;
-      
-      transformedEvents = transformedEvents.filter(event => {
-        // Get event coordinates
-        const eventLat = event.latitude;
-        const eventLng = event.longitude;
-        
-        // Skip events with invalid coordinates
-        if (eventLat === null || eventLng === null ||
-            eventLat === undefined || eventLng === undefined ||
-            isNaN(Number(eventLat)) || isNaN(Number(eventLng))) {
-          return false;
-        }
-        
-        // Calculate distance between user and event
-        const distance = calculateDistance(
-          Number(userLat),
-          Number(userLng),
-          Number(eventLat),
-          Number(eventLng)
+
+    // 3. Filter by Category if specifically requested (beyond party)
+    if (params.categories && params.categories.length > 0) {
+      const initialCountBeforeCategoryFilter = transformedEvents.length;
+
+      // If party category is requested, filter for party events
+      if (isPartySearch) {
+        transformedEvents = transformedEvents.filter(event =>
+          event.isPartyEvent || event.category === 'party'
         );
-        
-        // Return true if event is within the radius
-        return distance <= radius;
-      });
-      
-      console.log(`[RAPIDAPI] Found ${transformedEvents.length} events within ${radius} miles`);
+      }
+      // Otherwise filter by other categories
+      else {
+        const requestedCategories = params.categories.map(c => c.toLowerCase());
+        transformedEvents = transformedEvents.filter(event =>
+          event.category && requestedCategories.includes(event.category.toLowerCase())
+        );
+      }
+      console.log(`[RAPIDAPI_DIRECT] Filtered by categories (${params.categories.join(', ')}): ${initialCountBeforeCategoryFilter} -> ${transformedEvents.length}`);
     }
-    
-    // Filter by date range if provided
+
+    // 4. Filter by Date Range if provided
     if (params.startDate || params.endDate) {
+      const initialCountBeforeDateRangeFilter = transformedEvents.length;
       const startDate = params.startDate ? new Date(params.startDate) : new Date();
-      const endDate = params.endDate ? new Date(params.endDate) : new Date(startDate);
-      endDate.setMonth(endDate.getMonth() + 3); // Default to 3 months from start date if no end date
-      
-      console.log(`[RAPIDAPI] Filtering events between ${startDate.toISOString()} and ${endDate.toISOString()}`);
-      
+      const endDate = params.endDate ? new Date(params.endDate) : new Date();
+      endDate.setMonth(endDate.getMonth() + 3); // Default to 3 months if only start date provided
+
       transformedEvents = transformedEvents.filter(event => {
-        // Skip events without a date
-        if (!event.rawDate) return false;
-        
-        // Parse the event date
-        const eventDate = new Date(event.rawDate);
-        
-        // Return true if event is within the date range
-        return eventDate >= startDate && eventDate <= endDate;
+        if (!event.rawDate) return true; // Keep if date is uncertain
+        try {
+          const eventDate = new Date(event.rawDate);
+          return !isNaN(eventDate.getTime()) && eventDate >= startDate && eventDate <= endDate;
+        } catch (e) { return true; } // Keep if date parsing fails
       });
-      
-      console.log(`[RAPIDAPI] Found ${transformedEvents.length} events within date range`);
+      console.log(`[RAPIDAPI_DIRECT] Filtered by date range: ${initialCountBeforeDateRangeFilter} -> ${transformedEvents.length}`);
     }
-    
-    // Filter out excluded events
-    if (params.excludeIds && Array.isArray(params.excludeIds) && params.excludeIds.length > 0) {
-      transformedEvents = transformedEvents.filter(event => 
+
+    // 5. Filter out excluded events
+    if (params.excludeIds && params.excludeIds.length > 0) {
+      const initialCountBeforeExcludeFilter = transformedEvents.length;
+      transformedEvents = transformedEvents.filter(event =>
         !params.excludeIds?.includes(event.id)
       );
+      console.log(`[RAPIDAPI_DIRECT] Filtered out excluded events: ${initialCountBeforeExcludeFilter} -> ${transformedEvents.length}`);
     }
-    
-    // Sort events by date (soonest first)
+
+    // 6. Sort events by date (soonest first)
     transformedEvents.sort((a, b) => {
       if (!a.rawDate) return 1;
       if (!b.rawDate) return -1;
       return new Date(a.rawDate).getTime() - new Date(b.rawDate).getTime();
     });
-    
-    // Limit the number of events if requested
+
+    // 7. Apply pagination if requested
     const totalEvents = transformedEvents.length;
-    if (params.limit && transformedEvents.length > params.limit) {
-      const startIndex = params.page ? (params.page - 1) * params.limit : 0;
+    if (params.limit && params.page) {
+      const startIndex = (params.page - 1) * params.limit;
       transformedEvents = transformedEvents.slice(startIndex, startIndex + params.limit);
+    } else if (params.limit) {
+      transformedEvents = transformedEvents.slice(0, params.limit);
     }
-    
-    // Return the filtered events
+
+    console.log(`[RAPIDAPI_DIRECT] Returning ${transformedEvents.length} final events.`);
+
     return {
       events: transformedEvents,
-      sourceStats: {
-        rapidapi: {
-          count: transformedEvents.length,
-          error: null
-        }
-      },
+      sourceStats: { rapidapi: { count: transformedEvents.length, error: null } },
       meta: {
         timestamp: new Date().toISOString(),
-        totalEvents,
+        totalEvents: totalEvents,
         page: params.page || 1,
         limit: params.limit || totalEvents,
-        hasMore: params.limit ? totalEvents > params.page * params.limit : false
+        hasMore: params.limit ? totalEvents > (params.page || 1) * params.limit : false
       }
     };
+
   } catch (error) {
-    console.error('[RAPIDAPI] Error searching RapidAPI events:', error);
-    throw error;
+    console.error('[RAPIDAPI_DIRECT] Fetch or processing error:', error);
+    return {
+      events: [],
+      error: `Error fetching/processing events: ${error instanceof Error ? error.message : String(error)}`,
+      status: 500, // Indicate internal error
+      sourceStats: { rapidapi: { count: 0, error: error instanceof Error ? error.message : String(error) } },
+      meta: { timestamp: new Date().toISOString(), totalEvents: 0 }
+    };
   }
 }
 
 /**
- * Get event details from RapidAPI directly
- * @param {string} eventId - Event ID
- * @returns {Promise<Object>} - Event details
+ * Get event details directly from RapidAPI.
+ * @param {string} eventId - The RapidAPI event ID (without the 'rapidapi_' prefix).
+ * @returns {Promise<Object>} - Event details response
  */
 async function getEventDetailsDirectly(eventId: string): Promise<{
   event: Event | null;
   error: string | null;
 }> {
-  // Extract the actual event ID from our prefixed ID
-  const actualEventId = eventId.startsWith('rapidapi_') 
-    ? eventId.substring('rapidapi_'.length) 
-    : eventId;
-  
+  const actualEventId = eventId.startsWith('rapidapi_') ? eventId.substring(9) : eventId;
+  console.log(`[RAPIDAPI_DIRECT] Getting details for event ID: ${actualEventId}`);
+
+  if (!RAPIDAPI_KEY) {
+    console.error('[RAPIDAPI_DIRECT] RapidAPI Key is missing for getEventDetailsDirectly!');
+    return { event: null, error: 'RapidAPI key not configured' };
+  }
+
+  const url = `https://real-time-events-search.p.rapidapi.com/event-details?event_id=${encodeURIComponent(actualEventId)}`;
+  console.log(`[RAPIDAPI_DIRECT] Requesting details from: ${url}`);
+
   try {
-    // Build the query URL
-    const url = `https://real-time-events-search.p.rapidapi.com/event-details?event_id=${encodeURIComponent(actualEventId)}`;
-    
     const response = await fetch(url, {
       method: 'GET',
       headers: {
         'x-rapidapi-key': RAPIDAPI_KEY,
-        'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
+        'x-rapidapi-host': RAPIDAPI_HOST
       }
     });
-    
+
+    console.log(`[RAPIDAPI_DIRECT] Details Response Status: ${response.status}`);
+
     if (!response.ok) {
-      throw new Error(`RapidAPI event details request failed with status: ${response.status}`);
+      const errorText = await response.text();
+      console.error(`[RAPIDAPI_DIRECT] Details request failed: ${response.status}`, errorText.substring(0, 500));
+      return { event: null, error: `RapidAPI details request failed: ${response.status}` };
     }
-    
+
     const data = await response.json();
-    
     if (!data || !data.data) {
-      throw new Error('Invalid response from RapidAPI event details endpoint');
+      console.warn('[RAPIDAPI_DIRECT] Invalid details response format.');
+      return { event: null, error: 'Invalid details response from API' };
     }
-    
-    // Transform the event
+
     const transformedEvent = transformRapidAPIEvent(data.data);
-    
-    return {
-      event: transformedEvent,
-      error: null
-    };
+    if (!transformedEvent) {
+      console.warn('[RAPIDAPI_DIRECT] Failed to transform event details.');
+      return { event: null, error: 'Failed to process event details' };
+    }
+
+    console.log(`[RAPIDAPI_DIRECT] Successfully retrieved and transformed details for event: ${transformedEvent.id}`);
+    return { event: transformedEvent, error: null };
+
   } catch (error) {
-    console.error('[RAPIDAPI] Error fetching event details:', error);
-    return {
-      event: null,
-      error: error instanceof Error ? error.message : String(error)
-    };
+    console.error(`[RAPIDAPI_DIRECT] Error fetching event details:`, error);
+    return { event: null, error: `Error fetching details: ${error instanceof Error ? error.message : String(error)}` };
   }
 }
 
 /**
- * Transform a RapidAPI event to our standardized format
- * @param {Object} event - Raw event from RapidAPI
- * @returns {Object} - Standardized event object
+ * Transform a single RapidAPI event object into our standard Event format.
+ * @param rawEvent - The raw event object from the RapidAPI response.
+ * @returns A normalized Event object or null if transformation fails.
  */
-function transformRapidAPIEvent(event: any): Event {
-  // Extract venue information
-  const venue = event.venue?.name || '';
-  const location = event.venue?.full_address ||
-                  `${event.venue?.city || ''}, ${event.venue?.state || ''}`.trim() ||
-                  'Location not specified';
-  
-  // Extract date and time
-  const rawDate = event.start_time_utc || event.start_time || event.date_human_readable;
-  let dateObj = null;
-  
-  if (event.start_time_utc) {
-    dateObj = new Date(event.start_time_utc);
-  } else if (event.start_time) {
-    dateObj = new Date(event.start_time);
-  } else if (event.date_human_readable) {
-    // Try to parse the human-readable date
-    try {
-      const parts = event.date_human_readable.split(' ');
-      if (parts.length >= 3) {
-        // Format might be like "Monday, June 10, 2023"
-        dateObj = new Date(parts.slice(1).join(' '));
+function transformRapidAPIEvent(rawEvent: any): Event | null {
+  try {
+    if (!rawEvent || !rawEvent.event_id || !rawEvent.name) {
+      console.warn('[TRANSFORM] Skipping invalid raw event:', rawEvent?.event_id);
+      return null;
+    }
+
+    const venue = rawEvent.venue;
+    const venueName = venue?.name || '';
+
+    // Build a detailed location string, preferring full address
+    const locationParts = [
+      venueName,
+      venue?.full_address, // Use full address if available
+      venue?.city,
+      venue?.state,
+      venue?.country
+    ].filter(Boolean); // Filter out null/undefined/empty strings
+    const location = Array.from(new Set(locationParts)).join(', ').trim() || 'Location not specified';
+
+    // --- Date & Time ---
+    const rawDate = rawEvent.start_time_utc || rawEvent.start_time || rawEvent.date_human_readable;
+    let date = 'Date TBA';
+    let time = 'Time TBA';
+    let eventDateObj: Date | null = null;
+    if (rawDate) {
+      try {
+        eventDateObj = new Date(rawDate);
+        if (!isNaN(eventDateObj.getTime())) {
+          date = eventDateObj.toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' });
+          time = eventDateObj.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        } else {
+          date = rawEvent.date_human_readable || 'Date TBA'; // Fallback
+        }
+      } catch (e) {
+        console.warn(`[TRANSFORM] Error parsing date ${rawDate}:`, e);
+        date = rawEvent.date_human_readable || 'Date TBA';
       }
-    } catch (e) {
-      console.warn('[RAPIDAPI] Could not parse date:', event.date_human_readable);
     }
-  }
-  
-  // Format the date and time
-  const date = dateObj 
-    ? dateObj.toLocaleDateString('en-US', {
-        weekday: 'long',
-        month: 'long',
-        day: 'numeric',
-        year: 'numeric'
-      }) 
-    : event.date_human_readable || 'Date not specified';
-  
-  const time = dateObj
-    ? dateObj.toLocaleTimeString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true
-      })
-    : '';
-  
-  // Extract coordinates
-  let coordinates: [number, number] | undefined = undefined;
-  let eventLatitude: number | undefined = undefined;
-  let eventLongitude: number | undefined = undefined;
-  
-  if (event.venue?.latitude !== undefined && event.venue?.longitude !== undefined) {
-    eventLatitude = event.venue.latitude;
-    eventLongitude = event.venue.longitude;
-    coordinates = [eventLongitude, eventLatitude];
-  }
-  
-  // Enhanced party detection with expanded keywords
-  const partyKeywords = [
-    'party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave', 
-    'festival', 'celebration', 'gala', 'social', 'mixer', 'nightclub',
-    'disco', 'bash', 'soiree', 'fiesta', 'shindig', 'get-together',
-    'brunch', 'day party', 'pool party', 'rooftop'
-  ];
-  
-  const nameLower = event.name?.toLowerCase() || '';
-  const descriptionLower = event.description?.toLowerCase() || '';
-  
-  const isPartyEvent = 
-    partyKeywords.some(keyword => nameLower.includes(keyword)) ||
-    partyKeywords.some(keyword => descriptionLower.includes(keyword));
-  
-  // Determine event category and subcategory
-  let category = 'other';
-  let partySubcategory: string | undefined = undefined;
-  
-  if (isPartyEvent) {
-    category = 'party';
-    partySubcategory = 'general';
-    
+
+    // --- Coordinates ---
+    let coordinates: [number, number] | undefined = undefined;
+    let latitude: number | undefined = undefined;
+    let longitude: number | undefined = undefined;
+    if (venue?.latitude !== undefined && venue?.longitude !== undefined) {
+      const lat = parseFloat(String(venue.latitude));
+      const lng = parseFloat(String(venue.longitude));
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        latitude = lat;
+        longitude = lng;
+        coordinates = [lng, lat]; // GeoJSON format [longitude, latitude]
+      }
+    }
+
+    // --- Description ---
+    let description = rawEvent.description || '';
+    // Combine description with venue name for better party detection context
+    const enhancedDescription = `${description} ${venueName}`.trim();
+
+    // --- Category & Party Detection ---
+    const title = rawEvent.name || 'Unnamed Event';
+
+    // Enhanced party detection with expanded keywords
+    const partyKeywords = [
+      'party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave',
+      'festival', 'celebration', 'gala', 'social', 'mixer', 'nightclub',
+      'disco', 'bash', 'soiree', 'fiesta', 'shindig', 'get-together',
+      'brunch', 'day party', 'pool party', 'rooftop', 'concert', 'live music',
+      'edm', 'hip hop', 'techno', 'house music', 'afterparty', 'after party',
+      'vip', 'bottle service'
+    ];
+
+    const titleLower = title.toLowerCase();
+    const descLower = enhancedDescription.toLowerCase();
+
+    const isParty =
+      partyKeywords.some(keyword => titleLower.includes(keyword)) ||
+      partyKeywords.some(keyword => descLower.includes(keyword));
+
+    const category = isParty ? 'party' : 'event'; // Simple categorization
+
     // Determine party subcategory
-    if (nameLower.includes('festival') || descriptionLower.includes('festival')) {
-      partySubcategory = 'festival';
-    } else if (nameLower.includes('brunch') || descriptionLower.includes('brunch')) {
-      partySubcategory = 'brunch';
-    } else if ((nameLower.includes('day') && nameLower.includes('party')) || 
-               (descriptionLower.includes('day') && descriptionLower.includes('party'))) {
-      partySubcategory = 'day party';
-    } else if (nameLower.includes('club') || descriptionLower.includes('club') ||
-               nameLower.includes('nightlife') || descriptionLower.includes('nightlife')) {
-      partySubcategory = 'nightclub';
+    let partySubcategory: string | undefined = undefined;
+
+    if (isParty) {
+      if (titleLower.includes('festival') || descLower.includes('festival')) {
+        partySubcategory = 'immersive';
+      } else if (titleLower.includes('brunch') || descLower.includes('brunch')) {
+        partySubcategory = 'brunch';
+      } else if ((titleLower.includes('day') && titleLower.includes('party')) ||
+                (descLower.includes('day') && descLower.includes('party')) ||
+                (time && time.length >= 5 && parseInt(time.substring(0, 2)) < 18 && parseInt(time.substring(0, 2)) > 8)) {
+        partySubcategory = 'day-party';
+      } else if (titleLower.includes('club') || descLower.includes('club') ||
+                titleLower.includes('nightlife') || descLower.includes('nightlife') ||
+                (time && time.length >= 5 && (parseInt(time.substring(0, 2)) >= 21 || parseInt(time.substring(0, 2)) < 4))) {
+        partySubcategory = 'club';
+      } else if (titleLower.includes('network') || descLower.includes('network') ||
+                titleLower.includes('mixer') || descLower.includes('mixer') ||
+                titleLower.includes('mingle') || descLower.includes('mingle')) {
+        partySubcategory = 'networking';
+      } else if (titleLower.includes('rooftop') || descLower.includes('rooftop')) {
+        partySubcategory = 'rooftop';
+      } else if (titleLower.includes('celebration') || descLower.includes('celebration') ||
+                titleLower.includes('birthday') || descLower.includes('birthday') ||
+                titleLower.includes('anniversary') || descLower.includes('anniversary')) {
+        partySubcategory = 'celebration';
+      } else {
+        partySubcategory = 'general';
+      }
     }
-  }
-  
-  // Get event URL and ticket URL
-  const eventUrl = event.link || '';
-  let ticketUrl = '';
-  
-  if (event.ticket_links && event.ticket_links.length > 0) {
-    ticketUrl = event.ticket_links[0].link || '';
-  }
-  
-  // Get event image
-  const eventImage = event.thumbnail || 'https://placehold.co/600x400?text=No+Image';
-  
-  // Create standardized event object
-  return {
-    id: `rapidapi_${event.event_id}`,
-    source: 'rapidapi',
-    title: event.name,
-    description: event.description || '',
-    date,
-    time,
-    location,
-    venue,
-    category,
-    partySubcategory,
-    image: eventImage,
-    imageAlt: `${event.name} event image`,
-    coordinates,
-    longitude: eventLongitude,
-    latitude: eventLatitude,
-    url: eventUrl,
-    rawDate,
-    isPartyEvent,
-    ticketInfo: {
-      price: 'Check website for prices',
-      minPrice: undefined,
-      maxPrice: undefined,
-      currency: 'USD',
-      availability: 'available',
-      purchaseUrl: ticketUrl || eventUrl,
-      provider: 'RapidAPI'
-    },
-    websites: {
-      tickets: ticketUrl || eventUrl,
-      official: eventUrl
+
+    // --- Image ---
+    const image = rawEvent.thumbnail || 'https://placehold.co/600x400?text=No+Image';
+
+    // --- Links ---
+    const eventUrl = rawEvent.link || '';
+    let ticketUrl = eventUrl; // Default to event link
+    if (rawEvent.ticket_links && rawEvent.ticket_links.length > 0) {
+      // Prioritize specific providers or just take the first link
+      const tmLink = rawEvent.ticket_links.find((l: any) => l.source?.toLowerCase().includes('ticketmaster'));
+      const ebLink = rawEvent.ticket_links.find((l: any) => l.source?.toLowerCase().includes('eventbrite'));
+      const sgLink = rawEvent.ticket_links.find((l: any) => l.source?.toLowerCase().includes('seatgeek'));
+      ticketUrl = ebLink?.link || tmLink?.link || sgLink?.link || rawEvent.ticket_links[0].link || ticketUrl;
     }
-  };
+
+    // --- Price ---
+    let price: string | undefined = undefined;
+    if (rawEvent.ticket_info?.price) {
+      price = String(rawEvent.ticket_info.price); // Assuming price is a string like "$25-$50"
+    } else if (rawEvent.is_free === true) {
+      price = 'Free';
+    }
+
+    // --- Tags ---
+    let tags: string[] = [];
+    if (rawEvent.tags && Array.isArray(rawEvent.tags)) {
+      tags = rawEvent.tags;
+    } else if (rawEvent.categories && Array.isArray(rawEvent.categories)) {
+      tags = rawEvent.categories;
+    }
+
+    const normalizedEvent: Event = {
+      id: `rapidapi_${rawEvent.event_id}`,
+      source: 'rapidapi',
+      title: title,
+      description: description || undefined,
+      date: date,
+      time: time,
+      location: location,
+      venue: venueName || undefined,
+      category: category,
+      partySubcategory: partySubcategory,
+      image: image,
+      imageAlt: `${title} event image`,
+      coordinates: coordinates,
+      latitude: latitude,
+      longitude: longitude,
+      url: eventUrl || undefined,
+      price: price,
+      rawDate: rawDate || undefined,
+      isPartyEvent: isParty,
+      ticketInfo: {
+        price: price || 'Check website for prices',
+        minPrice: undefined,
+        maxPrice: undefined,
+        currency: 'USD',
+        availability: 'available',
+        purchaseUrl: ticketUrl || eventUrl,
+        provider: 'RapidAPI'
+      },
+      websites: {
+        tickets: ticketUrl || undefined,
+        official: eventUrl !== ticketUrl ? eventUrl : undefined,
+        venue: venue?.website || undefined
+      },
+      tags: tags
+    };
+
+    return normalizedEvent;
+
+  } catch (error) {
+    console.error(`[TRANSFORM] Error transforming event ID ${rawEvent?.event_id}:`, error);
+    return null; // Return null for events that fail transformation
+  }
 }
 
 /**
@@ -638,7 +734,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   const radLon1 = (Math.PI * lon1) / 180;
   const radLat2 = (Math.PI * lat2) / 180;
   const radLon2 = (Math.PI * lon2) / 180;
-  
+
   // Haversine formula
   const dLat = radLat2 - radLat1;
   const dLon = radLon2 - radLon1;
@@ -646,12 +742,12 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
             Math.cos(radLat1) * Math.cos(radLat2) *
             Math.sin(dLon / 2) * Math.sin(dLon / 2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  
+
   // Earth's radius in miles
   const R = 3958.8;
-  
+
   // Calculate the distance
   const distance = R * c;
-  
+
   return distance;
 }

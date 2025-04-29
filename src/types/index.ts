@@ -26,9 +26,30 @@ export interface Event {
   category: string;
   partySubcategory?: PartySubcategory;
   image: string;
+  imageAlt?: string;
   coordinates?: [number, number]; // [longitude, latitude]
+  latitude?: number; // Added for convenience
+  longitude?: number; // Added for convenience
   url?: string;
   price?: string;
+  rawDate?: string; // Original date string for sorting/filtering
+  isPartyEvent?: boolean; // Explicitly mark party events
+  // Ticket information
+  ticketInfo?: {
+    price?: string;
+    minPrice?: number;
+    maxPrice?: number;
+    currency?: string;
+    availability?: string;
+    purchaseUrl?: string;
+    provider?: string;
+  };
+  // Website links
+  websites?: {
+    tickets?: string;
+    official?: string;
+    venue?: string;
+  };
   // PredictHQ specific fields
   rank?: number; // Event impact score (1-100)
   localRelevance?: number; // Local impact score (1-100)
@@ -39,6 +60,7 @@ export interface Event {
   demandSurge?: boolean; // Indicates if event is causing unusual demand
   isRealTime?: boolean; // Indicates if event is real-time/unscheduled
   predictHQCategories?: string[]; // Additional categories from PredictHQ
+  tags?: string[]; // Event tags/keywords
 }
 
 // Itinerary types

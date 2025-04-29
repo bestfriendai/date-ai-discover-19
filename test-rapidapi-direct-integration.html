@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RapidAPI Direct Integration Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .search-form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      padding: 20px;
+      background-color: #f5f5f5;
+      border-radius: 8px;
+    }
+    .search-form input, .search-form select, .search-form button {
+      padding: 8px 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+    }
+    .search-form button {
+      background-color: #4CAF50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .search-form button:hover {
+      background-color: #45a049;
+    }
+    .results {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .event-card {
+      border: 1px solid #ddd;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .event-image {
+      width: 100%;
+      height: 180px;
+      object-fit: cover;
+    }
+    .event-details {
+      padding: 15px;
+    }
+    .event-title {
+      font-size: 18px;
+      font-weight: bold;
+      margin-bottom: 8px;
+    }
+    .event-date, .event-location {
+      font-size: 14px;
+      color: #666;
+      margin-bottom: 5px;
+    }
+    .event-category {
+      display: inline-block;
+      padding: 3px 8px;
+      background-color: #e0f7fa;
+      color: #006064;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-top: 8px;
+    }
+    .party-tag {
+      background-color: #f8bbd0;
+      color: #880e4f;
+    }
+    .event-links {
+      margin-top: 10px;
+    }
+    .event-links a {
+      display: inline-block;
+      padding: 5px 10px;
+      background-color: #2196F3;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 12px;
+      margin-right: 5px;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      font-size: 18px;
+      color: #666;
+    }
+    .error {
+      background-color: #ffebee;
+      color: #c62828;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .stats {
+      background-color: #e8f5e9;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <h1>RapidAPI Direct Integration Test</h1>
+  
+  <div class="container">
+    <div class="search-form">
+      <input type="text" id="location" placeholder="Location (e.g., New York)" value="New York">
+      <input type="number" id="radius" placeholder="Radius (miles)" value="30" min="1" max="100">
+      <select id="category">
+        <option value="all">All Events</option>
+        <option value="party" selected>Party Events</option>
+      </select>
+      <input type="text" id="keyword" placeholder="Keywords (optional)">
+      <button id="search-btn">Search by Location</button>
+      <button id="search-coords-btn">Search by Coordinates (NYC)</button>
+    </div>
+    
+    <div id="stats" class="stats">Enter a location and search for events.</div>
+    
+    <div id="loading" class="loading" style="display: none;">Loading events...</div>
+    <div id="error" class="error" style="display: none;"></div>
+    
+    <div id="results" class="results"></div>
+  </div>
+
+  <script>
+    // RapidAPI key - for testing purposes only
+    // In a real application, this should be stored securely
+    const RAPIDAPI_KEY = '92bc1b4fc7mshacea9f118bf7a3fp1b5a6cjsnd2287a72fcb9';
+    const RAPIDAPI_HOST = 'real-time-events-search.p.rapidapi.com';
+    
+    // DOM elements
+    const locationInput = document.getElementById('location');
+    const radiusInput = document.getElementById('radius');
+    const categorySelect = document.getElementById('category');
+    const keywordInput = document.getElementById('keyword');
+    const searchBtn = document.getElementById('search-btn');
+    const searchCoordsBtn = document.getElementById('search-coords-btn');
+    const resultsDiv = document.getElementById('results');
+    const loadingDiv = document.getElementById('loading');
+    const errorDiv = document.getElementById('error');
+    const statsDiv = document.getElementById('stats');
+    
+    // Search events by location
+    async function searchEvents() {
+      // Show loading state
+      resultsDiv.innerHTML = '';
+      loadingDiv.style.display = 'block';
+      errorDiv.style.display = 'none';
+      
+      try {
+        const location = locationInput.value.trim();
+        const radius = parseInt(radiusInput.value) || 30;
+        const category = categorySelect.value;
+        const keyword = keywordInput.value.trim();
+        
+        if (!location) {
+          throw new Error('Please enter a location');
+        }
+        
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        let queryString = '';
+        
+        // Set query string based on category
+        if (category === 'party') {
+          queryString = `party events in ${location}`;
+        } else {
+          queryString = `events in ${location}`;
+        }
+        
+        // Add keyword if provided
+        if (keyword) {
+          queryString += ` ${keyword}`;
+        }
+        
+        queryParams.append('query', queryString);
+        queryParams.append('date', 'month');
+        queryParams.append('is_virtual', 'false');
+        queryParams.append('start', '0');
+        queryParams.append('limit', '100');
+        
+        // Build the URL
+        const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+        
+        // Make the API call
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_HOST
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API request failed with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Process and display results
+        processResults(data, category, radius, location);
+        
+      } catch (error) {
+        console.error('Error searching events:', error);
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+        statsDiv.textContent = 'Search failed. Please try again.';
+      } finally {
+        loadingDiv.style.display = 'none';
+      }
+    }
+    
+    // Search events by coordinates (New York City)
+    async function searchEventsByCoordinates() {
+      // Show loading state
+      resultsDiv.innerHTML = '';
+      loadingDiv.style.display = 'block';
+      errorDiv.style.display = 'none';
+      
+      try {
+        const radius = parseInt(radiusInput.value) || 30;
+        const category = categorySelect.value;
+        const keyword = keywordInput.value.trim();
+        
+        // New York City coordinates
+        const latitude = 40.7128;
+        const longitude = -74.0060;
+        
+        // Build query parameters
+        const queryParams = new URLSearchParams();
+        let queryString = '';
+        
+        // Set query string based on category
+        if (category === 'party') {
+          queryString = `party events near ${latitude},${longitude}`;
+        } else {
+          queryString = `events near ${latitude},${longitude}`;
+        }
+        
+        // Add keyword if provided
+        if (keyword) {
+          queryString += ` ${keyword}`;
+        }
+        
+        queryParams.append('query', queryString);
+        queryParams.append('date', 'month');
+        queryParams.append('is_virtual', 'false');
+        queryParams.append('start', '0');
+        queryParams.append('limit', '100');
+        
+        // Build the URL
+        const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+        
+        // Make the API call
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': RAPIDAPI_KEY,
+            'x-rapidapi-host': RAPIDAPI_HOST
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`API request failed with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Process and display results
+        processResults(data, category, radius, `coordinates (${latitude}, ${longitude})`);
+        
+      } catch (error) {
+        console.error('Error searching events by coordinates:', error);
+        errorDiv.textContent = `Error: ${error.message}`;
+        errorDiv.style.display = 'block';
+        statsDiv.textContent = 'Search failed. Please try again.';
+      } finally {
+        loadingDiv.style.display = 'none';
+      }
+    }
+    
+    // Process and display results
+    function processResults(data, category, radius, searchLocation) {
+      const rawEvents = data.data || [];
+      console.log(`Received ${rawEvents.length} raw events`);
+      
+      // Transform events
+      const events = rawEvents.map(transformEvent).filter(Boolean);
+      console.log(`Transformed ${events.length} events`);
+      
+      // Filter by category if needed
+      let filteredEvents = events;
+      if (category === 'party') {
+        filteredEvents = events.filter(event => event.isPartyEvent);
+        console.log(`Filtered to ${filteredEvents.length} party events`);
+      }
+      
+      // Update stats
+      statsDiv.innerHTML = `
+        <strong>Search Results:</strong><br>
+        Found ${filteredEvents.length} events within ${radius} miles of ${searchLocation}.<br>
+        ${category === 'party' ? `(${filteredEvents.length} party events out of ${events.length} total events)` : ''}
+      `;
+      
+      // Display events
+      if (filteredEvents.length === 0) {
+        resultsDiv.innerHTML = '<p>No events found matching your criteria.</p>';
+        return;
+      }
+      
+      resultsDiv.innerHTML = filteredEvents.map(event => `
+        <div class="event-card">
+          <img src="${event.image}" alt="${event.title}" class="event-image" onerror="this.src='https://placehold.co/400x200?text=No+Image'">
+          <div class="event-details">
+            <div class="event-title">${event.title}</div>
+            <div class="event-date">${event.date} ${event.time}</div>
+            <div class="event-location">${event.location}</div>
+            <div class="event-category ${event.isPartyEvent ? 'party-tag' : ''}">${event.isPartyEvent ? (event.partySubcategory || 'Party') : 'Event'}</div>
+            <div class="event-links">
+              ${event.url ? `<a href="${event.url}" target="_blank">Details</a>` : ''}
+              ${event.ticketUrl ? `<a href="${event.ticketUrl}" target="_blank">Tickets</a>` : ''}
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+    
+    // Transform a raw event to our format
+    function transformEvent(rawEvent) {
+      try {
+        if (!rawEvent || !rawEvent.event_id || !rawEvent.name) {
+          return null;
+        }
+        
+        // Extract venue information
+        const venue = rawEvent.venue || {};
+        const venueName = venue.name || '';
+        const location = venue.full_address || 
+                        `${venue.city || ''}, ${venue.state || ''}`.trim() || 
+                        'Location not specified';
+        
+        // Extract date and time
+        const rawDate = rawEvent.start_time_utc || rawEvent.start_time || rawEvent.date_human_readable;
+        let date = 'Date TBA';
+        let time = '';
+        
+        if (rawDate) {
+          try {
+            const dateObj = new Date(rawDate);
+            if (!isNaN(dateObj.getTime())) {
+              date = dateObj.toLocaleDateString('en-US', { 
+                weekday: 'short', 
+                month: 'short', 
+                day: 'numeric' 
+              });
+              time = dateObj.toLocaleTimeString('en-US', { 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true
+              });
+            } else {
+              date = rawEvent.date_human_readable || 'Date TBA';
+            }
+          } catch (e) {
+            date = rawEvent.date_human_readable || 'Date TBA';
+          }
+        }
+        
+        // Party detection
+        const partyKeywords = [
+          'party', 'club', 'dj', 'nightlife', 'dance', 'lounge', 'rave', 
+          'festival', 'celebration', 'gala', 'social', 'mixer', 'nightclub',
+          'disco', 'bash', 'soiree', 'fiesta', 'shindig', 'get-together',
+          'brunch', 'day party', 'pool party', 'rooftop'
+        ];
+        
+        const titleLower = rawEvent.name.toLowerCase();
+        const descLower = (rawEvent.description || '').toLowerCase();
+        
+        const isPartyEvent = 
+          partyKeywords.some(keyword => titleLower.includes(keyword)) ||
+          partyKeywords.some(keyword => descLower.includes(keyword));
+        
+        // Determine party subcategory
+        let partySubcategory = null;
+        
+        if (isPartyEvent) {
+          if (titleLower.includes('festival') || descLower.includes('festival')) {
+            partySubcategory = 'Festival';
+          } else if (titleLower.includes('brunch') || descLower.includes('brunch')) {
+            partySubcategory = 'Brunch';
+          } else if ((titleLower.includes('day') && titleLower.includes('party')) || 
+                    (descLower.includes('day') && descLower.includes('party'))) {
+            partySubcategory = 'Day Party';
+          } else if (titleLower.includes('club') || descLower.includes('club') ||
+                    titleLower.includes('nightlife') || descLower.includes('nightlife')) {
+            partySubcategory = 'Nightclub';
+          } else {
+            partySubcategory = 'Party';
+          }
+        }
+        
+        // Get event URL and ticket URL
+        const eventUrl = rawEvent.link || '';
+        let ticketUrl = '';
+        
+        if (rawEvent.ticket_links && rawEvent.ticket_links.length > 0) {
+          ticketUrl = rawEvent.ticket_links[0].link || '';
+        }
+        
+        // Get event image
+        const image = rawEvent.thumbnail || 'https://placehold.co/400x200?text=No+Image';
+        
+        return {
+          id: `rapidapi_${rawEvent.event_id}`,
+          title: rawEvent.name,
+          description: rawEvent.description || '',
+          date,
+          time,
+          location,
+          venue: venueName,
+          image,
+          url: eventUrl,
+          ticketUrl,
+          isPartyEvent,
+          partySubcategory
+        };
+      } catch (error) {
+        console.error('Error transforming event:', error);
+        return null;
+      }
+    }
+    
+    // Event listeners
+    searchBtn.addEventListener('click', searchEvents);
+    searchCoordsBtn.addEventListener('click', searchEventsByCoordinates);
+    
+    // Initialize with default search
+    document.addEventListener('DOMContentLoaded', () => {
+      // Don't auto-search to avoid using up API quota
+      statsDiv.textContent = 'Enter a location and click "Search" to find events.';
+    });
+  </script>
+</body>
+</html>
