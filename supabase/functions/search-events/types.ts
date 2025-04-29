@@ -27,6 +27,7 @@ export interface Event {
   price?: string; // Basic price info if available
   rawDate?: string; // Store original date string for sorting/filtering
   isPartyEvent?: boolean;
+  tags?: string[]; // Event tags from RapidAPI
 
   // Optional detailed info (might not be available from RapidAPI)
   ticketInfo?: {
@@ -42,6 +43,21 @@ export interface Event {
     official?: string;
     tickets?: string;
     venue?: string;
+    social?: string[]; // Social media links
+  };
+
+  // Enhanced venue details
+  venueDetails?: {
+    name?: string;
+    address?: string;
+    city?: string;
+    state?: string;
+    country?: string;
+    website?: string;
+    rating?: number;
+    reviewCount?: number;
+    type?: string;
+    phone?: string;
   };
 }
 

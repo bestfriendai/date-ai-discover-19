@@ -21,7 +21,7 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// Corrected Transformation Function for the target RapidAPI endpoint
+// Enhanced Transformation Function for the target RapidAPI endpoint
 function transformRapidAPIEvent(eventData: any): Event | null {
    try {
     if (!eventData || !eventData.event_id || !eventData.name) {
@@ -29,8 +29,32 @@ function transformRapidAPIEvent(eventData: any): Event | null {
       return null;
     }
 
+    // --- IMPROVED TITLE HANDLING ---
+    // Clean up and format the title for better display
+    let title = eventData.name || '';
+
+    // Remove excessive whitespace and normalize
+    title = title.trim().replace(/\s+/g, ' ');
+
+    // Capitalize first letter of each word for consistency
+    title = title.split(' ').map((word: string) =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+
+    // Remove any trailing punctuation
+    title = title.replace(/[.,;:!?]+$/, '');
+
+    // If title is all caps, convert to title case
+    if (title === title.toUpperCase() && title.length > 3) {
+      title = title.split(' ').map((word: string) =>
+        word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+      ).join(' ');
+    }
+
+    // --- IMPROVED VENUE & LOCATION HANDLING ---
     const venue = eventData.venue;
     const venueName = venue?.name || '';
+
     // Construct a more robust location string
     const locationParts = [
         venueName, // Start with venue name if available
@@ -39,10 +63,11 @@ function transformRapidAPIEvent(eventData: any): Event | null {
         venue?.state,
         venue?.country
     ].filter(Boolean); // Filter out null/undefined/empty strings
+
     // Remove duplicates and join, fallback if empty
     const location = Array.from(new Set(locationParts)).join(', ').trim() || 'Location not specified';
 
-
+    // --- IMPROVED DATE & TIME HANDLING ---
     const rawDate = eventData.start_time_utc || eventData.start_time || eventData.date_human_readable;
     let date = 'Date TBA';
     let time = 'Time TBA';
@@ -52,10 +77,23 @@ function transformRapidAPIEvent(eventData: any): Event | null {
       try {
         dateTime = new Date(rawDate);
         if (!isNaN(dateTime.getTime())) {
-          date = dateTime.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
-          time = dateTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+          // Format date with full month name for better readability
+          date = dateTime.toLocaleDateString('en-US', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            weekday: 'long' // Add day of week for better context
+          });
+
+          // Format time with AM/PM for better readability
+          time = dateTime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+          });
         } else {
-           date = eventData.date_human_readable || rawDate.substring(0, 10) || 'Date TBA'; // Fallback
+           // Try to extract date from human-readable format or use substring
+           date = eventData.date_human_readable || rawDate.substring(0, 10) || 'Date TBA';
         }
       } catch (e) {
         console.warn(`[RAPIDAPI_TRANSFORM] Error parsing date ${rawDate}:`, e);
@@ -63,7 +101,7 @@ function transformRapidAPIEvent(eventData: any): Event | null {
       }
     }
 
-    // Enhanced coordinate extraction with better validation and fallbacks
+    // --- IMPROVED COORDINATE HANDLING ---
     let coordinates: [number, number] | undefined = undefined;
     let latitude: number | undefined = undefined;
     let longitude: number | undefined = undefined;
@@ -80,9 +118,9 @@ function transformRapidAPIEvent(eventData: any): Event | null {
         latitude = lat;
         longitude = lng;
         coordinates = [lng, lat]; // GeoJSON format [longitude, latitude]
-        console.log(`[RAPIDAPI_TRANSFORM] Extracted venue coordinates for "${eventData.name}": [${lat}, ${lng}]`);
+        console.log(`[RAPIDAPI_TRANSFORM] Extracted venue coordinates for "${title}": [${lat}, ${lng}]`);
       } else {
-        console.log(`[RAPIDAPI_TRANSFORM] Invalid venue coordinates for "${eventData.name}": [${venue.latitude}, ${venue.longitude}]`);
+        console.log(`[RAPIDAPI_TRANSFORM] Invalid venue coordinates for "${title}": [${venue.latitude}, ${venue.longitude}]`);
       }
     }
     // Try event-level coordinates
@@ -96,7 +134,7 @@ function transformRapidAPIEvent(eventData: any): Event | null {
         latitude = lat;
         longitude = lng;
         coordinates = [lng, lat];
-        console.log(`[RAPIDAPI_TRANSFORM] Using event-level coordinates for "${eventData.name}": [${lat}, ${lng}]`);
+        console.log(`[RAPIDAPI_TRANSFORM] Using event-level coordinates for "${title}": [${lat}, ${lng}]`);
       }
     }
     // Final fallback: Try to parse coordinates from address
@@ -115,30 +153,130 @@ function transformRapidAPIEvent(eventData: any): Event | null {
           latitude = lat;
           longitude = lng;
           coordinates = [lng, lat];
-          console.log(`[RAPIDAPI_TRANSFORM] Extracted coordinates from address for "${eventData.name}": [${lat}, ${lng}]`);
+          console.log(`[RAPIDAPI_TRANSFORM] Extracted coordinates from address for "${title}": [${lat}, ${lng}]`);
         }
       }
     }
 
     if (coordinates === undefined) {
-      console.log(`[RAPIDAPI_TRANSFORM] No valid coordinates available for "${eventData.name}"`);
+      console.log(`[RAPIDAPI_TRANSFORM] No valid coordinates available for "${title}"`);
+    }
+
+    // --- IMPROVED DESCRIPTION HANDLING ---
+    // Clean up description and combine with venue info for better party detection
+    let description = eventData.description || '';
+
+    // If description is empty, try to create one from available data
+    if (!description && venue) {
+      description = `Event at ${venueName}`;
+      if (venue.city && venue.state) {
+        description += ` in ${venue.city}, ${venue.state}`;
+      }
     }
 
     // Combine description with venue name for better party detection
-    const enhancedDescription = `${eventData.description || ''} ${venueName}`.trim();
-    const isParty = detectPartyEvent(eventData.name, enhancedDescription); // Only pass title and enhanced description
+    const enhancedDescription = `${description} ${venueName}`.trim();
+    const isParty = detectPartyEvent(title, enhancedDescription);
     const category = isParty ? 'party' : (eventData.category ? eventData.category.toLowerCase() : 'other');
-    const partySubcategory = isParty ? detectPartySubcategory(eventData.name, eventData.description, time) : undefined;
+    const partySubcategory = isParty ? detectPartySubcategory(title, description, time) : undefined;
 
-    const image = eventData.thumbnail || 'https://placehold.co/600x400?text=No+Image';
-    const ticketUrl = eventData.ticket_links?.[0]?.link;
-    const eventUrl = eventData.link || ticketUrl;
+    // --- IMPROVED IMAGE HANDLING ---
+    // Get the best available image or use a placeholder
+    let image = 'https://placehold.co/600x400?text=No+Image';
 
+    // Check if thumbnail exists and is a valid URL
+    if (eventData.thumbnail && typeof eventData.thumbnail === 'string' && eventData.thumbnail.startsWith('http')) {
+      image = eventData.thumbnail;
+
+      // If image URL contains size parameters, try to get a larger version
+      if (image.includes('w=') && image.includes('&')) {
+        // Replace small image sizes with larger ones
+        image = image.replace(/w=\d+/g, 'w=1000')
+                     .replace(/h=\d+/g, 'h=1000')
+                     .replace(/size=\d+/g, 'size=1000');
+      }
+    }
+
+    // --- IMPROVED LINKS HANDLING ---
+    // Extract and organize all available links
+    const allTicketLinks = eventData.ticket_links || [];
+    const allInfoLinks = eventData.info_links || [];
+
+    // Get the best ticket link
+    let ticketUrl = '';
+    if (allTicketLinks.length > 0) {
+      // Prioritize certain ticket providers
+      const preferredProviders = ['Ticketmaster', 'Eventbrite', 'SeatGeek', 'AXS', 'StubHub'];
+
+      // Try to find a preferred provider first
+      const preferredLink = allTicketLinks.find((link: any) =>
+        preferredProviders.some((provider: string) =>
+          link.source && link.source.toLowerCase().includes(provider.toLowerCase())
+        )
+      );
+
+      // Use preferred link or first available
+      ticketUrl = preferredLink ? preferredLink.link : allTicketLinks[0].link;
+    }
+
+    // Get the best info link (official event page)
+    let eventUrl = eventData.link || '';
+    if (!eventUrl && allInfoLinks.length > 0) {
+      // Prioritize official sources
+      const preferredSources = ['Official', 'Venue', eventData.venue?.name];
+
+      // Try to find a preferred source first
+      const preferredLink = allInfoLinks.find((link: any) =>
+        preferredSources.some((source: string) =>
+          link.source && link.source.toLowerCase().includes(source.toLowerCase())
+        )
+      );
+
+      // Use preferred link or first available
+      eventUrl = preferredLink ? preferredLink.link : allInfoLinks[0].link;
+    }
+
+    // If we still don't have an event URL, use ticket URL as fallback
+    if (!eventUrl) {
+      eventUrl = ticketUrl;
+    }
+
+    // Collect all available links for the websites object
+    const websiteLinks: {
+      official?: string;
+      tickets?: string;
+      venue?: string;
+      social?: string[];
+    } = {
+      official: eventUrl !== ticketUrl ? eventUrl : undefined,
+      tickets: ticketUrl || undefined
+    };
+
+    // Add venue website if available
+    if (venue?.website) {
+      websiteLinks.venue = venue.website;
+    }
+
+    // Collect social media links if available in info_links
+    const socialLinks = allInfoLinks
+      .filter((link: any) =>
+        link.source &&
+        ['Facebook', 'Twitter', 'Instagram', 'YouTube', 'Spotify'].some(
+          (social: string) => link.source.toLowerCase().includes(social.toLowerCase())
+        )
+      )
+      .map((link: any) => link.link);
+
+    if (socialLinks.length > 0) {
+      websiteLinks.social = socialLinks;
+    }
+
+    // --- BUILD FINAL EVENT OBJECT ---
     const transformed: Event = {
       id: `rapidapi_${eventData.event_id}`,
       source: 'rapidapi',
-      title: eventData.name,
-      description: eventData.description || undefined, // Make description optional
+      title: title,
+      description: description || undefined, // Make description optional
       date: date,
       time: time,
       location: location,
@@ -146,7 +284,7 @@ function transformRapidAPIEvent(eventData: any): Event | null {
       category: category,
       partySubcategory: partySubcategory,
       image: image,
-      imageAlt: `${eventData.name} event image`,
+      imageAlt: `${title} event image`,
       coordinates: coordinates,
       latitude: latitude,
       longitude: longitude,
@@ -154,19 +292,87 @@ function transformRapidAPIEvent(eventData: any): Event | null {
       rawDate: rawDate,
       isPartyEvent: isParty,
       ticketInfo: {
-        purchaseUrl: ticketUrl,
-        provider: 'RapidAPI'
-        // Price info is generally not available from this specific endpoint
+        purchaseUrl: ticketUrl || undefined,
+        provider: ticketUrl ? (
+          allTicketLinks.find((link: any) => link.link === ticketUrl)?.source || 'RapidAPI'
+        ) : undefined
       },
-      websites: {
-        official: eventUrl !== ticketUrl ? eventUrl : undefined,
-        tickets: ticketUrl
-      }
+      websites: websiteLinks
     };
+
+    // Add venue details if available
+    if (venue) {
+      transformed.venueDetails = {
+        name: venue.name,
+        address: venue.full_address,
+        city: venue.city,
+        state: venue.state,
+        country: venue.country,
+        website: venue.website,
+        rating: venue.rating,
+        reviewCount: venue.review_count
+      };
+    }
+
+    // Add tags if available
+    if (eventData.tags && Array.isArray(eventData.tags) && eventData.tags.length > 0) {
+      transformed.tags = eventData.tags;
+    }
+
     return transformed;
   } catch (error) {
     console.error('[RAPIDAPI_TRANSFORM] Error transforming event:', eventData?.event_id, error);
     return null;
+  }
+}
+
+/**
+ * Fetch detailed information for a specific event from RapidAPI
+ * This can be used to get more information about an event when needed
+ */
+export async function fetchRapidAPIEventDetails(eventId: string, apiKey: string): Promise<{ event: Event | null, error: string | null }> {
+  try {
+    if (!eventId || !apiKey) {
+      return { event: null, error: 'Missing event ID or API key' };
+    }
+
+    // Extract the actual event ID from our prefixed ID format
+    const actualEventId = eventId.startsWith('rapidapi_') ? eventId.substring(9) : eventId;
+
+    console.log(`[RAPIDAPI_DETAILS] Fetching details for event ID: ${actualEventId}`);
+
+    // Build the URL for the event details endpoint
+    const url = `https://real-time-events-search.p.rapidapi.com/event-details?event_id=${encodeURIComponent(actualEventId)}`;
+
+    // Make the API call
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'x-rapidapi-key': apiKey,
+        'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
+      }
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`[RAPIDAPI_DETAILS] Request failed: ${response.status}`, errorText.substring(0, 200));
+      return { event: null, error: `RapidAPI event details request failed: ${response.status}` };
+    }
+
+    const data = await response.json();
+
+    if (!data || !data.data) {
+      return { event: null, error: 'Invalid response from RapidAPI event details endpoint' };
+    }
+
+    // Transform the event using our enhanced transformer
+    const transformedEvent = transformRapidAPIEvent(data.data);
+
+    return { event: transformedEvent, error: null };
+  } catch (error) {
+    const errorMsg = `Failed to fetch event details: ${error instanceof Error ? error.message : String(error)}`;
+    console.error(`[RAPIDAPI_DETAILS] Error: ${errorMsg}`);
+    return { event: null, error: errorMsg };
   }
 }
 
@@ -324,9 +530,19 @@ export async function searchRapidAPIEvents(params: SearchParams, apiKey: string)
 
     queryParams.append('is_virtual', 'false');
     // Request maximum limit for post-filtering to get more events
-    const apiLimit = 500; // Maximized to get the most events possible
+    // RapidAPI recommends 200 per page for optimal performance
+    const apiLimit = 200; // Optimal per-page limit
     queryParams.append('limit', apiLimit.toString());
-    queryParams.append('start', '0'); // Start from the beginning for filtering
+
+    // Handle pagination - start from page 0 by default
+    const startIndex = params.page && params.page > 1 ? (params.page - 1) * apiLimit : 0;
+    queryParams.append('start', startIndex.toString());
+
+    // Add additional parameters to improve result quality
+    queryParams.append('sort', 'relevance'); // Sort by relevance for better results
+
+    // Log pagination info
+    console.log(`[RAPIDAPI] Using pagination: start=${startIndex}, limit=${apiLimit}, page=${params.page || 1}`);
 
     const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
     console.log(`[RAPIDAPI] Sending request to: ${url.substring(0, 100)}...`);
@@ -353,7 +569,7 @@ export async function searchRapidAPIEvents(params: SearchParams, apiKey: string)
     // Transform
     let transformedEvents = rawEvents
       .map(transformRapidAPIEvent)
-      .filter((event): event is Event => event !== null); // Filter out nulls
+      .filter((event: Event | null): event is Event => event !== null); // Filter out nulls
 
     console.log(`[RAPIDAPI] Transformed ${transformedEvents.length} events successfully.`);
 
