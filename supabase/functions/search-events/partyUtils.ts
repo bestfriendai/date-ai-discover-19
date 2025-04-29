@@ -5,8 +5,8 @@
 // Constants for scoring
 const SCORE_THRESHOLDS = {
   HIGH: 80,
-  MEDIUM: 50,
-  LOW: 30
+  MEDIUM: 40, // Lowered from 50 to catch more medium-confidence party events
+  LOW: 25     // Lowered from 30 to be more inclusive with party detection
 };
 
 const KEYWORD_WEIGHTS = {
@@ -46,38 +46,69 @@ const partyKeywords = {
     // Core party terms - highest priority
     'party', 'nightclub', 'club night', 'dance party', 'rave', 'dj set', 'nightlife',
     'bottle service', 'vip table', 'dance floor', 'after party', 'afterparty',
+    'dance', 'dancing', 'dj', 'club', 'clubbing', 'night out', 'night life',
+    'party bus', 'party cruise', 'party boat', 'party venue', 'party spot',
+    'dance club', 'dance venue', 'dance spot', 'dance floor', 'dance hall',
+    'dance music', 'dance night', 'dance event', 'dance party', 'dance social',
+    'dance celebration', 'dance mixer', 'dance gathering', 'dance festival',
 
     // Social gathering terms - high priority
     'celebration', 'social', 'mixer', 'gathering', 'gala', 'reception',
     'meet-up', 'meetup', 'happy hour', 'happy-hour', 'mingle', 'networking',
     'social event', 'cocktail', 'singles', 'speed dating', 'social gathering',
+    'social night', 'social club', 'social venue', 'social spot', 'social scene',
+    'social mixer', 'social celebration', 'social party', 'social dance',
+    'social gathering', 'social meetup', 'social networking', 'social drinks',
 
     // Special events - high priority
     'birthday', 'anniversary', 'graduation', 'bachelor', 'bachelorette',
-    'launch party', 'release party', 'opening party',
+    'launch party', 'release party', 'opening party', 'grand opening',
+    'vip event', 'exclusive event', 'special event', 'featured event',
+    'premiere', 'debut', 'unveiling', 'reveal party', 'celebration party',
+    'holiday party', 'seasonal party', 'themed party', 'costume party',
 
     // Music & entertainment - medium priority
     'festival', 'fest', 'concert', 'live music', 'live dj', 'entertainment',
     'electronic music', 'hip hop', 'edm', 'house music', 'techno', 'disco',
     'bar crawl', 'pub crawl', 'show', 'performance', 'dj', 'bar', 'lounge',
+    'music festival', 'music event', 'music party', 'music celebration',
+    'music social', 'music mixer', 'music gathering', 'music night',
+    'live band', 'live performance', 'live show', 'live entertainment',
+    'live act', 'live music venue', 'live music spot', 'live music scene',
 
     // Venue & atmosphere terms - medium priority
     'vip', 'exclusive', 'night out', 'dancing', 'club', 'venue',
+    'lounge', 'bar', 'pub', 'tavern', 'nightspot', 'hotspot',
+    'dance floor', 'dance hall', 'dance club', 'dance venue',
+    'nightlife', 'night scene', 'night spot', 'night venue',
+    'evening event', 'evening party', 'evening celebration',
+    'evening social', 'evening mixer', 'evening gathering',
 
     // Themed parties - high priority
     'themed party', 'costume party', 'masquerade', 'holiday party',
     'new years party', 'halloween party', 'summer party', 'winter party',
     'spring party', 'fall party', 'seasonal party', 'annual party',
+    'decade party', '80s party', '90s party', 'retro party',
+    'throwback party', 'themed night', 'themed event', 'themed social',
+    'themed celebration', 'themed mixer', 'themed gathering',
 
     // Venue types - medium priority
     'nightclub venue', 'lounge venue', 'bar venue', 'club night', 'dance night',
     'party night', 'night life', 'social mixer', 'networking event', 'singles event',
+    'rooftop bar', 'rooftop lounge', 'rooftop club', 'rooftop venue',
+    'outdoor bar', 'outdoor lounge', 'outdoor club', 'outdoor venue',
+    'beach bar', 'beach lounge', 'beach club', 'beach venue',
+    'pool bar', 'pool lounge', 'pool club', 'pool venue',
 
     // Time & activity terms - lower priority
     'mingling', 'daytime event', 'pool event', 'rooftop event', 'outdoor event',
     'friday night', 'saturday night', 'weekend party', 'weekend event',
     'bottle service', 'vip tables', 'open bar', 'drink specials', 'ladies night',
-    'industry night', 'college night', 'theme night', 'dance music', 'live entertainment'
+    'industry night', 'college night', 'theme night', 'dance music', 'live entertainment',
+    'weekend', 'friday', 'saturday', 'sunday', 'thursday',
+    'night', 'evening', 'afternoon', 'day', 'morning',
+    'brunch', 'lunch', 'dinner', 'drinks', 'cocktails',
+    'beer', 'wine', 'spirits', 'alcohol', 'beverages'
   ],
 
   // Day party specific terms - expanded for better detection
@@ -86,33 +117,52 @@ const partyKeywords = {
     'day party', 'day-party', 'pool party', 'daytime', 'day time',
     'outdoor party', 'garden party', 'patio party', 'beach party',
     'pool', 'day club', 'dayclub', 'afternoon party', 'rooftop party',
+    'day rave', 'day festival', 'day concert', 'day social', 'day celebration',
+    'daytime rave', 'daytime festival', 'daytime concert', 'daytime social',
+    'afternoon rave', 'afternoon festival', 'afternoon concert', 'afternoon social',
 
     // Event types
     'daytime event', 'afternoon event', 'day event', 'pool event', 'beach event',
     'outdoor event', 'rooftop event', 'terrace party', 'terrace event',
     'day fest', 'day festival', 'outdoor festival', 'pool festival',
+    'day concert', 'outdoor concert', 'day show', 'outdoor show',
+    'day performance', 'outdoor performance', 'day entertainment',
+    'outdoor entertainment', 'day music', 'outdoor music',
 
     // Social gatherings
     'day celebration', 'afternoon celebration', 'daytime celebration',
     'day social', 'afternoon social', 'daytime social',
     'day mixer', 'afternoon mixer', 'daytime mixer',
     'day gathering', 'afternoon gathering', 'daytime gathering',
+    'day meetup', 'afternoon meetup', 'daytime meetup',
+    'day networking', 'afternoon networking', 'daytime networking',
+    'day mingling', 'afternoon mingling', 'daytime mingling',
 
     // Specific venues
     'pool bar', 'beach bar', 'outdoor bar', 'garden bar', 'patio bar',
     'pool lounge', 'beach lounge', 'outdoor lounge', 'garden lounge', 'patio lounge',
     'pool club', 'beach club', 'outdoor club', 'garden club', 'patio club',
+    'pool venue', 'beach venue', 'outdoor venue', 'garden venue', 'patio venue',
+    'pool spot', 'beach spot', 'outdoor spot', 'garden spot', 'patio spot',
+    'pool party venue', 'beach party venue', 'outdoor party venue',
+    'garden party venue', 'patio party venue', 'rooftop party venue',
 
     // Activities
     'sun bathing', 'swimming', 'outdoor games', 'outdoor activities',
     'outdoor music', 'outdoor dj', 'outdoor dancing', 'outdoor entertainment',
     'day drinking', 'afternoon drinking', 'daytime drinking',
     'day dancing', 'afternoon dancing', 'daytime dancing',
+    'pool games', 'beach games', 'lawn games', 'outdoor sports',
+    'pool activities', 'beach activities', 'lawn activities',
+    'pool fun', 'beach fun', 'outdoor fun', 'daytime fun',
 
     // Time indicators
     'afternoon', 'daytime', 'day time', 'midday', 'mid-day',
     'morning', 'noon', 'early', 'sunrise', 'sunset',
     'brunch', 'lunch', 'day', 'sunshine', 'sunny',
+    'daylight', 'sunlight', 'sun', 'bright', 'light',
+    'am', 'pm', 'morning', 'noon', 'afternoon',
+    'pre-evening', 'pre-sunset', 'pre-dusk', 'pre-night',
 
     // Seasonal
     'summer day', 'spring day', 'fall day', 'winter day',
@@ -120,12 +170,17 @@ const partyKeywords = {
     'summer daytime', 'spring daytime', 'fall daytime', 'winter daytime',
     'summer pool', 'spring pool', 'summer beach', 'spring beach',
     'summer garden', 'spring garden', 'summer patio', 'spring patio',
-    'summer outdoor', 'spring outdoor', 'fall outdoor', 'winter outdoor'
+    'summer outdoor', 'spring outdoor', 'fall outdoor', 'winter outdoor',
+    'summer party', 'spring party', 'summer celebration', 'spring celebration',
+    'summer festival', 'spring festival', 'summer concert', 'spring concert',
+    'summer event', 'spring event', 'summer gathering', 'spring gathering',
+    'summer social', 'spring social', 'summer mixer', 'spring mixer'
   ]
 };
 
 /**
  * Helper function to detect party-related keywords in title or description
+ * Enhanced to be more sensitive to party-related terms
  */
 export function detectPartyEvent(title: string = '', description: string = ''): boolean {
   // Normalize inputs
@@ -133,14 +188,36 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   const descLower = (description || '').toLowerCase();
   const combinedText = `${titleLower} ${descLower}`;
 
+  // Quick check for exact matches of high-confidence party terms
+  // This is a fast path for obvious party events
+  const highConfidenceTerms = [
+    'party', 'nightclub', 'club night', 'dance party', 'rave', 'dj set', 'nightlife',
+    'festival', 'celebration', 'social', 'mixer', 'day party', 'pool party'
+  ];
+
+  const hasExactMatch = highConfidenceTerms.some(term =>
+    titleLower.includes(term) || descLower.includes(term)
+  );
+
+  // If we have an exact match of high-confidence terms, return true immediately
+  if (hasExactMatch) {
+    console.log(`[PARTY_DETECTION] Event: "${title}" - Quick match on high-confidence term`);
+    return true;
+  }
+
   // Check for strong party indicators
   const hasStrongPartyIndicator = partyKeywords.strong.some(keyword => combinedText.includes(keyword));
 
   // Check for day party indicators
   const hasDayPartyIndicator = partyKeywords.dayParty.some(keyword => combinedText.includes(keyword));
 
-  // Return true if any party indicators are found
-  // Calculate score based on keyword matches
+  // If we have direct indicators, return true
+  if (hasStrongPartyIndicator || hasDayPartyIndicator) {
+    console.log(`[PARTY_DETECTION] Event: "${title}" - Direct indicator match`);
+    return true;
+  }
+
+  // For more ambiguous cases, calculate a detailed score
   let score = 0;
 
   // Score title matches (weighted higher)
@@ -166,6 +243,28 @@ export function detectPartyEvent(title: string = '', description: string = ''): 
   partyKeywords.dayParty.forEach(keyword => {
     if (descLower.includes(keyword)) {
       score += 15 * KEYWORD_WEIGHTS.DESC;
+    }
+  });
+
+  // Additional scoring for venue-related terms that often indicate party events
+  const venueTerms = ['club', 'lounge', 'bar', 'venue', 'hall', 'room'];
+  venueTerms.forEach(term => {
+    if (titleLower.includes(term)) {
+      score += 10 * KEYWORD_WEIGHTS.TITLE;
+    }
+    if (descLower.includes(term)) {
+      score += 10 * KEYWORD_WEIGHTS.DESC;
+    }
+  });
+
+  // Additional scoring for time-related terms that often indicate party events
+  const timeTerms = ['night', 'evening', 'weekend', 'friday', 'saturday'];
+  timeTerms.forEach(term => {
+    if (titleLower.includes(term)) {
+      score += 5 * KEYWORD_WEIGHTS.TITLE;
+    }
+    if (descLower.includes(term)) {
+      score += 5 * KEYWORD_WEIGHTS.DESC;
     }
   });
 
