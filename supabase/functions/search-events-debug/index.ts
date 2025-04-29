@@ -25,29 +25,32 @@ function handleOptionsRequest() {
 async function checkRapidAPIKey() {
   try {
     // Get RapidAPI key
+    // @ts-ignore: Deno is available at runtime
     const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
+    // @ts-ignore: Deno is available at runtime
     const xRapidApiKey = Deno.env.get('X_RAPIDAPI_KEY');
+    // @ts-ignore: Deno is available at runtime
     const realTimeEventsApiKey = Deno.env.get('REAL_TIME_EVENTS_API_KEY');
-    
+
     // Log the masked API keys (first 4 chars and last 4 chars only)
     const maskKey = (key: string | undefined) => {
       if (!key) return 'NOT SET';
       if (key.length <= 8) return '********';
       return `${key.slice(0, 4)}...${key.slice(-4)}`;
     };
-    
+
     // Check if keys meet validation rules
     const validateKey = (key: string | undefined) => {
       if (!key) return false;
-      
+
       // RapidAPI validation rules
       const format = /^[A-Za-z0-9_-]+$/;
       const minLength = 25;
       const maxLength = 50;
-      
+
       const isFormatValid = format.test(key);
       const isLengthValid = key.length >= minLength && key.length <= maxLength;
-      
+
       return {
         isValid: isFormatValid && isLengthValid,
         format: isFormatValid,
@@ -55,7 +58,7 @@ async function checkRapidAPIKey() {
         actualLength: key.length
       };
     };
-    
+
     return {
       status: 'success',
       environment: {
@@ -82,7 +85,7 @@ async function checkRapidAPIKey() {
 serve(async (req: Request) => {
   console.log('[SEARCH-EVENTS-DEBUG] Function started');
   console.log('[SEARCH-EVENTS-DEBUG] Request method:', req.method);
-  
+
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return handleOptionsRequest();
@@ -90,10 +93,10 @@ serve(async (req: Request) => {
 
   try {
     console.log('[SEARCH-EVENTS-DEBUG] Processing request');
-    
+
     // Check RapidAPI key
     const result = await checkRapidAPIKey();
-    
+
     // Return the response
     console.log('[SEARCH-EVENTS-DEBUG] Returning response');
     return new Response(
@@ -108,7 +111,7 @@ serve(async (req: Request) => {
     );
   } catch (error) {
     console.error('[SEARCH-EVENTS-DEBUG] Error:', error instanceof Error ? error.message : String(error));
-    
+
     // Return error response
     return new Response(
       JSON.stringify({

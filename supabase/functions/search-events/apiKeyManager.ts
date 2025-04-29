@@ -87,7 +87,9 @@ class ApiKeyManager {
         // Try multiple possible environment variable names for RapidAPI
         // @ts-ignore: Deno is available at runtime
         key = Deno.env.get('RAPIDAPI_KEY') ||
+              // @ts-ignore: Deno is available at runtime
               Deno.env.get('REAL_TIME_EVENTS_API_KEY') ||
+              // @ts-ignore: Deno is available at runtime
               Deno.env.get('X_RAPIDAPI_KEY');
 
         console.log('[API_KEY_MANAGER] RapidAPI key retrieval attempt. Found:', !!key);
@@ -127,7 +129,7 @@ class ApiKeyManager {
   }
 
   // Track request end (success or error)
-  private endRequest(service: string, status: 'success' | 'error', details: any = {}): void {
+  private endRequest(service: string, status: 'success' | 'error', _details: any = {}): void {
     const stats = this.usageStats.get(service);
     if (stats) {
       stats.count++;
@@ -135,7 +137,7 @@ class ApiKeyManager {
       if (status === 'error') {
         stats.errors++;
       }
-      // console.log(`[API_KEY_MANAGER] Usage updated for ${service}:`, stats, 'Details:', details);
+      // console.log(`[API_KEY_MANAGER] Usage updated for ${service}:`, stats, 'Details:', _details);
     }
   }
 

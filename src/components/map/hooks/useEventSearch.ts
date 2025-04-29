@@ -81,7 +81,8 @@ export const useEventSearch = () => {
       setIsEventsLoading(true);
       const result = await searchEvents({
         ...lastSearchParams,
-        page: nextPage
+        page: nextPage,
+        limit: 200 // Increased limit to pull more events
       });
 
       if (result && result.events && result.events.length > 0) {
@@ -114,8 +115,12 @@ export const useEventSearch = () => {
         setEvents(prev => [...prev, ...processedNewEvents]);
 
         // Update hasMore based on whether we received a full page
-        setHasMore(result.events.length === result.pageSize);
-        setTotalEvents(result.totalEvents || 0);
+        // Check if we have pagination info in the response
+        const pageSize = (result as any).pageSize || 200; // Default to 200 if not provided
+        const totalEvents = (result as any).totalEvents || result.events.length;
+
+        setHasMore(result.events.length === pageSize);
+        setTotalEvents(totalEvents);
       } else {
         setHasMore(false);
       }
@@ -216,7 +221,7 @@ export const useEventSearch = () => {
       const searchParamsWithPage = {
         ...searchParams,
         page: 1,
-        limit: 100 // Increased limit to pull more events
+        limit: 200 // Increased limit to pull more events
       };
 
       const result = await searchEvents(searchParamsWithPage);
@@ -321,8 +326,12 @@ export const useEventSearch = () => {
       setEvents(processedEvents);
 
       // Update pagination state
-      setHasMore(result.events.length === result.pageSize);
-      setTotalEvents(result.totalEvents || 0);
+      // Check if we have pagination info in the response
+      const pageSize = (result as any).pageSize || 200; // Default to 200 if not provided
+      const totalEvents = (result as any).totalEvents || result.events.length;
+
+      setHasMore(result.events.length === pageSize);
+      setTotalEvents(totalEvents);
 
     } catch (error) {
       console.error('[EVENTS] Error fetching events:', error);

@@ -28,8 +28,11 @@ serve(async (req: Request) => {
 
   try {
     // Get environment variables
+    // @ts-ignore: Deno is available at runtime
     const rapidApiKey = Deno.env.get('RAPIDAPI_KEY');
+    // @ts-ignore: Deno is available at runtime
     const xRapidApiKey = Deno.env.get('X_RAPIDAPI_KEY');
+    // @ts-ignore: Deno is available at runtime
     const realTimeEventsApiKey = Deno.env.get('REAL_TIME_EVENTS_API_KEY');
 
     // Mask keys for security
