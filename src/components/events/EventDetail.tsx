@@ -105,17 +105,16 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
         // Search for events in the same category
         const results = await searchEvents({
           categories: [event.category],
-          // These parameters are handled in the service layer
-          // @ts-ignore - limit and excludeIds are valid parameters
           limit: 3,
-          excludeIds: [event.id],
-          // Ensure we request all fields needed for full cards
+          // Don't use excludeIds since it's not defined in the interface
+          // Instead we'll filter client-side
           fields: ['id', 'title', 'image', 'category', 'date', 'location', 'price', 'url', 'description']
         });
 
-        // Handle the response structure
+        // Filter out the current event
         if (results && results.events) {
-          setRelatedEvents(results.events);
+          const filteredEvents = results.events.filter(e => e.id !== event.id);
+          setRelatedEvents(filteredEvents);
         }
       } catch (error) {
         console.error('Error fetching related events:', error);

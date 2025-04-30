@@ -1,156 +1,80 @@
 
-import * as LucideReactIcons from 'lucide-react';
+// Re-export icons from lucide-react
+import {
+  Check,
+  ChevronRight,
+  MoreHorizontal,
+  ChevronLeft,
+  ArrowLeft,
+  ArrowRight,
+  Search,
+  Circle,
+  Calendar,
+  X,
+  Dot,
+  ChevronDown,
+  ChevronUp,
+  GripVertical,
+  PanelLeft,
+  
+  // Shadcn components need these
+  Check as CheckIcon,
+  ChevronRight as ChevronRightIcon,
+  MoreHorizontal as MoreHorizontalIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ArrowLeft as ArrowLeftIcon,
+  ArrowRight as ArrowRightIcon,
+  Search as SearchIcon,
+  Circle as CircleIcon,
+  Calendar as CalendarIcon,
+  X as XIcon,
+  Dot as DotIcon,
+  ChevronDown as ChevronDownIcon,
+  ChevronUp as ChevronUpIcon,
+  GripVertical as GripVerticalIcon,
+  PanelLeft as PanelLeftIcon,
+  
+  // Additional icons needed for the app
+  Sparkles as SparklesIcon,
+  Music as MusicIcon,
+  MapPin as MapPinIcon,
+  Palette as PaletteIcon,
+  Trophy as TrophyIcon,
+  Users as UsersIcon,
+  Utensils as UtensilsIcon,
+  PartyPopper as PartyPopperIcon,
+  Headphones as HeadphonesIcon,
+  Package as PackageIcon,
+  Sun as SunIcon,
+  Coffee as CoffeeIcon,
+  Network as NetworkIcon,
+  Wine as WineIcon,
+  Building as BuildingIcon,
+  CalendarDays as CalendarDaysIcon,
+  Clock as ClockIcon,
+  Trash2 as Trash2Icon,
+  Edit as EditIcon,
+  AlertCircle as AlertCircleIcon,
+  PlusCircle as PlusCircleIcon,
+  Moon as MoonIcon,
+  SlidersHorizontal as SlidersHorizontalIcon
+} from 'lucide-react';
 
-// Navigation and UI Controls
-export const ChevronLeftIcon = LucideReactIcons.ChevronLeft;
-export const ChevronRightIcon = LucideReactIcons.ChevronRight;
-export const ChevronDownIcon = LucideReactIcons.ChevronDown;
-export const ChevronUpIcon = LucideReactIcons.ChevronUp;
-export const ArrowLeft = LucideReactIcons.ArrowLeft;
-export const ArrowLeftIcon = LucideReactIcons.ArrowLeft;
-export const ArrowRight = LucideReactIcons.ArrowRight;
-export const ArrowRightIcon = LucideReactIcons.ArrowRight;
-export const SearchIcon = LucideReactIcons.Search;
-export const Search = LucideReactIcons.Search;
-export const FilterIcon = LucideReactIcons.Filter;
-export const Filter = LucideReactIcons.Filter;
-export const XIcon = LucideReactIcons.X;
-export const X = LucideReactIcons.X;
-export const MoreHorizontal = LucideReactIcons.MoreHorizontal;
-export const MoreHorizontalIcon = LucideReactIcons.MoreHorizontal;
-export const SlidersHorizontal = LucideReactIcons.SlidersHorizontal;
-export const SlidersHorizontalIcon = LucideReactIcons.SlidersHorizontal;
-export const PanelLeft = LucideReactIcons.PanelLeft;
-export const PanelLeftIcon = LucideReactIcons.PanelLeft;
-export const GripVertical = LucideReactIcons.GripVertical;
-export const GripVerticalIcon = LucideReactIcons.GripVertical;
-export const CheckIcon = LucideReactIcons.Check;
-export const CircleIcon = LucideReactIcons.Circle;
-export const DotIcon = LucideReactIcons.Dot;
-export const Check = LucideReactIcons.Check;
-export const Circle = LucideReactIcons.Circle;
-export const Dot = LucideReactIcons.Dot;
-export const ChevronDown = LucideReactIcons.ChevronDown;
-export const ChevronLeft = LucideReactIcons.ChevronLeft;
-export const ChevronUp = LucideReactIcons.ChevronUp;
-export const ChevronRight = LucideReactIcons.ChevronRight;
-
-// User Interface
-export const UserIcon = LucideReactIcons.User;
-export const User = LucideReactIcons.User;
-export const LogOutIcon = LucideReactIcons.LogOut;
-export const LogOut = LucideReactIcons.LogOut;
-export const LockIcon = LucideReactIcons.Lock;
-export const Lock = LucideReactIcons.Lock;
-export const MailIcon = LucideReactIcons.Mail;
-export const Mail = LucideReactIcons.Mail;
-export const ExternalLinkIcon = LucideReactIcons.ExternalLink;
-export const ExternalLink = LucideReactIcons.ExternalLink;
-export const PlusIcon = LucideReactIcons.Plus;
-export const Plus = LucideReactIcons.Plus;
-export const PlusCircleIcon = LucideReactIcons.PlusCircle;
-export const PlusCircle = LucideReactIcons.PlusCircle;
-export const Loader2Icon = LucideReactIcons.Loader2;
-export const Loader2 = LucideReactIcons.Loader2;
-export const Trash2Icon = LucideReactIcons.Trash2;
-export const Trash2 = LucideReactIcons.Trash2;
-export const EditIcon = LucideReactIcons.Edit;
-export const Edit = LucideReactIcons.Edit;
-export const AlertCircleIcon = LucideReactIcons.AlertCircle;
-export const AlertCircle = LucideReactIcons.AlertCircle;
-export const AlertTriangleIcon = LucideReactIcons.AlertTriangle;
-export const AlertTriangle = LucideReactIcons.AlertTriangle;
-export const InfoIcon = LucideReactIcons.Info;
-export const Info = LucideReactIcons.Info;
-export const Share2Icon = LucideReactIcons.Share2;
-export const Share2 = LucideReactIcons.Share2;
-
-// Location and Navigation
-export const MapPinIcon = LucideReactIcons.MapPin;
-export const MapPin = LucideReactIcons.MapPin;
-export const LocateIcon = LucideReactIcons.Locate;
-export const Locate = LucideReactIcons.Locate;
-export const NavigationIcon = LucideReactIcons.Navigation;
-export const Navigation = LucideReactIcons.Navigation;
-export const CarIcon = LucideReactIcons.Car;
-export const Car = LucideReactIcons.Car;
-export const MapIcon = LucideReactIcons.Map;
-export const Map = LucideReactIcons.Map;
-export const CompassIcon = LucideReactIcons.Compass;
-export const Compass = LucideReactIcons.Compass;
-export const GlobeIcon = LucideReactIcons.Globe;
-export const Globe = LucideReactIcons.Globe;
-export const SatelliteIcon = LucideReactIcons.Satellite;
-export const Satellite = LucideReactIcons.Satellite;
-
-// Date and Time
-export const CalendarIcon = LucideReactIcons.Calendar;
-export const Calendar = LucideReactIcons.Calendar;
-export const CalendarDaysIcon = LucideReactIcons.CalendarDays;
-export const CalendarDays = LucideReactIcons.CalendarDays;
-export const ClockIcon = LucideReactIcons.Clock;
-export const Clock = LucideReactIcons.Clock;
-
-// Event Categories and Types
-export const PartyPopperIcon = LucideReactIcons.PartyPopper;
-export const PartyPopper = LucideReactIcons.PartyPopper;
-export const MusicIcon = LucideReactIcons.Music;
-export const Music = LucideReactIcons.Music;
-export const PaletteIcon = LucideReactIcons.Palette;
-export const Palette = LucideReactIcons.Palette;
-export const TrophyIcon = LucideReactIcons.Trophy;
-export const Trophy = LucideReactIcons.Trophy;
-export const UsersIcon = LucideReactIcons.Users;
-export const Users = LucideReactIcons.Users;
-export const UtensilsIcon = LucideReactIcons.Utensils;
-export const Utensils = LucideReactIcons.Utensils;
-export const HeartIcon = LucideReactIcons.Heart;
-export const Heart = LucideReactIcons.Heart;
-export const StarIcon = LucideReactIcons.Star;
-export const Star = LucideReactIcons.Star;
-export const SparklesIcon = LucideReactIcons.Sparkles;
-export const Sparkles = LucideReactIcons.Sparkles;
-export const TicketIcon = LucideReactIcons.Ticket;
-export const Ticket = LucideReactIcons.Ticket;
-
-// Venue and Location Types
-export const Building = LucideReactIcons.Building;
-export const BuildingIcon = LucideReactIcons.Building;
-export const Coffee = LucideReactIcons.Coffee;
-export const CoffeeIcon = LucideReactIcons.Coffee;
-export const Wine = LucideReactIcons.Wine;
-export const WineIcon = LucideReactIcons.Wine;
-export const Network = LucideReactIcons.Network;
-export const NetworkIcon = LucideReactIcons.Network;
-export const Package = LucideReactIcons.Package;
-export const PackageIcon = LucideReactIcons.Package;
-export const Headphones = LucideReactIcons.Headphones;
-export const HeadphonesIcon = LucideReactIcons.Headphones;
-export const MountainIcon = LucideReactIcons.Mountain;
-export const Mountain = LucideReactIcons.Mountain;
-export const MountainSnowIcon = LucideReactIcons.MountainSnow;
-export const MountainSnow = LucideReactIcons.MountainSnow;
-export const Theater = LucideReactIcons.Theater;
-export const TheaterIcon = LucideReactIcons.Theater;
-export const BotIcon = LucideReactIcons.Bot;
-export const Bot = LucideReactIcons.Bot;
-export const SendIcon = LucideReactIcons.Send;
-export const Send = LucideReactIcons.Send;
-export const SunIcon = LucideReactIcons.Sun;
-export const Sun = LucideReactIcons.Sun;
-export const MoonIcon = LucideReactIcons.Moon;
-export const Moon = LucideReactIcons.Moon;
-export const LayersIcon = LucideReactIcons.Layers;
-export const Layers = LucideReactIcons.Layers;
-
-// Additional icons needed for various components
-export const DollarSignIcon = LucideReactIcons.DollarSign;
-export const DollarSign = LucideReactIcons.DollarSign;
-export const SettingsIcon = LucideReactIcons.Settings;
-export const Settings = LucideReactIcons.Settings;
-export const TrendingUpIcon = LucideReactIcons.TrendingUp;
-export const TrendingUp = LucideReactIcons.TrendingUp;
-export const MinusCircleIcon = LucideReactIcons.MinusCircle;
-export const MinusCircle = LucideReactIcons.MinusCircle;
-export const CheckCircleIcon = LucideReactIcons.CheckCircle;
-export const CheckCircle = LucideReactIcons.CheckCircle;
+export {
+  Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
+  Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,
+  PanelLeft,
+  
+  // Shadcn specific exports
+  CheckIcon, ChevronRightIcon, MoreHorizontalIcon, ChevronLeftIcon,
+  ArrowLeftIcon, ArrowRightIcon, SearchIcon, CircleIcon, CalendarIcon,
+  XIcon, DotIcon, ChevronDownIcon, ChevronUpIcon, GripVerticalIcon,
+  PanelLeftIcon,
+  
+  // Additional app-specific exports
+  SparklesIcon, MusicIcon, MapPinIcon, PaletteIcon, TrophyIcon, 
+  UsersIcon, UtensilsIcon, PartyPopperIcon, HeadphonesIcon, PackageIcon,
+  SunIcon, CoffeeIcon, NetworkIcon, WineIcon, BuildingIcon, CalendarDaysIcon,
+  ClockIcon, Trash2Icon, EditIcon, AlertCircleIcon, PlusCircleIcon,
+  MoonIcon, SlidersHorizontalIcon
+};

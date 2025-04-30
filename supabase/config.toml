@@ -5,5 +5,5 @@ project_id = "your-project-id"
 [functions.fetch-events]
 verify_jwt = false
 
-[functions.search-events-fixed-final]
+[functions.search-events]
 verify_jwt = false

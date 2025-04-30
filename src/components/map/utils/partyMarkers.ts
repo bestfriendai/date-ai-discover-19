@@ -1,71 +1,71 @@
-import { Event } from '@/types';
 
-export function createPartyMarker(
-  map: google.maps.Map,
-  event: Event,
-  onClick: (event: Event) => void
-): google.maps.Marker {
-  // Choose icon based on party subcategory
-  let iconUrl = '/icons/marker-general.svg';
-  
-  // Default size for markers
-  const size = new google.maps.Size(32, 32);
-  const scaledSize = new google.maps.Size(32, 32);
-  const anchor = new google.maps.Point(16, 32);
-  
-  // Use party subcategory to determine marker type
-  if (event.partySubcategory === 'nightclub') {
-    iconUrl = '/icons/marker-club.svg';
-  } else if (event.partySubcategory === 'festival') {
-    iconUrl = '/icons/marker-festival.svg';
-  } else if (event.partySubcategory === 'brunch') {
-    iconUrl = '/icons/marker-brunch.svg';
-  } else if (event.partySubcategory === 'day party') {
-    iconUrl = '/icons/marker-day-party.svg';
-  } else if (event.partySubcategory === 'rooftop') {
-    iconUrl = '/icons/marker-rooftop.svg';
-  } else if (event.partySubcategory === 'immersive') {
-    iconUrl = '/icons/marker-immersive.svg';
-  } else if (event.partySubcategory === 'popup') {
-    iconUrl = '/icons/marker-popup.svg';
-  }
+import { Event } from '../../../types';
 
-  // Create marker icon
-  const icon = {
-    url: iconUrl,
-    size: size,
-    scaledSize: scaledSize,
-    anchor: anchor
+// Party map marker configuration types
+interface MarkerConfig {
+  title?: string;
+  icon?: any;
+  animation?: any;
+  zIndex?: number;
+}
+
+// Define the marker configuration based on party type
+export function getPartyMarkerConfig(event: Event): MarkerConfig {
+  const config: MarkerConfig = {
+    title: event.title || 'Party Event',
+    zIndex: 1
   };
-  
-  // Get marker position from event coordinates or lat/lng
-  let position: google.maps.LatLng;
-  
-  if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) {
-    // Use coordinates array [lng, lat] format
-    position = new google.maps.LatLng(event.coordinates[1], event.coordinates[0]);
-  } else if (event.latitude !== undefined && event.longitude !== undefined) {
-    // Use separate lat/lng properties
-    position = new google.maps.LatLng(event.latitude, event.longitude);
+
+  // Basic default icon (no need for Google Maps dependency)
+  const defaultIcon = {
+    path: "M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z",
+    fillColor: "#FF0000",
+    fillOpacity: 1,
+    strokeWeight: 1,
+    strokeColor: "#FFFFFF",
+    scale: 1.2,
+    anchor: { x: 12, y: 24 }
+  };
+
+  // Set icon color based on party subcategory
+  if (event.partySubcategory === 'club' || event.category?.toLowerCase() === 'nightclub') {
+    config.icon = { ...defaultIcon, fillColor: "#9C27B0" }; // Purple for clubs
+  } else if (event.partySubcategory === 'celebration' || event.category?.toLowerCase() === 'festival') {
+    config.icon = { ...defaultIcon, fillColor: "#F44336" }; // Red for festivals
+  } else if (event.partySubcategory === 'day-party') {
+    config.icon = { ...defaultIcon, fillColor: "#FF9800" }; // Orange for day parties
+  } else if (event.partySubcategory === 'social') {
+    config.icon = { ...defaultIcon, fillColor: "#03A9F4" }; // Blue for social
+  } else if (event.partySubcategory === 'networking') {
+    config.icon = { ...defaultIcon, fillColor: "#009688" }; // Teal for networking
+  } else if (event.partySubcategory === 'general') {
+    config.icon = { ...defaultIcon, fillColor: "#4CAF50" }; // Green for general parties
   } else {
-    // Fallback - should never happen if events are filtered correctly
-    console.error('Event missing valid coordinates:', event);
-    position = new google.maps.LatLng(0, 0);
+    config.icon = { ...defaultIcon, fillColor: "#673AB7" }; // Default purple
   }
   
-  // Create and return the marker
-  const marker = new google.maps.Marker({
-    position,
-    map,
-    icon,
-    title: event.title,
-    animation: google.maps.Animation.DROP
+  return config;
+}
+
+// Get marker bounds for events
+export function getMarkerBounds(events: Event[]): { north: number; south: number; east: number; west: number } | null {
+  if (!events.length) return null;
+
+  let north = -90, south = 90, east = -180, west = 180;
+  
+  // Loop through all events to find bounds
+  events.forEach(event => {
+    // Use coordinates if available, otherwise use latitude/longitude
+    const lat = event.coordinates ? event.coordinates[1] : event.latitude;
+    const lng = event.coordinates ? event.coordinates[0] : event.longitude;
+    
+    if (lat === undefined || lng === undefined) return;
+    
+    north = Math.max(north, lat);
+    south = Math.min(south, lat);
+    east = Math.max(east, lng);
+    west = Math.min(west, lng);
   });
   
-  // Add click handler
-  marker.addListener('click', () => {
-    onClick(event);
-  });
-  
-  return marker;
+  return { north, south, east, west };
 }

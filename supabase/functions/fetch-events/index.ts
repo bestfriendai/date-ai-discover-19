@@ -38,8 +38,8 @@ serve(async (req: Request) => {
     
     console.log('Fetch events called with params:', JSON.stringify(params));
 
-    // Forward the request to search-events-fixed-final with proper error handling
-    const functionUrl = `https://${projectRef}.supabase.co/functions/v1/search-events-fixed-final`;
+    // Forward the request to search-events with proper error handling
+    const functionUrl = `https://${projectRef}.supabase.co/functions/v1/search-events`;
     console.log(`Forwarding request to: ${functionUrl}`);
     
     const response = await fetch(functionUrl, {

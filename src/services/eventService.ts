@@ -1,5 +1,6 @@
+
 import { Event } from '../types';
-import { supabase } from '../integrations/supabase';
+import { supabase } from '../lib/supabase';
 
 export interface SearchEventsParams {
   keyword?: string;
@@ -12,6 +13,7 @@ export interface SearchEventsParams {
   categories?: string[];
   limit?: number;
   page?: number;
+  excludeIds?: string[]; // Added this missing field
 }
 
 export interface SearchEventsResponse {
@@ -129,7 +131,9 @@ export async function getEventById(id: string): Promise<Event | null> {
     // If not in local database, fetch from API with our custom function client
     try {
       console.log(`[EVENT] Fetching event details for ID: ${id}`);
-      const data = await invokeFunctionWithRetry('get-event', { id });
+      const { data } = await supabase.functions.invoke('get-event', { 
+        body: { id } 
+      });
 
       if (!data?.event) {
         console.warn(`[EVENT] No event data returned for ID: ${id}`);

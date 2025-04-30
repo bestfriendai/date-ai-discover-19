@@ -47,8 +47,7 @@ export const useEventSearch = () => {
   const [sourceStats, setSourceStats] = useState<{
     ticketmaster?: SourceStats;
     eventbrite?: SourceStats;
-    serpapi?: SourceStats;
-    predicthq?: SourceStats;
+    rapidapi?: SourceStats;
   } | null>(null);
 
   // Reference to the event cache
@@ -249,20 +248,21 @@ export const useEventSearch = () => {
           );
         }
 
-        if (result.sourceStats.serpapi) {
+        // Only log these if they exist in the response
+        if (result.sourceStats.rapidapi) {
           console.log(
-            `[EVENTS] Serpapi: ${result.sourceStats.serpapi.count} ${result.sourceStats.serpapi.error ? `(Error: ${result.sourceStats.serpapi.error})` : ''}`
+            `[EVENTS] RapidAPI: ${result.sourceStats.rapidapi.count} ${result.sourceStats.rapidapi.error ? `(Error: ${result.sourceStats.rapidapi.error})` : ''}`
           );
         }
 
-        if (result.sourceStats.predicthq) {
-          console.log(
-            `[EVENTS] PredictHQ: ${result.sourceStats.predicthq.count} ${result.sourceStats.predicthq.error ? `(Error: ${result.sourceStats.predicthq.error})` : ''}`
-          );
-        }
-
-        // Store the source stats
-        setSourceStats(result.sourceStats);
+        // Store the source stats (only keeping the ones defined in our interface)
+        const filteredStats = {
+          ticketmaster: result.sourceStats.ticketmaster,
+          eventbrite: result.sourceStats.eventbrite,
+          rapidapi: result.sourceStats.rapidapi
+        };
+        
+        setSourceStats(filteredStats);
       } else {
         console.log('[EVENTS] No source stats available in API response');
         setSourceStats(null);
@@ -313,7 +313,6 @@ export const useEventSearch = () => {
       });
 
       console.log('[EVENTS] Processed events with coordinates:', processedEvents.length);
-      // ... rest of fetchEvents ...
 
       // Update cache
       eventCacheRef.current[cacheKey] = {
