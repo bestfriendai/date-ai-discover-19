@@ -1,55 +1,6 @@
-project_id = "akwvmljopucsnorvdwuu"
 
-[functions.search-events]
-enabled = true
-verify_jwt = true
-import_map = "./functions/search-events/deno.json"
-entrypoint = "./functions/search-events/index.ts"
+project_id = "your-project-id"
 
+[functions]
 [functions.fetch-events]
-enabled = true
-verify_jwt = true
-import_map = "./functions/fetch-events/deno.json"
-entrypoint = "./functions/fetch-events/index.ts"
-
-[functions.get-event]
-enabled = true
-verify_jwt = true
-import_map = "./functions/get-event/deno.json"
-entrypoint = "./functions/get-event/index.ts"
-
-[functions.get-mapbox-token]
-enabled = true
-verify_jwt = true
-import_map = "./functions/get-mapbox-token/deno.json"
-entrypoint = "./functions/get-mapbox-token/index.ts"
-
-[functions.search-events-simple]
-enabled = true
-verify_jwt = true
-import_map = "./functions/search-events-simple/deno.json"
-entrypoint = "./functions/search-events-simple/index.ts"
-
-[functions.simple-events]
-enabled = true
-verify_jwt = true
-import_map = "./functions/simple-events/deno.json"
-entrypoint = "./functions/simple-events/index.ts"
-
-[functions.test-api]
-enabled = true
-verify_jwt = true
-import_map = "./functions/test-api/deno.json"
-entrypoint = "./functions/test-api/index.ts"
-
-[functions.test-env]
-enabled = true
-verify_jwt = true
-import_map = "./functions/test-env/deno.json"
-entrypoint = "./functions/test-env/index.ts"
-
-[functions.update-profile]
-enabled = true
-verify_jwt = true
-import_map = "./functions/update-profile/deno.json"
-entrypoint = "./functions/update-profile/index.ts"
+verify_jwt = false

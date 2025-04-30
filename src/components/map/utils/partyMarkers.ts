@@ -1,87 +1,77 @@
 
 import { Event } from '@/types';
 
-declare global {
-  interface Window {
-    google: any;
-  }
-}
+const DEFAULT_ICON_PATH = "M12 1C18 1 23 5.5 23 11.5C23 17.5 15.5 28 12 28C8.5 28 1 17.5 1 11.5C1 5.5 6 1 12 1Z";
+const DEFAULT_ICON_SCALE = 0.9;
 
-// Helper function to determine the icon and color based on event type
-export const getPartyMarkerConfig = (event: Event) => {
-  // Default config
-  let config = {
-    icon: {
-      path: window.google?.maps?.SymbolPath?.CIRCLE || 'circle',
-      fillColor: '#9C27B0', // Default purple for parties
-      fillOpacity: 0.8,
-      strokeWeight: 2,
-      strokeColor: '#FFFFFF',
-      scale: 10
-    },
+/**
+ * Gets the appropriate marker configuration for a party event
+ */
+export function getPartyMarkerConfig(event: Event) {
+  // Default marker config
+  let config: any = {
+    title: event.title || 'Party Event',
     animation: window.google?.maps?.Animation?.DROP,
-    title: event.title || 'Party Event'
+    zIndex: 10,
   };
 
-  // Customize based on party subcategory if available
-  if (event.category === 'party' && event.partySubcategory) {
+  // Basic party icon (purple party popper)
+  const partyIconConfig = {
+    path: DEFAULT_ICON_PATH,
+    fillColor: '#8B5CF6', // Purple
+    fillOpacity: 0.9,
+    strokeColor: '#ffffff',
+    strokeWeight: 1.5,
+    scale: DEFAULT_ICON_SCALE,
+    anchor: new window.google?.maps?.Point(12, 28),
+    labelOrigin: new window.google?.maps?.Point(12, 12)
+  };
+
+  // Customize based on party subcategory
+  if (event.partySubcategory) {
+    // Handle specific party subcategories
     switch (event.partySubcategory) {
-      case 'nightclub':
-      case 'club':
-        config.icon.fillColor = '#6A1B9A'; // Dark purple for clubs
-        config.icon.scale = 11;
+      case "nightclub":
+        partyIconConfig.fillColor = '#9333EA'; // Purple
         break;
-      case 'festival':
-        config.icon.fillColor = '#D50000'; // Red for festivals
-        config.icon.scale = 12;
+      
+      case "festival":
+        partyIconConfig.fillColor = '#EC4899'; // Pink
+        partyIconConfig.scale = DEFAULT_ICON_SCALE * 1.2;
         break;
-      case 'social':
-      case 'networking':
-        config.icon.fillColor = '#1565C0'; // Blue for social/networking
+      
+      case "brunch":
+        partyIconConfig.fillColor = '#F59E0B'; // Amber
         break;
-      case 'day-party':
-      case 'brunch':
-        config.icon.fillColor = '#FF9800'; // Orange for day parties
+      
+      case "day party":
+        partyIconConfig.fillColor = '#F97316'; // Orange
         break;
-      case 'rooftop':
-        config.icon.fillColor = '#009688'; // Teal for rooftop
+      
+      case "rooftop":
+        partyIconConfig.fillColor = '#10B981'; // Emerald
         break;
-      case 'immersive':
-        config.icon.fillColor = '#7B1FA2'; // Purple for immersive
-        config.icon.scale = 11;
+      
+      case "immersive":
+        partyIconConfig.fillColor = '#3B82F6'; // Blue
         break;
-      case 'popup':
-        config.icon.fillColor = '#558B2F'; // Green for popup
+      
+      case "popup":
+        partyIconConfig.fillColor = '#06B6D4'; // Cyan
         break;
-      case 'celebration':
-        config.icon.fillColor = '#F44336'; // Red for celebration
-        break;
-    }
-  }
-  // For non-party events, use the regular category
-  else {
-    switch (event.category?.toLowerCase()) {
-      case 'music':
-        config.icon.fillColor = '#3F51B5'; // Indigo
-        break;
-      case 'arts':
-      case 'theatre':
-        config.icon.fillColor = '#E91E63'; // Pink
-        break;
-      case 'sports':
-        config.icon.fillColor = '#4CAF50'; // Green
-        break;
-      case 'food':
-      case 'restaurant':
-        config.icon.fillColor = '#FF5722'; // Deep Orange
-        break;
-      case 'family':
-        config.icon.fillColor = '#FFC107'; // Amber
-        break;
+      
+      // Handle any other subcategory with a default color
       default:
-        config.icon.fillColor = '#607D8B'; // Blue Grey for others
+        partyIconConfig.fillColor = '#8B5CF6'; // Purple
+        break;
     }
+  } else {
+    // If no subcategory but is a party event
+    partyIconConfig.fillColor = '#8B5CF6'; // Purple
   }
 
+  // Add icon to config
+  config.icon = partyIconConfig;
+
   return config;
-};
+}

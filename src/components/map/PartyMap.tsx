@@ -2,8 +2,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Event } from '@/types';
 import { getPartyMarkerConfig } from './utils/partyMarkers';
-import Script from 'next/script';
 
+// Type declarations for Google Maps
 declare global {
   interface Window {
     MarkerClusterer: any;
@@ -34,11 +34,11 @@ const PartyMap: React.FC<PartyMapProps> = ({
   userLocation = null
 }) => {
   const mapRef = useRef<HTMLDivElement>(null);
-  const [map, setMap] = useState<google.maps.Map | null>(null);
+  const [map, setMap] = useState<any>(null);
   const [markerCluster, setMarkerCluster] = useState<any>(null);
-  const [heatmap, setHeatmap] = useState<google.maps.visualization.HeatmapLayer | null>(null);
-  const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
-  const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
+  const [heatmap, setHeatmap] = useState<any>(null);
+  const [markers, setMarkers] = useState<any[]>([]);
+  const [infoWindow, setInfoWindow] = useState<any>(null);
   const [googleLoaded, setGoogleLoaded] = useState(false);
 
   // Initialize global map for window.initMap
@@ -188,9 +188,9 @@ const PartyMap: React.FC<PartyMapProps> = ({
           // Set info window content
           infoWindow.setContent(`
             <div style="max-width: 300px;">
-              <h3 style="margin: 0 0 8px; font-size: 16px;">${event.title}</h3>
+              <h3 style="margin: 0 0 8px; font-size: 16px;">${event.title || 'Unknown event'}</h3>
               <p style="margin: 0 0 4px; font-size: 14px;">${event.date} ${event.time ? `at ${event.time}` : ''}</p>
-              <p style="margin: 0 0 4px; font-size: 14px;">${event.location}</p>
+              <p style="margin: 0 0 4px; font-size: 14px;">${event.location || ''}</p>
               ${event.partySubcategory ? `<p style="margin: 0 0 8px; font-size: 14px;">Type: ${event.partySubcategory}</p>` : ''}
               <a href="/events/${event.id}" style="color: #4285F4; text-decoration: none; font-size: 14px;">View Details</a>
             </div>
@@ -251,10 +251,10 @@ const PartyMap: React.FC<PartyMapProps> = ({
             ? { lat: event.coordinates[1], lng: event.coordinates[0] }
             : { lat: event.latitude!, lng: event.longitude! };
           
-          // Weight by party type - give more weight to nightclubs and festivals
+          // Weight by party type - give more weight to specific types
           let weight = 1;
-          if (event.partySubcategory === 'nightclub') weight = 2;
-          if (event.partySubcategory === 'festival') weight = 3;
+          if (event.partySubcategory === "nightclub") weight = 2;
+          if (event.partySubcategory === "festival") weight = 3;
           
           return {
             location: new window.google.maps.LatLng(coordinates.lat, coordinates.lng),
@@ -314,9 +314,9 @@ const PartyMap: React.FC<PartyMapProps> = ({
 
   return (
     <>
-      <Script
+      <script
+        async
         src={`https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=initMap&libraries=places`}
-        strategy="afterInteractive"
       />
       <div 
         ref={mapRef} 

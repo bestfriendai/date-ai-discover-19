@@ -1,8 +1,9 @@
+
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { CheckIcon, MusicIcon, CoffeeIcon, SunIcon, MoonIcon } from '@/lib/icons';
 
-// Party subcategory types
+// Party subcategory types - match this exactly with what's used in the codebase
 export type PartySubcategory = 'all' | 'nightclub' | 'festival' | 'brunch' | 'day party' | 'general';
 
 interface PartyTypeFilterProps {

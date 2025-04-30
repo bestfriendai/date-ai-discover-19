@@ -1,7 +1,12 @@
 
 // supabase/functions/fetch-events/index.ts
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { corsHeaders } from '../_shared/cors.ts';
+
+// Define CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
 // Standard response headers
 const responseHeaders = {
@@ -22,14 +27,7 @@ serve(async (req: Request) => {
     
     console.log('Fetch events called with params:', params);
 
-    // This is a proxy to the search-events function
-    // Redirect to the search-events function
-    const searchEventsUrl = url.origin.replace('/fetch-events', '/search-events');
-    
     // Forward the request to search-events
-    console.log('Forwarding request to search-events');
-    
-    // Call the search-events function
     const response = await fetch(`${url.origin.replace('/fetch-events', '')}/search-events`, {
       method: 'POST',
       headers: {

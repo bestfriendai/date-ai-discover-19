@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Event } from '@/types';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -7,7 +8,11 @@ import {
   SearchIcon, 
   ChevronLeftIcon, 
   SlidersHorizontal, 
-  MapPinIcon 
+  MapPinIcon,
+  XIcon,
+  CalendarIcon,
+  SparklesIcon,
+  MusicIcon
 } from '@/lib/icons';
 import PartyEventCard from './PartyEventCard';
 import PartySubcategoryBadge from './PartySubcategoryBadge';
@@ -130,7 +135,7 @@ const PartySidebar: React.FC<PartySidebarProps> = ({
             <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
               placeholder="Search party events..."
-              className="pl-10 pr-10 py-2 bg-black/50 border-purple-900/50 text-white placeholder:text-gray-400 focus-visible:ring-purple-500"
+              className="pl-10 pr-10 bg-black/50 border-purple-900/50 text-white placeholder:text-gray-400 focus-visible:ring-purple-500"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />

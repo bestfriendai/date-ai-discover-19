@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { 
@@ -6,6 +7,13 @@ import {
   CalendarIcon, 
   ClockIcon 
 } from '@/lib/icons';
+
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger
+} from "@/components/ui/tabs";
 
 // Time filter types
 export type TimeOfDay = 'all' | 'day' | 'night';
