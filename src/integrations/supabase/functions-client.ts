@@ -2,8 +2,18 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 
-const SUPABASE_URL = "https://akwvmljopucsnorvdwuu.supabase.co";
-const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk";
+// Default values for development
+const DEFAULT_SUPABASE_URL = 'https://akwvmljopucsnorvdwuu.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
+
+// Try to get from environment variables with fallbacks
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
+const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+
+// Log initialization in development
+if (import.meta.env.DEV) {
+  console.log('Initializing Supabase functions client with URL:', SUPABASE_URL);
+}
 
 // Create a custom Supabase client with proper configuration for Edge Functions
 export const functionsClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
@@ -38,13 +48,18 @@ export async function invokeFunctionWithRetry<T = any>(
       if (retries === 0) {
         console.log(`[FUNCTIONS_CLIENT] Attempting direct fetch for better debugging`);
         try {
-          const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
+          // Use the same key as the client
+          const SUPABASE_ANON_KEY = SUPABASE_PUBLISHABLE_KEY;
 
           // If the function is search-events, use the dedicated rapidapi-events function
           const actualFunctionName = functionName === 'search-events' ? 'rapidapi-events' : functionName;
           console.log(`[FUNCTIONS_CLIENT] Using function: ${actualFunctionName}`);
 
-          const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/${actualFunctionName}`, {
+          // Extract project ID from URL
+          const projectId = SUPABASE_URL.split('//')[1].split('.')[0];
+          console.log(`[FUNCTIONS_CLIENT] Using project ID: ${projectId}`);
+
+          const response = await fetch(`https://${projectId}.functions.supabase.co/${actualFunctionName}`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
