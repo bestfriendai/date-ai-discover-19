@@ -4,3 +4,6 @@ project_id = "your-project-id"
 [functions]
 [functions.fetch-events]
 verify_jwt = false
+
+[functions.search-events-fixed-final]
+verify_jwt = false

@@ -15,6 +15,8 @@ const responseHeaders = {
 };
 
 serve(async (req: Request) => {
+  console.log("fetch-events function called");
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -23,12 +25,24 @@ serve(async (req: Request) => {
   try {
     // Parse request parameters
     const url = new URL(req.url);
-    const params = Object.fromEntries(url.searchParams);
+    const projectRef = url.hostname.split('.')[0];
+    let params = {};
     
-    console.log('Fetch events called with params:', params);
+    if (req.method === 'GET') {
+      // For GET requests, use URL parameters
+      params = Object.fromEntries(url.searchParams);
+    } else if (req.method === 'POST') {
+      // For POST requests, parse the JSON body
+      params = await req.json();
+    }
+    
+    console.log('Fetch events called with params:', JSON.stringify(params));
 
-    // Forward the request to search-events
-    const response = await fetch(`${url.origin.replace('/fetch-events', '')}/search-events`, {
+    // Forward the request to search-events-fixed-final with proper error handling
+    const functionUrl = `https://${projectRef}.supabase.co/functions/v1/search-events-fixed-final`;
+    console.log(`Forwarding request to: ${functionUrl}`);
+    
+    const response = await fetch(functionUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -37,9 +51,12 @@ serve(async (req: Request) => {
       body: JSON.stringify(params)
     });
 
+    // Get the response body as JSON
+    const responseBody = await response.json();
+    console.log(`Received response with ${responseBody.events?.length || 0} events`);
+    
     // Return the response from search-events
-    const data = await response.json();
-    return new Response(JSON.stringify(data), { 
+    return new Response(JSON.stringify(responseBody), { 
       headers: responseHeaders,
       status: response.status
     });

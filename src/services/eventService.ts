@@ -1,8 +1,7 @@
-import { supabase } from '@/integrations/supabase/client';
-import { invokeFunctionWithRetry } from '@/integrations/supabase/functions-client';
-import type { Event } from '@/types';
+import { Event } from '../types';
+import { supabase } from '../integrations/supabase';
 
-interface SearchParams {
+export interface SearchEventsParams {
   keyword?: string;
   location?: string;
   latitude?: number;
@@ -13,85 +12,71 @@ interface SearchParams {
   categories?: string[];
   limit?: number;
   page?: number;
-  excludeIds?: string[];
-  fields?: string[];
 }
 
-// Fetch events from multiple sources
-export async function searchEvents(params: SearchParams): Promise<{
+export interface SearchEventsResponse {
   events: Event[];
-  sourceStats?: any;
-  meta?: any;
-}> {
-  console.log('[EVENT_SERVICE] searchEvents called with params:', params);
-
-  try {
-    // Ensure all required parameters are present
-    const searchParams = {
-      startDate: params.startDate || new Date().toISOString(),
-      endDate: params.endDate || new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-      location: params.location || 'New York', // Default location if none provided
-      latitude: params.latitude,
-      longitude: params.longitude,
-      radius: params.radius || 30, // Default to 30 miles radius
-      categories: params.categories || [],
-      keyword: params.keyword || '',
-      limit: params.limit || 100
+  sourceStats?: {
+    rapidapi?: {
+      count: number;
+      error: string | null;
     };
+    ticketmaster?: {
+      count: number;
+      error: string | null;
+    };
+    eventbrite?: {
+      count: number;
+      error: string | null;
+    };
+  };
+  meta?: {
+    timestamp: string;
+    totalEvents?: number;
+    hasMore?: boolean;
+  };
+  error?: string;
+}
 
-    console.log('[EVENT_SERVICE] Processed search params:', searchParams);
-    console.log('[EVENT_SERVICE] Calling search-events function with params:', JSON.stringify(searchParams));
+// Unified function to search for events
+export async function searchEvents(params: SearchEventsParams): Promise<SearchEventsResponse> {
+  console.log('[EVENT_SERVICE] Searching for events with params:', params);
+  
+  try {
+    // Call our Supabase edge function
+    const { data, error } = await supabase.functions.invoke('fetch-events', {
+      body: params,
+    });
 
-    try {
-      // Use our custom function invoker with retry logic
-      const data = await invokeFunctionWithRetry('search-events', searchParams);
-      return data;
-    } catch (functionError) {
-      console.error('[EVENTS] Error from function invocation:', functionError);
+    // Check for errors
+    if (error) {
+      console.error('[EVENT_SERVICE] Error searching events:', error);
+      return { events: [], error: `Error searching events: ${error.message}` };
+    }
 
-      // Fallback to direct fetch if the function client fails
-      console.log('[EVENTS] Attempting direct fetch fallback...');
-      // Get the anon key for authorization
-      const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
-
-      try {
-        // Use the dedicated rapidapi-events function
-        console.log('[EVENTS] Using dedicated rapidapi-events function...');
-        const response = await fetch(`https://akwvmljopucsnorvdwuu.functions.supabase.co/rapidapi-events`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Access-Control-Allow-Origin': '*'
-          },
-          body: JSON.stringify(searchParams)
-        });
-
-        if (!response.ok) {
-          console.error(`[EVENTS] Direct fetch failed with status: ${response.status}`);
-          const errorText = await response.text();
-          console.error(`[EVENTS] Error details: ${errorText}`);
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        return await response.json();
-      } catch (fetchError) {
-        console.error('[EVENTS] Direct fetch failed:', fetchError);
-        throw fetchError;
+    // Log the response for debugging
+    console.log(`[EVENT_SERVICE] Received ${data?.events?.length || 0} events`);
+    
+    // If we have source stats, log them
+    if (data?.sourceStats) {
+      console.log('[EVENT_SERVICE] Source stats:', data.sourceStats);
+      
+      // Log RapidAPI specific info if available
+      if (data.sourceStats.rapidapi) {
+        console.log(
+          `[EVENT_SERVICE] RapidAPI: ${data.sourceStats.rapidapi.count} events ${
+            data.sourceStats.rapidapi.error ? `(Error: ${data.sourceStats.rapidapi.error})` : ''
+          }`
+        );
       }
     }
+
+    return data;
   } catch (error) {
-    console.error('[ERROR] Error searching events:', error);
-    return {
-      events: [],
-      sourceStats: {
-        ticketmaster: { count: 0, error: String(error) },
-        predicthq: { count: 0, error: String(error) }
-      },
-      meta: {
-        error: String(error),
-        timestamp: new Date().toISOString()
-      }
+    console.error('[EVENT_SERVICE] Exception searching events:', error);
+    return { 
+      events: [], 
+      error: `Exception searching events: ${error instanceof Error ? error.message : String(error)}` 
     };
   }
 }

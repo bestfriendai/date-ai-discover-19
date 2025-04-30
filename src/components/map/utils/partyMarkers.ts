@@ -1,77 +1,71 @@
-
 import { Event } from '@/types';
 
-const DEFAULT_ICON_PATH = "M12 1C18 1 23 5.5 23 11.5C23 17.5 15.5 28 12 28C8.5 28 1 17.5 1 11.5C1 5.5 6 1 12 1Z";
-const DEFAULT_ICON_SCALE = 0.9;
-
-/**
- * Gets the appropriate marker configuration for a party event
- */
-export function getPartyMarkerConfig(event: Event) {
-  // Default marker config
-  let config: any = {
-    title: event.title || 'Party Event',
-    animation: window.google?.maps?.Animation?.DROP,
-    zIndex: 10,
-  };
-
-  // Basic party icon (purple party popper)
-  const partyIconConfig = {
-    path: DEFAULT_ICON_PATH,
-    fillColor: '#8B5CF6', // Purple
-    fillOpacity: 0.9,
-    strokeColor: '#ffffff',
-    strokeWeight: 1.5,
-    scale: DEFAULT_ICON_SCALE,
-    anchor: new window.google?.maps?.Point(12, 28),
-    labelOrigin: new window.google?.maps?.Point(12, 12)
-  };
-
-  // Customize based on party subcategory
-  if (event.partySubcategory) {
-    // Handle specific party subcategories
-    switch (event.partySubcategory) {
-      case "nightclub":
-        partyIconConfig.fillColor = '#9333EA'; // Purple
-        break;
-      
-      case "festival":
-        partyIconConfig.fillColor = '#EC4899'; // Pink
-        partyIconConfig.scale = DEFAULT_ICON_SCALE * 1.2;
-        break;
-      
-      case "brunch":
-        partyIconConfig.fillColor = '#F59E0B'; // Amber
-        break;
-      
-      case "day party":
-        partyIconConfig.fillColor = '#F97316'; // Orange
-        break;
-      
-      case "rooftop":
-        partyIconConfig.fillColor = '#10B981'; // Emerald
-        break;
-      
-      case "immersive":
-        partyIconConfig.fillColor = '#3B82F6'; // Blue
-        break;
-      
-      case "popup":
-        partyIconConfig.fillColor = '#06B6D4'; // Cyan
-        break;
-      
-      // Handle any other subcategory with a default color
-      default:
-        partyIconConfig.fillColor = '#8B5CF6'; // Purple
-        break;
-    }
-  } else {
-    // If no subcategory but is a party event
-    partyIconConfig.fillColor = '#8B5CF6'; // Purple
+export function createPartyMarker(
+  map: google.maps.Map,
+  event: Event,
+  onClick: (event: Event) => void
+): google.maps.Marker {
+  // Choose icon based on party subcategory
+  let iconUrl = '/icons/marker-general.svg';
+  
+  // Default size for markers
+  const size = new google.maps.Size(32, 32);
+  const scaledSize = new google.maps.Size(32, 32);
+  const anchor = new google.maps.Point(16, 32);
+  
+  // Use party subcategory to determine marker type
+  if (event.partySubcategory === 'nightclub') {
+    iconUrl = '/icons/marker-club.svg';
+  } else if (event.partySubcategory === 'festival') {
+    iconUrl = '/icons/marker-festival.svg';
+  } else if (event.partySubcategory === 'brunch') {
+    iconUrl = '/icons/marker-brunch.svg';
+  } else if (event.partySubcategory === 'day party') {
+    iconUrl = '/icons/marker-day-party.svg';
+  } else if (event.partySubcategory === 'rooftop') {
+    iconUrl = '/icons/marker-rooftop.svg';
+  } else if (event.partySubcategory === 'immersive') {
+    iconUrl = '/icons/marker-immersive.svg';
+  } else if (event.partySubcategory === 'popup') {
+    iconUrl = '/icons/marker-popup.svg';
   }
 
-  // Add icon to config
-  config.icon = partyIconConfig;
-
-  return config;
+  // Create marker icon
+  const icon = {
+    url: iconUrl,
+    size: size,
+    scaledSize: scaledSize,
+    anchor: anchor
+  };
+  
+  // Get marker position from event coordinates or lat/lng
+  let position: google.maps.LatLng;
+  
+  if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) {
+    // Use coordinates array [lng, lat] format
+    position = new google.maps.LatLng(event.coordinates[1], event.coordinates[0]);
+  } else if (event.latitude !== undefined && event.longitude !== undefined) {
+    // Use separate lat/lng properties
+    position = new google.maps.LatLng(event.latitude, event.longitude);
+  } else {
+    // Fallback - should never happen if events are filtered correctly
+    console.error('Event missing valid coordinates:', event);
+    position = new google.maps.LatLng(0, 0);
+  }
+  
+  // Create and return the marker
+  const marker = new google.maps.Marker({
+    position,
+    map,
+    icon,
+    title: event.title,
+    animation: google.maps.Animation.DROP
+  });
+  
+  // Add click handler
+  marker.addListener('click', () => {
+    onClick(event);
+  });
+  
+  return marker;
 }
