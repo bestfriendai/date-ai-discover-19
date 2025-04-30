@@ -1,91 +1,61 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
+// supabase/functions/fetch-events/index.ts
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { corsHeaders } from '../_shared/cors.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-auth',
-  'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-  'Access-Control-Max-Age': '86400',
-  'Access-Control-Allow-Credentials': 'true'
-}
+// Standard response headers
+const responseHeaders = {
+  ...corsHeaders,
+  'Content-Type': 'application/json'
+};
 
-serve(async (req) => {
+serve(async (req: Request) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders, status: 204 });
   }
 
   try {
-    const TICKETMASTER_KEY = Deno.env.get('TICKETMASTER_KEY')
-    if (!TICKETMASTER_KEY) {
-      throw new Error('TICKETMASTER_KEY is not set')
-    }
-
     // Parse request parameters
-    const url = new URL(req.url)
-    const lat = url.searchParams.get('lat') || '40.7831'
-    const lng = url.searchParams.get('lng') || '-73.9712'
-    const radius = url.searchParams.get('radius') || '10'
+    const url = new URL(req.url);
+    const params = Object.fromEntries(url.searchParams);
+    
+    console.log('Fetch events called with params:', params);
 
-    // Fetch events from Ticketmaster API
-    const response = await fetch(
-      `https://app.ticketmaster.com/discovery/v2/events.json?` +
-      `apikey=${TICKETMASTER_KEY}&` +
-      `latlong=${lat},${lng}&` +
-      `radius=${radius}&` +
-      `unit=miles&` +
-      `size=20`
-    )
+    // This is a proxy to the search-events function
+    // Redirect to the search-events function
+    const searchEventsUrl = url.origin.replace('/fetch-events', '/search-events');
+    
+    // Forward the request to search-events
+    console.log('Forwarding request to search-events');
+    
+    // Call the search-events function
+    const response = await fetch(`${url.origin.replace('/fetch-events', '')}/search-events`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': req.headers.get('Authorization') || '',
+      },
+      body: JSON.stringify(params)
+    });
 
-    const data = await response.json()
-
-    // Transform the data to match our Event type
-    const events = data._embedded?.events?.map((event: any) => ({
-      id: event.id,
-      title: event.name,
-      description: event.description || event.info,
-      date: event.dates.start.localDate,
-      time: event.dates.start.localTime,
-      location: event._embedded?.venues?.[0]?.name,
-      category: event.classifications?.[0]?.segment?.name?.toLowerCase() || 'event',
-      image: event.images?.[0]?.url || '/placeholder.svg',
-      coordinates: [
-        parseFloat(event._embedded?.venues?.[0]?.location?.longitude),
-        parseFloat(event._embedded?.venues?.[0]?.location?.latitude)
-      ],
-      venue: event._embedded?.venues?.[0]?.name,
-      url: event.url
-    })) || []
-
-    return new Response(JSON.stringify({ events }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 200,
-    })
+    // Return the response from search-events
+    const data = await response.json();
+    return new Response(JSON.stringify(data), { 
+      headers: responseHeaders,
+      status: response.status
+    });
   } catch (error) {
-    console.error('[FETCH-EVENTS] Error:', error)
-
-    // Extract error details
-    let errorMessage = 'Unknown error occurred';
-    let errorType = 'UnknownError';
-
-    if (error instanceof Error) {
-      errorMessage = error.message;
-      errorType = error.name;
-      console.error('[FETCH-EVENTS] Error stack:', error.stack);
-    } else if (typeof error === 'string') {
-      errorMessage = error;
-    } else if (error && typeof error === 'object') {
-      errorMessage = JSON.stringify(error);
-    }
-
-    return new Response(JSON.stringify({
-      error: errorMessage,
-      errorType,
-      timestamp: new Date().toISOString(),
-      events: [] // Return empty events array for consistency
-    }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      status: 500,
-    })
+    console.error('Error in fetch-events:', error);
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error occurred',
+        events: []
+      }),
+      {
+        headers: responseHeaders,
+        status: 500
+      }
+    );
   }
-})
+});
