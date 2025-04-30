@@ -106,9 +106,8 @@ const EventDetail = ({ event, onClose }: EventDetailProps) => {
         const results = await searchEvents({
           categories: [event.category],
           limit: 3,
-          // Don't use excludeIds since it's not defined in the interface
-          // Instead we'll filter client-side
-          fields: ['id', 'title', 'image', 'category', 'date', 'location', 'price', 'url', 'description']
+          // Using excludeIds which is now in the interface
+          excludeIds: [event.id]
         });
 
         // Filter out the current event

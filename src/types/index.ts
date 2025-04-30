@@ -25,4 +25,4 @@ export interface Event {
   }
 }
 
-export type PartySubcategory = 'day-party' | 'social' | 'club' | 'networking' | 'celebration' | 'general';
+export type PartySubcategory = 'day-party' | 'social' | 'club' | 'networking' | 'celebration' | 'general' | 'nightclub' | 'festival' | 'day party' | 'rooftop' | 'immersive' | 'popup';

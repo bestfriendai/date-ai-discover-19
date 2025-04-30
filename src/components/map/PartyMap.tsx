@@ -1,8 +1,6 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Event } from '@/types';
 import { getPartyMarkerConfig } from './utils/partyMarkers';
-import Script from 'next/script';
 
 // Define global window type with Google Maps properties
 declare global {
@@ -46,6 +44,18 @@ const PartyMap: React.FC<PartyMapProps> = ({
   useEffect(() => {
     window.initMap = () => {
       setGoogleLoaded(true);
+    };
+
+    // Add Google Maps script
+    const script = document.createElement('script');
+    script.src = "https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=initMap&libraries=places";
+    script.async = true;
+    document.head.appendChild(script);
+
+    return () => {
+      // Cleanup
+      window.initMap = () => {};
+      document.head.removeChild(script);
     };
   }, []);
 
@@ -158,6 +168,17 @@ const PartyMap: React.FC<PartyMapProps> = ({
     }
   }, [map, userLocation, googleLoaded]);
 
+  // Helper function to get coordinates from event
+  const getCoordinates = (event: Event): { lat: number, lng: number } | null => {
+    if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) {
+      return { lat: event.coordinates[1], lng: event.coordinates[0] };
+    } 
+    else if (typeof event.latitude === 'number' && typeof event.longitude === 'number') {
+      return { lat: event.latitude, lng: event.longitude };
+    }
+    return null;
+  };
+
   // Update markers when events change
   useEffect(() => {
     if (!map || !infoWindow || !googleLoaded) return;
@@ -178,21 +199,14 @@ const PartyMap: React.FC<PartyMapProps> = ({
       const newMarkers = events
         .filter(event => {
           // Check for valid coordinates in event data
-          return (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) || 
-                 (typeof event.latitude === 'number' && typeof event.longitude === 'number');
+          const coords = getCoordinates(event);
+          return coords !== null;
         })
         .map(event => {
           try {
-            // Get coordinates - either from coordinates array or latitude/longitude properties
-            const coordinates = event.coordinates 
-              ? { lat: event.coordinates[1], lng: event.coordinates[0] }
-              : { lat: Number(event.latitude), lng: Number(event.longitude) };
-            
-            // Skip if coordinates are invalid
-            if (isNaN(coordinates.lat) || isNaN(coordinates.lng)) {
-              console.warn(`Invalid coordinates for event ${event.id}`);
-              return null;
-            }
+            // Get coordinates
+            const coordinates = getCoordinates(event);
+            if (!coordinates) return null;
             
             // Create marker with configuration based on event type
             const markerConfig = getPartyMarkerConfig(event);
@@ -282,16 +296,12 @@ const PartyMap: React.FC<PartyMapProps> = ({
           const heatmapData = events
             .filter(event => {
               // Filter for events with valid coordinates
-              return (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) || 
-                    (typeof event.latitude === 'number' && typeof event.longitude === 'number');
+              const coords = getCoordinates(event);
+              return coords !== null;
             })
             .map(event => {
-              const coordinates = event.coordinates 
-                ? { lat: event.coordinates[1], lng: event.coordinates[0] }
-                : { lat: Number(event.latitude), lng: Number(event.longitude) };
-              
-              // Skip if coordinates are invalid
-              if (isNaN(coordinates.lat) || isNaN(coordinates.lng)) return null;
+              const coordinates = getCoordinates(event);
+              if (!coordinates) return null;
               
               // Weight by party type - give more weight to specific types
               let weight = 1;
@@ -353,10 +363,6 @@ const PartyMap: React.FC<PartyMapProps> = ({
 
   return (
     <>
-      <Script
-        src="https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=initMap&libraries=places"
-        strategy="afterInteractive"
-      />
       <div 
         ref={mapRef} 
         style={{ 

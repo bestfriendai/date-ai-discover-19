@@ -1,4 +1,3 @@
-
 import { Event } from '../types';
 import { supabase } from '../lib/supabase';
 
@@ -13,7 +12,8 @@ export interface SearchEventsParams {
   categories?: string[];
   limit?: number;
   page?: number;
-  excludeIds?: string[]; // Added this missing field
+  excludeIds?: string[];
+  fields?: string[]; // Added this missing field
 }
 
 export interface SearchEventsResponse {

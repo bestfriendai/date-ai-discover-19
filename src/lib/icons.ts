@@ -17,7 +17,82 @@ import {
   GripVertical,
   PanelLeft,
   
-  // Shadcn components need these
+  // Additional icons needed for the app
+  Sparkles,
+  Music,
+  MapPin,
+  Palette,
+  Trophy,
+  Users,
+  Utensils,
+  PartyPopper,
+  Headphones,
+  Package,
+  Sun,
+  Coffee,
+  Network,
+  Wine,
+  Building,
+  CalendarDays,
+  Clock,
+  Trash2,
+  Edit,
+  AlertCircle,
+  PlusCircle,
+  Moon,
+  SlidersHorizontal,
+  Star,
+  Info,
+  Heart,
+  Share2,
+  ExternalLink,
+  Ticket,
+  TrendingUp,
+  User,
+  LogOut,
+  Mail,
+  Lock,
+  Loader2,
+  Plus,
+  Settings,
+  Send,
+  Bot,
+  Car,
+  Navigation,
+  DollarSign,
+  MinusCircle,
+  Mountain,
+  MountainSnow,
+  Globe,
+  Layers,
+  CheckCircle,
+  Theater,
+  Map,
+  Compass,
+  Filter,
+  Satellite,
+  Monitor,
+  Locate
+} from 'lucide-react';
+
+// Common export all icons
+export {
+  Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
+  Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,
+  PanelLeft,
+  
+  // Additional app-specific exports
+  Sparkles, Music, MapPin, Palette, Trophy, Users, Utensils, PartyPopper,
+  Headphones, Package, Sun, Coffee, Network, Wine, Building, CalendarDays,
+  Clock, Trash2, Edit, AlertCircle, PlusCircle, Moon, SlidersHorizontal,
+  Star, Info, Heart, Share2, ExternalLink, Ticket, TrendingUp, User,
+  LogOut, Mail, Lock, Loader2, Plus, Settings, Send, Bot, Car, Navigation,
+  DollarSign, MinusCircle, Mountain, MountainSnow, Globe, Layers, CheckCircle,
+  Theater, Map, Compass, Filter, Satellite, Monitor, Locate
+};
+
+// Export icons with Icon suffix for shadcn components
+export {
   Check as CheckIcon,
   ChevronRight as ChevronRightIcon,
   MoreHorizontal as MoreHorizontalIcon,
@@ -34,7 +109,7 @@ import {
   GripVertical as GripVerticalIcon,
   PanelLeft as PanelLeftIcon,
   
-  // Additional icons needed for the app
+  // Additional app-specific exports with Icon suffix
   Sparkles as SparklesIcon,
   Music as MusicIcon,
   MapPin as MapPinIcon,
@@ -57,24 +132,37 @@ import {
   AlertCircle as AlertCircleIcon,
   PlusCircle as PlusCircleIcon,
   Moon as MoonIcon,
-  SlidersHorizontal as SlidersHorizontalIcon
-} from 'lucide-react';
-
-export {
-  Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
-  Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,
-  PanelLeft,
-  
-  // Shadcn specific exports
-  CheckIcon, ChevronRightIcon, MoreHorizontalIcon, ChevronLeftIcon,
-  ArrowLeftIcon, ArrowRightIcon, SearchIcon, CircleIcon, CalendarIcon,
-  XIcon, DotIcon, ChevronDownIcon, ChevronUpIcon, GripVerticalIcon,
-  PanelLeftIcon,
-  
-  // Additional app-specific exports
-  SparklesIcon, MusicIcon, MapPinIcon, PaletteIcon, TrophyIcon, 
-  UsersIcon, UtensilsIcon, PartyPopperIcon, HeadphonesIcon, PackageIcon,
-  SunIcon, CoffeeIcon, NetworkIcon, WineIcon, BuildingIcon, CalendarDaysIcon,
-  ClockIcon, Trash2Icon, EditIcon, AlertCircleIcon, PlusCircleIcon,
-  MoonIcon, SlidersHorizontalIcon
+  SlidersHorizontal as SlidersHorizontalIcon,
+  Star as StarIcon,
+  Info as InfoIcon,
+  Heart as HeartIcon,
+  Share2 as Share2Icon,
+  ExternalLink as ExternalLinkIcon,
+  Ticket as TicketIcon,
+  TrendingUp as TrendingUpIcon,
+  User as UserIcon,
+  LogOut as LogOutIcon,
+  Mail as MailIcon,
+  Lock as LockIcon,
+  Loader2 as Loader2Icon,
+  Plus as PlusIcon,
+  Settings as SettingsIcon,
+  Send as SendIcon,
+  Bot as BotIcon,
+  Car as CarIcon,
+  Navigation as NavigationIcon,
+  DollarSign as DollarSignIcon,
+  MinusCircle as MinusCircleIcon,
+  Mountain as MountainIcon,
+  MountainSnow as MountainSnowIcon,
+  Globe as GlobeIcon,
+  Layers as LayersIcon,
+  CheckCircle as CheckCircleIcon,
+  Theater as TheaterIcon,
+  Map as MapIcon,
+  Compass as CompassIcon,
+  Filter as FilterIcon,
+  Satellite as SatelliteIcon,
+  Monitor as MonitorIcon,
+  Locate as LocateIcon
 };

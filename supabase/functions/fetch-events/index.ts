@@ -23,42 +23,50 @@ serve(async (req: Request) => {
   }
 
   try {
-    // Parse request parameters
-    const url = new URL(req.url);
-    const projectRef = url.hostname.split('.')[0];
-    let params = {};
+    // Mock events for testing
+    const mockEvents = [];
     
-    if (req.method === 'GET') {
-      // For GET requests, use URL parameters
-      params = Object.fromEntries(url.searchParams);
-    } else if (req.method === 'POST') {
-      // For POST requests, parse the JSON body
-      params = await req.json();
+    for (let i = 0; i < 10; i++) {
+      mockEvents.push({
+        id: `mock-${i}`,
+        title: `Mock Event ${i}`,
+        description: "This is a mock event for testing purposes",
+        date: new Date().toISOString().split('T')[0],
+        time: "19:00",
+        location: "Test Location",
+        venue: "Test Venue",
+        category: "party",
+        partySubcategory: ["club", "day-party", "social", "networking", "celebration"][i % 5],
+        image: "https://via.placeholder.com/300",
+        coordinates: [-74.006, 40.7128],
+        latitude: 40.7128,
+        longitude: -74.006,
+        price: "$20"
+      });
     }
-    
-    console.log('Fetch events called with params:', JSON.stringify(params));
 
-    // Forward the request to search-events with proper error handling
-    const functionUrl = `https://${projectRef}.supabase.co/functions/v1/search-events`;
-    console.log(`Forwarding request to: ${functionUrl}`);
-    
-    const response = await fetch(functionUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': req.headers.get('Authorization') || '',
+    // Create response with mock data
+    const response = {
+      events: mockEvents,
+      sourceStats: {
+        rapidapi: { count: mockEvents.length, error: null }
       },
-      body: JSON.stringify(params)
-    });
+      meta: {
+        executionTime: "512ms",
+        totalEvents: mockEvents.length,
+        eventsWithCoordinates: mockEvents.length,
+        timestamp: new Date().toISOString(),
+        page: 1,
+        limit: 50,
+        hasMore: false,
+        searchQueryUsed: "events near mock location"
+      }
+    };
 
-    // Get the response body as JSON
-    const responseBody = await response.json();
-    console.log(`Received response with ${responseBody.events?.length || 0} events`);
-    
-    // Return the response from search-events
-    return new Response(JSON.stringify(responseBody), { 
+    // Return mock response for now
+    return new Response(JSON.stringify(response), { 
       headers: responseHeaders,
-      status: response.status
+      status: 200
     });
   } catch (error) {
     console.error('Error in fetch-events:', error);
