@@ -1,10 +1,18 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { PlusCircle, Clock, MapPin, Trash2, Edit, AlertCircle, Calendar } from 'lucide-react';
+import React, { useState } from 'react';
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
+import { 
+  PlusCircleIcon, 
+  ClockIcon, 
+  MapPinIcon, 
+  Trash2Icon, 
+  EditIcon, 
+  AlertCircleIcon, 
+  CalendarIcon 
+} from '@/lib/icons';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Itinerary, ItineraryItem } from '@/types';
 import { formatTime, cn } from '@/lib/utils';
@@ -316,7 +324,7 @@ const ItineraryBuilder = ({ itinerary, onSave }: ItineraryBuilderProps) => {
       </div>
 
       <div className="flex items-center gap-2 text-muted-foreground">
-        <Clock className="h-4 w-4" />
+        <ClockIcon className="h-4 w-4" />
         <span>{new Date(currentItinerary.date).toLocaleDateString()}</span>
       </div>
 
@@ -328,7 +336,7 @@ const ItineraryBuilder = ({ itinerary, onSave }: ItineraryBuilderProps) => {
             onClick={openAddItemDialog}
             className="flex items-center gap-1"
           >
-            <PlusCircle className="h-4 w-4" />
+            <PlusCircleIcon className="h-4 w-4" />
             Add Item
           </Button>
         </div>
@@ -344,7 +352,7 @@ const ItineraryBuilder = ({ itinerary, onSave }: ItineraryBuilderProps) => {
               {checkTimeConflicts().length > 0 && (
                 <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800 text-sm">
                   <div className="flex items-center gap-2 font-medium">
-                    <AlertCircle className="h-4 w-4" />
+                    <AlertCircleIcon className="h-4 w-4" />
                     Time Conflicts Detected
                   </div>
                   <ul className="mt-2 pl-6 list-disc space-y-1">
@@ -565,12 +573,12 @@ const SortableItem = ({ item, onRemove, onEdit }: SortableItemProps) => {
           <div className="font-medium">{item.title}</div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-sm text-muted-foreground">
             <div className="flex items-center gap-1">
-              <Clock className="h-3 w-3" />
+              <ClockIcon className="h-3 w-3" />
               {formatTime(item.startTime)} - {formatTime(item.endTime)}
             </div>
             {item.location && (
               <div className="flex items-center gap-1">
-                <MapPin className="h-3 w-3" />
+                <MapPinIcon className="h-3 w-3" />
                 {item.location}
               </div>
             )}
@@ -588,7 +596,7 @@ const SortableItem = ({ item, onRemove, onEdit }: SortableItemProps) => {
             onClick={() => onEdit(item)}
             className="h-8 w-8 text-muted-foreground hover:text-primary"
           >
-            <Edit className="h-4 w-4" />
+            <EditIcon className="h-4 w-4" />
           </Button>
           <Button
             variant="ghost"
@@ -596,7 +604,7 @@ const SortableItem = ({ item, onRemove, onEdit }: SortableItemProps) => {
             onClick={() => onRemove(item.id)}
             className="h-8 w-8 text-muted-foreground hover:text-destructive"
           >
-            <Trash2 className="h-4 w-4" />
+            <Trash2Icon className="h-4 w-4" />
           </Button>
         </div>
       </div>

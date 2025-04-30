@@ -6,7 +6,6 @@ import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { createRoot } from 'react-dom/client';
 import type { Root } from 'react-dom/client';
-import PerformanceMonitor from '@/utils/performanceMonitor';
 import type { Event } from '@/types';
 import { validateCoordinates, isLikelyOnLand, applyJitterToFeatures } from '@/utils/mapUtils';
 
@@ -16,25 +15,25 @@ import {
   TooltipContent,
   TooltipProvider,
 } from '@/components/ui/tooltip';
-// Import icons from lucide-react
+// Import icons from our icons library
 import { 
-  Music, 
-  MapPin, 
-  Palette, 
-  Trophy, 
-  Users, 
-  Utensils, 
-  PartyPopper, 
-  Sparkles as Sparkle, 
-  Headphones, 
-  Package, 
-  Sun, 
-  Coffee, 
-  Network, 
-  Wine, 
-  Building, 
-  CalendarDays 
-} from 'lucide-react';
+  MusicIcon, 
+  MapPinIcon, 
+  PaletteIcon, 
+  TrophyIcon, 
+  UsersIcon, 
+  UtensilsIcon, 
+  PartyPopperIcon, 
+  SparklesIcon, 
+  HeadphonesIcon, 
+  PackageIcon, 
+  SunIcon, 
+  CoffeeIcon, 
+  NetworkIcon, 
+  WineIcon, 
+  BuildingIcon, 
+  CalendarDaysIcon 
+} from '@/lib/icons';
 
 // Re-export PartySubcategory type here since we can't import from partyUtils
 type PartySubcategory =
@@ -94,29 +93,29 @@ type MarkerIdSet = Set<string>;
 const getCategoryIcon = (category: string | undefined, partySubcategory?: PartySubcategory) => {
   const lowerCategory = category?.toLowerCase() || 'other';
   switch(lowerCategory) {
-    case 'music': return <Music className="h-5 w-5 text-white" />;
-    case 'arts': return <Palette className="h-5 w-5 text-white" />;
-    case 'theatre': return <Palette className="h-5 w-5 text-white" />;
-    case 'sports': return <Trophy className="h-5 w-5 text-white" />;
-    case 'family': return <Users className="h-5 w-5 text-white" />;
-    case 'food': return <Utensils className="h-5 w-5 text-white" />;
-    case 'restaurant': return <Utensils className="h-5 w-5 text-white" />;
+    case 'music': return <MusicIcon className="h-5 w-5 text-white" />;
+    case 'arts': return <PaletteIcon className="h-5 w-5 text-white" />;
+    case 'theatre': return <PaletteIcon className="h-5 w-5 text-white" />;
+    case 'sports': return <TrophyIcon className="h-5 w-5 text-white" />;
+    case 'family': return <UsersIcon className="h-5 w-5 text-white" />;
+    case 'food': return <UtensilsIcon className="h-5 w-5 text-white" />;
+    case 'restaurant': return <UtensilsIcon className="h-5 w-5 text-white" />;
     case 'party':
       if (partySubcategory && isPartySubcategory(partySubcategory)) {
         switch(partySubcategory) {
-          case 'immersive': return <Sparkle className="h-5 w-5 text-white" />;
-          case 'silent': return <Headphones className="h-5 w-5 text-white" />;
-          case 'popup': return <Package className="h-5 w-5 text-white" />;
-          case 'day-party': return <Sun className="h-5 w-5 text-white" />;
-          case 'brunch': return <Coffee className="h-5 w-5 text-white" />;
-          case 'networking': return <Network className="h-5 w-5 text-white" />;
-          case 'club': return <Wine className="h-5 w-5 text-white" />;
-          case 'rooftop': return <Building className="h-5 w-5 text-white" />;
-          default: return <PartyPopper className="h-5 w-5 text-white" />;
+          case 'immersive': return <SparklesIcon className="h-5 w-5 text-white" />;
+          case 'silent': return <HeadphonesIcon className="h-5 w-5 text-white" />;
+          case 'popup': return <PackageIcon className="h-5 w-5 text-white" />;
+          case 'day-party': return <SunIcon className="h-5 w-5 text-white" />;
+          case 'brunch': return <CoffeeIcon className="h-5 w-5 text-white" />;
+          case 'networking': return <NetworkIcon className="h-5 w-5 text-white" />;
+          case 'club': return <WineIcon className="h-5 w-5 text-white" />;
+          case 'rooftop': return <BuildingIcon className="h-5 w-5 text-white" />;
+          default: return <PartyPopperIcon className="h-5 w-5 text-white" />;
         }
       }
-      return <PartyPopper className="h-5 w-5 text-white" />;
-    default: return <CalendarDays className="h-5 w-5 text-white" />;
+      return <PartyPopperIcon className="h-5 w-5 text-white" />;
+    default: return <CalendarDaysIcon className="h-5 w-5 text-white" />;
   }
 };
 
@@ -182,19 +181,19 @@ const EventMarker = React.memo<EventMarkerProps>(({ event, isSelected, onClick }
       <div className="font-bold text-base mb-1">{event.title || 'Unknown Event'}</div>
       {event.date && (
         <div className="text-sm font-medium text-indigo-300 mb-1 flex items-center">
-          <CalendarDays className="mr-1 h-3.5 w-3.5" />
+          <CalendarDaysIcon className="mr-1 h-3.5 w-3.5" />
           {event.date} {event.time && `• ${event.time}`}
         </div>
       )}
       {event.venue && (
         <div className="text-sm text-slate-300 mb-1 flex items-center">
-          <MapPin className="mr-1 h-3.5 w-3.5" />
+          <MapPinIcon className="mr-1 h-3.5 w-3.5" />
           {event.venue}
         </div>
       )}
       {event.location && !event.venue && (
         <div className="text-sm text-slate-300 mb-1 flex items-center">
-          <MapPin className="mr-1 h-3.5 w-3.5" />
+          <MapPinIcon className="mr-1 h-3.5 w-3.5" />
           {event.location}
         </div>
       )}

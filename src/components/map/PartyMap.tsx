@@ -1,6 +1,16 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Event } from '@/types';
 import { getPartyMarkerConfig } from './utils/partyMarkers';
+import Script from 'next/script';
+
+declare global {
+  interface Window {
+    MarkerClusterer: any;
+    google: any;
+    initMap: () => void;
+  }
+}
 
 interface PartyMapProps {
   events: Event[];
@@ -29,12 +39,20 @@ const PartyMap: React.FC<PartyMapProps> = ({
   const [heatmap, setHeatmap] = useState<google.maps.visualization.HeatmapLayer | null>(null);
   const [markers, setMarkers] = useState<google.maps.Marker[]>([]);
   const [infoWindow, setInfoWindow] = useState<google.maps.InfoWindow | null>(null);
+  const [googleLoaded, setGoogleLoaded] = useState(false);
+
+  // Initialize global map for window.initMap
+  useEffect(() => {
+    window.initMap = () => {
+      setGoogleLoaded(true);
+    };
+  }, []);
 
   // Initialize map
   useEffect(() => {
-    if (!mapRef.current || map) return;
+    if (!mapRef.current || map || !googleLoaded) return;
 
-    const newMap = new google.maps.Map(mapRef.current, {
+    const newMap = new window.google.maps.Map(mapRef.current, {
       center,
       zoom,
       styles: [
@@ -57,7 +75,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
     });
 
     setMap(newMap);
-    setInfoWindow(new google.maps.InfoWindow());
+    setInfoWindow(new window.google.maps.InfoWindow());
 
     // Load MarkerClusterer if needed
     if (showClusters && !window.MarkerClusterer) {
@@ -68,7 +86,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
     }
 
     // Load heatmap library if needed
-    if (showHeatmap && !google.maps.visualization) {
+    if (showHeatmap && !window.google.maps.visualization) {
       const script = document.createElement('script');
       script.src = 'https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&libraries=visualization';
       script.async = true;
@@ -84,7 +102,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
         heatmap.setMap(null);
       }
     };
-  }, [mapRef, map, center, zoom, showClusters, showHeatmap]);
+  }, [mapRef, map, center, zoom, showClusters, showHeatmap, googleLoaded]);
 
   // Update map center and zoom when props change
   useEffect(() => {
@@ -95,14 +113,14 @@ const PartyMap: React.FC<PartyMapProps> = ({
 
   // Add user location marker
   useEffect(() => {
-    if (!map || !userLocation) return;
+    if (!map || !userLocation || !googleLoaded) return;
 
     // Create user location marker
-    const userMarker = new google.maps.Marker({
+    const userMarker = new window.google.maps.Marker({
       position: userLocation,
       map,
       icon: {
-        path: google.maps.SymbolPath.CIRCLE,
+        path: window.google.maps.SymbolPath.CIRCLE,
         scale: 10,
         fillColor: '#4285F4',
         fillOpacity: 1,
@@ -114,7 +132,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
     });
 
     // Add accuracy circle
-    const accuracyCircle = new google.maps.Circle({
+    const accuracyCircle = new window.google.maps.Circle({
       map,
       center: userLocation,
       radius: 500, // 500 meters accuracy (example)
@@ -129,11 +147,11 @@ const PartyMap: React.FC<PartyMapProps> = ({
       userMarker.setMap(null);
       accuracyCircle.setMap(null);
     };
-  }, [map, userLocation]);
+  }, [map, userLocation, googleLoaded]);
 
   // Update markers when events change
   useEffect(() => {
-    if (!map || !infoWindow) return;
+    if (!map || !infoWindow || !googleLoaded) return;
 
     // Clear existing markers
     markers.forEach(marker => marker.setMap(null));
@@ -156,7 +174,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
           : { lat: event.latitude!, lng: event.longitude! };
         
         // Create marker
-        const marker = new google.maps.Marker({
+        const marker = new window.google.maps.Marker({
           position: coordinates,
           map: showClusters ? null : map, // Don't add to map if using clusters
           ...getPartyMarkerConfig(event)
@@ -193,7 +211,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
     setMarkers(newMarkers);
 
     // Create marker clusterer if enabled
-    if (showClusters && newMarkers.length > 0 && window.MarkerClusterer) {
+    if (showClusters && newMarkers.length > 0 && window.MarkerClusterer && googleLoaded) {
       const clusterer = new window.MarkerClusterer(map, newMarkers, {
         imagePath: 'https://developers.google.com/maps/documentation/javascript/examples/markerclusterer/m',
         maxZoom: 15,
@@ -225,7 +243,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
     }
 
     // Create heatmap if enabled
-    if (showHeatmap && newMarkers.length > 0 && google.maps.visualization) {
+    if (showHeatmap && newMarkers.length > 0 && window.google?.maps?.visualization && googleLoaded) {
       const heatmapData = events
         .filter(event => event.coordinates || (event.latitude && event.longitude))
         .map(event => {
@@ -239,12 +257,12 @@ const PartyMap: React.FC<PartyMapProps> = ({
           if (event.partySubcategory === 'festival') weight = 3;
           
           return {
-            location: new google.maps.LatLng(coordinates.lat, coordinates.lng),
+            location: new window.google.maps.LatLng(coordinates.lat, coordinates.lng),
             weight
           };
         });
 
-      const newHeatmap = new google.maps.visualization.HeatmapLayer({
+      const newHeatmap = new window.google.maps.visualization.HeatmapLayer({
         data: heatmapData,
         map: map,
         radius: 20,
@@ -271,8 +289,8 @@ const PartyMap: React.FC<PartyMapProps> = ({
     }
 
     // Fit bounds to markers if we have events
-    if (newMarkers.length > 0) {
-      const bounds = new google.maps.LatLngBounds();
+    if (newMarkers.length > 0 && googleLoaded) {
+      const bounds = new window.google.maps.LatLngBounds();
       
       newMarkers.forEach(marker => {
         bounds.extend(marker.getPosition()!);
@@ -285,33 +303,32 @@ const PartyMap: React.FC<PartyMapProps> = ({
       
       // Don't zoom in too far
       map.fitBounds(bounds);
-      const listener = google.maps.event.addListener(map, 'idle', () => {
+      const listener = window.google.maps.event.addListener(map, 'idle', () => {
         if (map.getZoom()! > 16) {
           map.setZoom(16);
         }
-        google.maps.event.removeListener(listener);
+        window.google.maps.event.removeListener(listener);
       });
     }
-  }, [map, events, infoWindow, showClusters, showHeatmap, onMarkerClick, userLocation]);
+  }, [map, events, infoWindow, showClusters, showHeatmap, onMarkerClick, userLocation, googleLoaded, markers]);
 
   return (
-    <div 
-      ref={mapRef} 
-      style={{ 
-        width: '100%', 
-        height, 
-        borderRadius: '0.5rem',
-        overflow: 'hidden'
-      }}
-    />
+    <>
+      <Script
+        src={`https://maps.googleapis.com/maps/api/js?key=AIzaSyB41DRUbKWJHPxaFjMAwdrzWzbVKartNGg&callback=initMap&libraries=places`}
+        strategy="afterInteractive"
+      />
+      <div 
+        ref={mapRef} 
+        style={{ 
+          width: '100%', 
+          height, 
+          borderRadius: '0.5rem',
+          overflow: 'hidden'
+        }}
+      />
+    </>
   );
 };
-
-// Add MarkerClusterer type definition
-declare global {
-  interface Window {
-    MarkerClusterer: any;
-  }
-}
 
 export default PartyMap;

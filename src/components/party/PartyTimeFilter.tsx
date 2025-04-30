@@ -1,7 +1,11 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Sun, Moon, Calendar, Clock } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { 
+  SunIcon, 
+  MoonIcon, 
+  CalendarIcon, 
+  ClockIcon 
+} from '@/lib/icons';
 
 // Time filter types
 export type TimeOfDay = 'all' | 'day' | 'night';
@@ -25,7 +29,7 @@ const PartyTimeFilter: React.FC<PartyTimeFilterProps> = ({
   return (
     <div className={`flex flex-col space-y-3 ${className}`}>
       <div className="flex items-center">
-        <Clock className="h-4 w-4 mr-2 text-muted-foreground" />
+        <ClockIcon className="h-4 w-4 mr-2 text-muted-foreground" />
         <span className="text-sm font-medium">Time of Day</span>
       </div>
       
@@ -36,22 +40,22 @@ const PartyTimeFilter: React.FC<PartyTimeFilterProps> = ({
       >
         <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="all" className="flex items-center gap-1.5">
-            <Clock className="h-3.5 w-3.5" />
+            <ClockIcon className="h-3.5 w-3.5" />
             <span>Any Time</span>
           </TabsTrigger>
           <TabsTrigger value="day" className="flex items-center gap-1.5">
-            <Sun className="h-3.5 w-3.5" />
+            <SunIcon className="h-3.5 w-3.5" />
             <span>Day</span>
           </TabsTrigger>
           <TabsTrigger value="night" className="flex items-center gap-1.5">
-            <Moon className="h-3.5 w-3.5" />
+            <MoonIcon className="h-3.5 w-3.5" />
             <span>Night</span>
           </TabsTrigger>
         </TabsList>
       </Tabs>
       
       <div className="flex items-center mt-2">
-        <Calendar className="h-4 w-4 mr-2 text-muted-foreground" />
+        <CalendarIcon className="h-4 w-4 mr-2 text-muted-foreground" />
         <span className="text-sm font-medium">Day of Week</span>
       </div>
       
@@ -62,7 +66,7 @@ const PartyTimeFilter: React.FC<PartyTimeFilterProps> = ({
       >
         <TabsList className="grid grid-cols-3 w-full">
           <TabsTrigger value="all" className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5" />
+            <CalendarIcon className="h-3.5 w-3.5" />
             <span>Any Day</span>
           </TabsTrigger>
           <TabsTrigger value="weekday" className="flex items-center gap-1.5">

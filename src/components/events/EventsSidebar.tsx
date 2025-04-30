@@ -2,7 +2,15 @@ import { useState, useCallback } from 'react';
 import { Skeleton } from "@/components/ui/skeleton";
 import type { Event } from '@/types';
 import { Button } from "@/components/ui/button";
-import { PartyPopper, Music, Palette, Trophy, Users, Utensils, Calendar } from 'lucide-react';
+import { 
+  PartyPopperIcon, 
+  MusicIcon, 
+  PaletteIcon, 
+  TrophyIcon, 
+  UsersIcon, 
+  UtensilsIcon, 
+  CalendarIcon 
+} from '@/lib/icons';
 
 // Mock data removed as it's passed via props
 
@@ -78,13 +86,13 @@ const EventsSidebar = ({ onClose, onEventSelect, isLoading, events }: EventsSide
   // Get category icon based on category name
   const getCategoryIcon = (category: string) => {
     switch(category.toLowerCase()) {
-      case 'music': return <Music className="h-4 w-4" />;
-      case 'arts': return <Palette className="h-4 w-4" />;
-      case 'sports': return <Trophy className="h-4 w-4" />;
-      case 'family': return <Users className="h-4 w-4" />;
-      case 'food': return <Utensils className="h-4 w-4" />;
-      case 'party': return <PartyPopper className="h-4 w-4" />;
-      default: return <Calendar className="h-4 w-4" />;
+      case 'music': return <MusicIcon className="h-4 w-4" />;
+      case 'arts': return <PaletteIcon className="h-4 w-4" />;
+      case 'sports': return <TrophyIcon className="h-4 w-4" />;
+      case 'family': return <UsersIcon className="h-4 w-4" />;
+      case 'food': return <UtensilsIcon className="h-4 w-4" />;
+      case 'party': return <PartyPopperIcon className="h-4 w-4" />;
+      default: return <CalendarIcon className="h-4 w-4" />;
     }
   };
 

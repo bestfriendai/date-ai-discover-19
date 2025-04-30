@@ -1,6 +1,6 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
-import { Check, Music, Coffee, Sun, Moon } from 'lucide-react';
+import { Button } from "@/components/ui/button";
+import { CheckIcon, MusicIcon, CoffeeIcon, SunIcon, MoonIcon } from '@/lib/icons';
 
 // Party subcategory types
 export type PartySubcategory = 'all' | 'nightclub' | 'festival' | 'brunch' | 'day party' | 'general';
@@ -22,31 +22,31 @@ const partyTypes: PartyTypeOption[] = [
   {
     value: 'all',
     label: 'All Parties',
-    icon: <Check className="h-4 w-4" />,
+    icon: <CheckIcon className="h-4 w-4" />,
     description: 'Show all party types'
   },
   {
     value: 'nightclub',
     label: 'Nightclubs',
-    icon: <Moon className="h-4 w-4" />,
+    icon: <MoonIcon className="h-4 w-4" />,
     description: 'Clubs, DJ events, nightlife'
   },
   {
     value: 'festival',
     label: 'Festivals',
-    icon: <Music className="h-4 w-4" />,
+    icon: <MusicIcon className="h-4 w-4" />,
     description: 'Music festivals, cultural celebrations'
   },
   {
     value: 'brunch',
     label: 'Brunch Parties',
-    icon: <Coffee className="h-4 w-4" />,
+    icon: <CoffeeIcon className="h-4 w-4" />,
     description: 'Brunch events with social atmosphere'
   },
   {
     value: 'day party',
     label: 'Day Parties',
-    icon: <Sun className="h-4 w-4" />,
+    icon: <SunIcon className="h-4 w-4" />,
     description: 'Daytime events, pool parties, rooftops'
   }
 ];

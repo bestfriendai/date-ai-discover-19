@@ -5,14 +5,9 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { 
   SearchIcon, 
-  XIcon, 
-  FilterIcon, 
-  MusicIcon, 
-  CalendarIcon, 
-  MapPinIcon, 
-  SlidersHorizontalIcon, 
-  SparklesIcon, 
-  ClockIcon 
+  ChevronLeftIcon, 
+  SlidersHorizontal, 
+  MapPinIcon 
 } from '@/lib/icons';
 import PartyEventCard from './PartyEventCard';
 import PartySubcategoryBadge from './PartySubcategoryBadge';
