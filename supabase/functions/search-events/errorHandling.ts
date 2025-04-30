@@ -1,137 +1,68 @@
-/**
- * Enhanced error handling utilities for search-events function
- * This module provides improved error handling, validation, and reporting
- */
-
-import { ApiKeyError, formatApiError } from './errors.ts';
 
 /**
- * Standardized error response structure
+ * Error handling utilities for search-events functions
  */
-export interface ErrorResponse {
-  error: string;
-  errorType: string;
-  details?: string;
-  status: number;
-  timestamp: string;
-  path?: string;
-}
 
-/**
- * HTTP status codes
- */
-export enum HttpStatus {
-  OK = 200,
-  BAD_REQUEST = 400,
-  UNAUTHORIZED = 401,
-  FORBIDDEN = 403,
-  NOT_FOUND = 404,
-  METHOD_NOT_ALLOWED = 405,
-  INTERNAL_SERVER_ERROR = 500,
-  SERVICE_UNAVAILABLE = 503
-}
-
-/**
- * Error severity levels for logging
- */
+// Error severity levels
 export enum ErrorSeverity {
-  LOW = 'low',      // Minor issues that don't affect functionality
-  MEDIUM = 'medium', // Issues that may affect some functionality
-  HIGH = 'high',    // Serious issues that affect core functionality
-  CRITICAL = 'critical' // Fatal errors that prevent operation
+  LOW = 'low',      // Informational or minor issues
+  MEDIUM = 'medium', // Non-critical but important issues
+  HIGH = 'high',    // Serious issues affecting function
+  CRITICAL = 'critical' // Critical issues requiring immediate attention
 }
 
 /**
- * Create a standardized error response
- */
-export function createErrorResponse(
-  error: unknown,
-  path?: string,
-  status?: number
-): ErrorResponse {
-  // Format the base error information
-  const formattedError = formatApiError(error);
-  
-  // Determine appropriate HTTP status code based on error type
-  let responseStatus = status || HttpStatus.INTERNAL_SERVER_ERROR;
-  if (error instanceof ApiKeyError) {
-    responseStatus = HttpStatus.UNAUTHORIZED;
-  } else if (error instanceof Error) {
-    if (error.name === 'RequestValidationError') {
-      responseStatus = HttpStatus.BAD_REQUEST;
-    }
-  }
-
-  return {
-    error: formattedError.error,
-    errorType: formattedError.errorType,
-    details: formattedError.details,
-    status: responseStatus,
-    timestamp: new Date().toISOString(),
-    path
-  };
-}
-
-/**
- * Log an error with appropriate severity level and context
+ * Log an error with context
+ * @param error The error to log
+ * @param severity The severity level
+ * @param context The context in which the error occurred
+ * @param metadata Additional metadata
  */
 export function logError(
   error: unknown,
   severity: ErrorSeverity = ErrorSeverity.MEDIUM,
   context: string = 'GENERAL',
-  additionalInfo: Record<string, unknown> = {}
+  metadata: Record<string, unknown> = {}
 ): void {
-  const errorObj = error instanceof Error ? error : new Error(String(error));
-  const timestamp = new Date().toISOString();
+  const errorObj = error instanceof Error ? error : 
+                  typeof error === 'string' ? new Error(error) :
+                  new Error(JSON.stringify(error));
   
-  // Format the log message based on severity
-  const prefix = `[${timestamp}] [${context}] [${severity.toUpperCase()}]`;
-  
-  // Log with appropriate console method based on severity
-  if (severity === ErrorSeverity.CRITICAL || severity === ErrorSeverity.HIGH) {
-    console.error(
-      `${prefix} Error: ${errorObj.message}`,
-      { error: errorObj, stack: errorObj.stack, ...additionalInfo }
-    );
-  } else if (severity === ErrorSeverity.MEDIUM) {
-    console.warn(
-      `${prefix} Error: ${errorObj.message}`,
-      { error: errorObj, ...additionalInfo }
-    );
-  } else {
-    console.log(
-      `${prefix} Error: ${errorObj.message}`,
-      { error: errorObj, ...additionalInfo }
-    );
+  console.error(`[${severity.toUpperCase()}] [${context}] ${errorObj.message}`, {
+    stack: errorObj.stack,
+    ...metadata
+  });
+}
+
+/**
+ * Validate that a value is defined
+ * @param value The value to check
+ * @param message The error message
+ */
+export function validateDefined<T>(value: T, message: string): asserts value is NonNullable<T> {
+  if (value === undefined || value === null) {
+    throw new Error(message);
   }
 }
 
 /**
- * Try to execute a function and handle errors in a standardized way
+ * Try/catch wrapper for async functions that returns result and error
+ * @param fn The function to execute
+ * @param context The context for error logging
+ * @param severity The severity level for error logging
+ * @returns Object containing result and/or error
  */
 export async function tryCatch<T>(
   fn: () => Promise<T>,
   context: string,
   severity: ErrorSeverity = ErrorSeverity.MEDIUM
-): Promise<{ result: T | null; error: Error | null }> {
+): Promise<{ result?: T; error?: Error }> {
   try {
     const result = await fn();
-    return { result, error: null };
+    return { result };
   } catch (error) {
-    logError(error, severity, context);
-    return { result: null, error: error instanceof Error ? error : new Error(String(error)) };
+    const errorObj = error instanceof Error ? error : new Error(String(error));
+    logError(errorObj, severity, context);
+    return { error: errorObj };
   }
-}
-
-/**
- * Validate that a value is defined and not null
- */
-export function validateDefined<T>(
-  value: T | undefined | null,
-  errorMessage: string
-): T {
-  if (value === undefined || value === null) {
-    throw new Error(errorMessage);
-  }
-  return value;
 }
