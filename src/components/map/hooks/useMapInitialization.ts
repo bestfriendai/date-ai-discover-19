@@ -81,7 +81,7 @@ export const useMapInitialization = (
           }
           else {
             console.log('[MAP_DEBUG] Using hardcoded Mapbox token');
-            mapboxToken = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+            mapboxToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA';
           }
         }
 

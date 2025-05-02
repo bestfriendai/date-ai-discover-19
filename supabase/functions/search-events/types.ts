@@ -20,6 +20,7 @@ export interface Event {
   partySubcategory?: PartySubcategory;
   image: string;
   imageAlt?: string;
+  additionalImages?: string[]; // Additional images for the event when available
   coordinates?: [number, number]; // [longitude, latitude] - May be missing from API
   latitude?: number; // Added for convenience/consistency
   longitude?: number; // Added for convenience/consistency

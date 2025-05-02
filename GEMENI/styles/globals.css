@@ -1,0 +1,138 @@
+/* Animation for the globe background blobs */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
+  }
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
+  }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
+}
+
+/* Slow ping animation for globe rings */
+@keyframes ping-slow {
+  0% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-50%, -50%) scale(1.2);
+    opacity: 0.2;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.8);
+    opacity: 0.8;
+  }
+}
+
+.animate-ping-slow {
+  animation: ping-slow 5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+/* Float animations for indicator elements */
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes float-delay {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+.animate-float-delay {
+  animation: float-delay 5s ease-in-out infinite;
+  animation-delay: 2.5s;
+}
+
+/* --- Responsive improvements for mobile UI --- */
+@media (max-width: 640px) {
+  html {
+    font-size: 15px;
+  }
+  .container, .mx-auto {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  .flex-col, .flex-col > * {
+    gap: 1.25rem !important;
+  }
+  .rounded-full, .rounded-lg {
+    border-radius: 1.1rem !important;
+  }
+  .text-4xl, .text-6xl, .text-7xl {
+    font-size: 2.2rem !important;
+    line-height: 2.6rem !important;
+  }
+  .max-w-2xl, .max-w-xs {
+    max-width: 95vw !important;
+  }
+  .w-full, .h-full {
+    width: 100vw !important;
+    height: auto !important;
+  }
+  .min-h-screen {
+    min-height: 100vh !important;
+  }
+  .flex-1 {
+    flex: 1 1 100% !important;
+  }
+  .gap-4, .gap-5, .gap-6 {
+    gap: 0.75rem !important;
+  }
+  .px-4, .md\:px-6 {
+    padding-left: 0.5rem !important;
+    padding-right: 0.5rem !important;
+  }
+  .py-1, .py-1\.5, .py-4, .py-6 {
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  .mb-6, .mb-10, .mb-12 {
+    margin-bottom: 1.1rem !important;
+  }
+  .fixed, .absolute {
+    max-width: 98vw !important;
+    left: 1vw !important;
+    right: 1vw !important;
+  }
+  .backdrop-blur-xl, .shadow-2xl, .shadow-lg {
+    box-shadow: 0 2px 16px 0 rgba(31,38,135,0.17) !important;
+    backdrop-filter: blur(10px) !important;
+  }
+}
+
+/* --- General improvements for touch targets and navigation --- */
+button, a, .rounded-full, .rounded-lg {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* --- Remove unwanted overflow cropping from globe --- */
+.globe-uncropped {
+  overflow: visible !important;
+  border-radius: 0 !important;
+}

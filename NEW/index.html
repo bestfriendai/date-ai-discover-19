@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DateAI - NEW Implementation</title>
+    <meta name="description" content="Discover the hottest parties and nightlife events in your area, visualize them on a map, and never miss the best nights out again." />
+    
+    <!-- Preconnect to Mapbox -->
+    <link rel="preconnect" href="https://api.mapbox.com" />
+    <link rel="preconnect" href="https://events.mapbox.com" />
+
+    <!-- Mapbox GL JS -->
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.js"></script>
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.1.2/mapbox-gl.css" rel="stylesheet" />
+
+    <!-- Global error handlers and debugging tools -->
+    <script>
+      // Fallback Mapbox token in case the server fails
+      window.FALLBACK_MAPBOX_TOKEN = 'pk.eyJ1IjoiYmVzdGZyaWVuZGFpIiwiYSI6ImNsdGJtZnRnZzBhcGoya3BjcWVtbWJvdXcifQ.Zy8lxHYC_-4TQU_l-l_QQA';
+
+      // Check if Mapbox GL JS is loaded
+      window.addEventListener('DOMContentLoaded', function() {
+        console.log('[APP] DOM content loaded');
+        if (!window.mapboxgl) {
+          console.error('[MAPBOX] Mapbox GL JS failed to load');
+          document.getElementById('root').innerHTML = '<div style="padding: 20px; text-align: center;"><h2>Error Loading Map</h2><p>There was a problem loading the map library. Please refresh the page or try again later.</p></div>';
+        } else {
+          console.log('[MAPBOX] Mapbox GL JS loaded successfully');
+        }
+
+        // Log browser and device information for debugging
+        console.log('[APP] Browser info:', navigator.userAgent);
+        console.log('[APP] Window dimensions:', window.innerWidth, 'x', window.innerHeight);
+        console.log('[APP] Device pixel ratio:', window.devicePixelRatio);
+      });
+    </script>
+  </head>
+
+  <body class="dark">
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

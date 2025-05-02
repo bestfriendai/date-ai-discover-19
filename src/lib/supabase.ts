@@ -2,8 +2,8 @@
 import { createClient } from '@supabase/supabase-js';
 
 // Default values for development
-const DEFAULT_SUPABASE_URL = 'https://pccefxhpaxmlbkzrvzdl.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBjY2VmeGhwYXhtbGJrenJ2emRsIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MTQ0MzA0NzcsImV4cCI6MjAzMDAwNjQ3N30.Nh0fFdvJvQiQODsGZF_FtHZwgXEJBP3mI6MvZyDVLZU';
+const DEFAULT_SUPABASE_URL = 'https://akwvmljopucsnorvdwuu.supabase.co';
+const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
 
 // Try to get from environment variables
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
