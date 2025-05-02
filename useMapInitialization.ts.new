@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { toast } from '../../../hooks/use-toast';
 import PerformanceMonitor from '../../../utils/performanceMonitor';
+import { getApiKey } from '../../../config/env';
 
 interface MapState {
   map: mapboxgl.Map | null;
@@ -48,12 +49,10 @@ export const useMapInitialization = (
           return;
         }
 
-        // Use the Mapbox token from environment variables or use the DateApril project token
+        // Use the Mapbox token from environment variables
         console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
-        // Use the DateApril project Mapbox token
-        const mapboxToken = 'pk.eyJ1IjoiZGF0ZWFpIiwiYSI6ImNsczRxZWVxMzBnNDQya3BnbWRtZnRtbXQifQ.Wy-XYFQlMUKaKkjFgS8yVA';
-        console.log('[MAP_DEBUG] Using Mapbox token:', mapboxToken.substring(0, 8) + '...');
-        mapboxgl.accessToken = mapboxToken;
+        const mapboxToken = getApiKey('mapbox');
+        mapboxgl.accessToken = mapboxToken || 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
 
         const newMap = new mapboxgl.Map({
           container: mapContainer.current,

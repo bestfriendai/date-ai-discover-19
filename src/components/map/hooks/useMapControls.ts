@@ -65,8 +65,12 @@ export const useMapControls = (
         // Trigger event loading with the new coordinates and location name
         // Use the original search term instead of just the placeName to preserve the full location name
         if (onLocationFound) {
+          // Make sure we're passing the full location name, not just the placeName
           console.log('[MAP_CONTROLS] Triggering event loading for searched location:', { latitude, longitude, locationName: location });
           onLocationFound({ latitude, longitude, locationName: location });
+
+          // Update the current location state
+          setCurrentLocation(location);
         } else {
           console.warn('[MAP_CONTROLS] onLocationFound callback is not defined');
         }
@@ -113,24 +117,37 @@ export const useMapControls = (
       // Trigger event loading with the new coordinates
       if (onLocationFound) {
         console.log('[MAP_CONTROLS] Location found, triggering event loading:', { latitude, longitude });
-        onLocationFound({ latitude, longitude, locationName: currentLocation });
+
+        // Try to get a location name from reverse geocoding first
+        try {
+          const response = await fetch(
+            `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
+          );
+          const data = await response.json();
+
+          if (data.features?.length) {
+            // Look for a city or locality name
+            const place = data.features.find((f: any) =>
+              f.place_type.includes('place') || f.place_type.includes('locality')
+            );
+
+            if (place) {
+              const locationName = place.text;
+              console.log('[MAP_CONTROLS] Found location name from reverse geocoding:', locationName);
+              setCurrentLocation(locationName);
+              onLocationFound({ latitude, longitude, locationName });
+              return;
+            }
+          }
+        } catch (geoError) {
+          console.error('[MAP_CONTROLS] Reverse geocode error:', geoError);
+        }
+
+        // If reverse geocoding fails, use "Current Location" as the location name
+        onLocationFound({ latitude, longitude, locationName: "Current Location" });
       }
 
-      // Try reverse geocode
-      try {
-        const response = await fetch(
-          `https://api.mapbox.com/geocoding/v5/mapbox.places/${longitude},${latitude}.json?access_token=${mapboxgl.accessToken}`
-        );
-        const data = await response.json();
-        if (data.features?.length) {
-          const place = data.features.find((f: any) =>
-            f.place_type.includes('place') || f.place_type.includes('locality')
-          );
-          if (place) setCurrentLocation(place.text);
-        }
-      } catch (geoError) {
-        console.error('Reverse geocode error:', geoError);
-      }
+      // Reverse geocoding is now handled above
 
     } catch (error) {
       console.error('Get location error:', error);

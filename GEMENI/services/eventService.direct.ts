@@ -141,8 +141,16 @@ export const fetchEventsFromSupabase = async (
 
     const supabaseFunctionUrl = `${supabaseUrl}/functions/v1/${supabaseFunctionName}`
 
+    // Combine filters with coordinates
+    const requestParams = {
+      ...filters,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      radius: radius || filters.radius || 10000 // Default to 10km if not specified
+    }
+
     console.log("Fetching events from Supabase Function:", supabaseFunctionUrl)
-    console.log("Request Parameters:", filters)
+    console.log("Request Parameters:", requestParams)
 
     const res = await fetch(supabaseFunctionUrl, {
       method: "POST",
@@ -151,7 +159,7 @@ export const fetchEventsFromSupabase = async (
         apikey: supabaseAnonKey,
         Authorization: `Bearer ${supabaseAnonKey}`,
       },
-      body: JSON.stringify(filters),
+      body: JSON.stringify(requestParams),
     })
 
     if (!res.ok) {
@@ -221,8 +229,16 @@ export const fetchEventsFromRapidAPI = async (
     const fetchEventsFunctionName = "fetch-events"
     const fetchEventsFunctionUrl = `${supabaseUrl}/functions/v1/${fetchEventsFunctionName}`
 
+    // Combine filters with coordinates
+    const requestParams = {
+      ...filters,
+      latitude: coords.latitude,
+      longitude: coords.longitude,
+      radius: radius || filters.radius || 10000 // Default to 10km if not specified
+    }
+
     console.log("Fetching events from RapidAPI via Supabase Function:", fetchEventsFunctionUrl)
-    console.log("Request Parameters:", filters)
+    console.log("Request Parameters:", requestParams)
 
     const res = await fetch(fetchEventsFunctionUrl, {
       method: "POST",
@@ -231,7 +247,7 @@ export const fetchEventsFromRapidAPI = async (
         apikey: supabaseAnonKey,
         Authorization: `Bearer ${supabaseAnonKey}`,
       },
-      body: JSON.stringify(filters),
+      body: JSON.stringify(requestParams),
     })
 
     if (!res.ok) {

@@ -7,7 +7,7 @@ export const useMapFilters = () => {
   const [filters, setFilters] = useState<EventFilters>({
     distance: DEFAULT_DISTANCE,
     sortBy: 'date',
-    categories: [],
+    categories: ['party'], // Include 'party' by default to ensure party events are shown
     datePreset: 'today',
   });
 

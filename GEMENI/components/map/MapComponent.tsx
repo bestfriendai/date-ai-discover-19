@@ -66,8 +66,8 @@ const MapComponent = ({
     bearing: 0
   });
 
-  // Always use the custom OpenStreetMap style that doesn't require a Mapbox token
-  const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.custom);
+  // Use Mapbox dark style as default
+  const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
 
   // Use Map state from the hook
   const { map, mapError, mapLoaded: isMapInitialized } = useMapInitialization(

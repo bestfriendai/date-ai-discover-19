@@ -194,6 +194,12 @@ export const useEventSearch = () => {
         }
       }
 
+      // If no categories are selected, add 'party' by default to ensure party events are shown
+      if (!searchParams.categories || searchParams.categories.length === 0) {
+        console.log('[EVENTS] No categories selected, adding party category by default');
+        searchParams.categories = ['party'];
+      }
+
       console.log('[EVENTS] Search params:', searchParams);
       setLastSearchParams(searchParams);
 
@@ -261,7 +267,7 @@ export const useEventSearch = () => {
           eventbrite: result.sourceStats.eventbrite,
           rapidapi: result.sourceStats.rapidapi
         };
-        
+
         setSourceStats(filteredStats);
       } else {
         console.log('[EVENTS] No source stats available in API response');

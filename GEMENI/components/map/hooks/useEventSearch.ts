@@ -185,6 +185,9 @@ export const useEventSearch = () => {
         location: centerCoords.locationName || filters.location || 'New York',
       };
 
+      // Log the location being used for search
+      console.log('[EVENTS] Using location for search:', searchParams.location);
+
       // Ensure 'party' is included in categories if it's selected in filters
       if (filters.categories && filters.categories.includes('party')) {
         console.log('[EVENTS] Party category selected, ensuring it is included in API request');
@@ -192,6 +195,12 @@ export const useEventSearch = () => {
         if (!searchParams.categories.includes('party')) {
           searchParams.categories.push('party');
         }
+      }
+
+      // If no categories are selected, add 'party' by default to ensure party events are shown
+      if (!searchParams.categories || searchParams.categories.length === 0) {
+        console.log('[EVENTS] No categories selected, adding party category by default');
+        searchParams.categories = ['party'];
       }
 
       console.log('[EVENTS] Search params:', searchParams);
@@ -261,7 +270,7 @@ export const useEventSearch = () => {
           eventbrite: result.sourceStats.eventbrite,
           rapidapi: result.sourceStats.rapidapi
         };
-        
+
         setSourceStats(filteredStats);
       } else {
         console.log('[EVENTS] No source stats available in API response');

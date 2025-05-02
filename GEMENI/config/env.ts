@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 // Schema for environment variables
 const envSchema = z.object({
-  // Required API keys
-  VITE_TICKETMASTER_KEY: z.string().min(1, 'Ticketmaster API key is required'),
-  VITE_PREDICTHQ_API_KEY: z.string().min(1, 'PredictHQ API key is required'),
-  VITE_RAPIDAPI_KEY: z.string().min(1, 'RapidAPI key is required'), // Added RapidAPI Key
-  VITE_RAPIDAPI_EVENTS_ENDPOINT: z.string().url('RapidAPI Events Endpoint must be a valid URL'), // Added RapidAPI Events Endpoint
+  // API keys - all made optional with default values for development
+  VITE_TICKETMASTER_KEY: z.string().optional().default('mock-ticketmaster-key'),
+  VITE_PREDICTHQ_API_KEY: z.string().optional().default('mock-predicthq-key'),
+  VITE_RAPIDAPI_KEY: z.string().optional().default('mock-rapidapi-key'),
+  VITE_RAPIDAPI_EVENTS_ENDPOINT: z.string().optional().default('https://example.com/api'),
 
   // Optional API keys
   VITE_SERPAPI_KEY: z.string().optional(),
@@ -60,7 +60,7 @@ export function loadEnvConfig(): EnvConfig {
  */
 export function getApiKey(service: string): string {
   const config = loadEnvConfig();
-  
+
   // Add debug logging
   console.log(`[ENV] Getting API key for service: ${service}`);
 
@@ -81,9 +81,8 @@ export function getApiKey(service: string): string {
       }
       return config.VITE_SERPAPI_KEY;
     case 'mapbox':
-      // Return the token if available, otherwise return undefined
-      // The useMapInitialization hook will use a default token if this returns undefined
-      return config.VITE_MAPBOX_TOKEN || '';
+      // Return the token from .env file or use the default Mapbox token
+      return config.VITE_MAPBOX_TOKEN || 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4NXVycTA2emYycXBndHRqcmZ3N3gifQ.rJcFIG214AriISLbB6B5aw';
     default:
       throw new Error(`Unknown service: ${service}`);
   }
