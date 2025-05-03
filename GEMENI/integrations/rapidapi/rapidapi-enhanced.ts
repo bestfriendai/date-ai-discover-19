@@ -1,12 +1,18 @@
 /**
  * Enhanced RapidAPI integration for event search
  * Optimized for location-based searches and real event data
+ *
+ * SECURITY NOTES:
+ * - API keys are retrieved securely through the apiKeyManager
+ * - Rate limiting is implemented to prevent exceeding API quotas
+ * - Error handling is robust with proper logging
  */
 
 import { Event, SearchParams } from './types';
 import { calculateDistance } from '../../utils/processing';
 import { logError, ErrorSeverity, tryCatch } from '../../utils/errorHandling';
 import { PartySubcategory, PartyClassification, detectPartySubcategory } from '../../utils/party/partyUtils';
+import { getApiKey, trackApiUsage, getRateLimitStatus } from '../../utils/apiKeyManager';
 
 // Default values for search parameters
 const DEFAULT_VALUES = {
@@ -28,12 +34,12 @@ const PARTY_KEYWORDS = [
   'party', 'club', 'nightlife', 'dance', 'dj',
   'festival', 'celebration', 'gala', 'mixer', 'nightclub',
   'disco', 'bash', 'soiree', 'fiesta', 'get-together',
-  
+
   // Semantic patterns that indicate parties
   'night out', 'going out', 'bottle service', 'vip table',
   'dance floor', 'live dj', 'open bar', 'dress code',
   'guest list', 'rsvp', 'after hours', 'late night',
-  
+
   // Venue-specific indicators
   'lounge', 'rooftop', 'warehouse', 'venue', 'ballroom',
   'terrace', 'patio', 'garden', 'poolside', 'beachfront'
@@ -119,20 +125,20 @@ function processEventImage(
     const result: { primaryImage: string, additionalImages?: string[] } = {
       primaryImage: ''
     };
-    
+
     // Collect all potential image sources
     const potentialImages: string[] = [];
-    
+
     // Check primary thumbnail
     if (event.thumbnail && typeof event.thumbnail === 'string' && event.thumbnail.trim() !== '') {
       potentialImages.push(event.thumbnail.trim());
     }
-    
+
     // Check for image_url which might be higher quality
     if (event.image_url && typeof event.image_url === 'string' && event.image_url.trim() !== '') {
       potentialImages.push(event.image_url.trim());
     }
-    
+
     // Check for images array
     if (Array.isArray(event.images) && event.images.length > 0) {
       event.images.forEach((img: any) => {
@@ -149,24 +155,24 @@ function processEventImage(
         }
       });
     }
-    
+
     // Check for venue images
     if (event.venue && event.venue.image && typeof event.venue.image === 'string' && event.venue.image.trim() !== '') {
       potentialImages.push(event.venue.image.trim());
     }
-    
+
     // Filter and validate images
     const validImages = potentialImages
       .filter((url, index) => potentialImages.indexOf(url) === index) // Remove duplicates
       .filter(url => validateImageUrl(url)); // Validate URLs
-    
+
     // Sort images by quality (prefer larger images)
     const sortedImages = sortImagesByQuality(validImages);
-    
+
     // Set primary image
     if (sortedImages.length > 0) {
       result.primaryImage = sortedImages[0];
-      
+
       // Add additional images if available
       if (sortedImages.length > 1) {
         result.additionalImages = sortedImages.slice(1);
@@ -175,7 +181,7 @@ function processEventImage(
       // No valid images found, use fallback based on category
       result.primaryImage = getFallbackImage(isPartyEvent, partySubcategory, event.category);
     }
-    
+
     return result;
   } catch (error) {
     logError(error, ErrorSeverity.LOW, 'IMAGE_PROCESSING');
@@ -195,17 +201,17 @@ function validateImageUrl(url: string): boolean {
   if (!url || typeof url !== 'string' || url.trim() === '') {
     return false;
   }
-  
+
   try {
     // Basic URL validation
     const urlObj = new URL(url);
-    
+
     // Check for common image extensions
     const hasImageExtension = /\.(jpg|jpeg|png|gif|webp|svg)($|\?)/i.test(url);
-    
+
     // Check for common image hosting domains
     const isImageHost = /(unsplash|imgur|cloudinary|flickr|staticflickr|images|photos|media|cdn|assets)/i.test(urlObj.hostname);
-    
+
     // Accept URLs that have image extensions or come from image hosting domains
     return hasImageExtension || isImageHost;
   } catch (e) {
@@ -224,17 +230,17 @@ function sortImagesByQuality(images: string[]): string[] {
     // Prefer URLs with resolution indicators
     const aHasResolution = /[_-](\d+x\d+|hd|large|original|full|high)/i.test(a);
     const bHasResolution = /[_-](\d+x\d+|hd|large|original|full|high)/i.test(b);
-    
+
     if (aHasResolution && !bHasResolution) return -1;
     if (!aHasResolution && bHasResolution) return 1;
-    
+
     // Prefer URLs without compression parameters
     const aHasCompression = /quality=\d+|q=\d+|compressed/i.test(a);
     const bHasCompression = /quality=\d+|q=\d+|compressed/i.test(b);
-    
+
     if (!aHasCompression && bHasCompression) return -1;
     if (aHasCompression && !bHasCompression) return 1;
-    
+
     // Prefer longer URLs (often contain more parameters for better images)
     return b.length - a.length;
   });
@@ -259,7 +265,7 @@ function getFallbackImage(
     }
     return FALLBACK_IMAGES.PARTY.DEFAULT;
   }
-  
+
   // Check for other categories
   if (category) {
     const categoryLower = category.toLowerCase();
@@ -276,7 +282,7 @@ function getFallbackImage(
       return FALLBACK_IMAGES.FOOD;
     }
   }
-  
+
   // Default fallback
   return FALLBACK_IMAGES.DEFAULT;
 }
@@ -295,41 +301,41 @@ function enhanceEventDescription(
   try {
     // Start with the original description if available
     let originalDesc = event.description || '';
-    
+
     // Clean up the description - remove excessive whitespace, HTML tags, etc.
     originalDesc = originalDesc
       .replace(/<[^>]*>/g, '') // Remove HTML tags
       .replace(/\s+/g, ' ')    // Replace multiple spaces with single space
       .trim();
-    
+
     // If we have a good description already (more than 100 chars), just clean it up
     if (originalDesc.length > 100) {
       return originalDesc;
     }
-    
+
     // Build an enhanced description
     const descriptionParts: string[] = [];
-    
+
     // Add event title if description is empty
     if (!originalDesc) {
       descriptionParts.push(`Join us for ${event.name || 'this exciting event'}.`);
     } else {
       descriptionParts.push(originalDesc);
     }
-    
+
     // Add venue information if available
     if (event.venue) {
       const venueName = event.venue.name;
       const venueLocation = event.venue.full_address ||
         [event.venue.city, event.venue.state, event.venue.country].filter(Boolean).join(', ');
-      
+
       if (venueName) {
         descriptionParts.push(`Taking place at ${venueName}${venueLocation ? ` in ${venueLocation}` : ''}.`);
       } else if (venueLocation) {
         descriptionParts.push(`Located in ${venueLocation}.`);
       }
     }
-    
+
     // Add party-specific context based on subcategory
     if (isPartyEvent) {
       switch(partySubcategory) {
@@ -400,7 +406,7 @@ function enhanceEventDescription(
           );
       }
     }
-    
+
     // Add time information if available
     if (event.date_human_readable || event.time) {
       const dateInfo = event.date_human_readable || '';
@@ -413,7 +419,7 @@ function enhanceEventDescription(
         descriptionParts.push(`Event starts at ${timeInfo}.`);
       }
     }
-    
+
     // Join all parts with proper spacing
     return descriptionParts.join(' ');
   } catch (error) {
@@ -434,11 +440,11 @@ function transformRapidAPIEvent(event: any): Event | null {
     if (!event || !event.name) {
       return null;
     }
-    
+
     // Extract venue information with proper validation
     const venue = event.venue?.name || '';
     let location = '';
-    
+
     if (event.venue) {
       // Process location with multiple fallback options
       if (event.venue.full_address) {
@@ -450,22 +456,22 @@ function transformRapidAPIEvent(event: any): Event | null {
           event.venue.state,
           event.venue.country
         ].filter(Boolean);
-        
+
         location = venueParts.join(', ');
       }
     }
-    
+
     // Get coordinates with proper validation
     let coordinates: [number, number] | undefined = undefined;
     let eventLongitude = event.venue?.longitude;
     let eventLatitude = event.venue?.latitude;
-    
+
     // Validate and normalize coordinates
     const hasValidCoordinates =
       eventLatitude !== undefined && eventLongitude !== undefined &&
       eventLatitude !== null && eventLongitude !== null &&
       !isNaN(Number(eventLatitude)) && !isNaN(Number(eventLongitude));
-      
+
     if (hasValidCoordinates) {
       // Convert to numbers to ensure consistent type
       eventLatitude = Number(eventLatitude);
@@ -473,33 +479,33 @@ function transformRapidAPIEvent(event: any): Event | null {
       // Ensure coordinates are in the correct format [longitude, latitude]
       coordinates = [eventLongitude, eventLatitude];
     }
-    
+
     // Extract title and description with fallbacks
     const title = event.name || 'Event';
     const description = event.description || '';
-    
+
     // Enhanced party event detection with semantic understanding and context analysis
     const nameLower = title.toLowerCase();
     const descLower = description.toLowerCase();
     const venueLower = venue.toLowerCase();
     const combinedText = `${nameLower} ${descLower} ${venueLower}`;
     const eventTime = event.time || '';
-    
+
     // Track evidence for better explainability
     const evidence = {
       keywords: [] as string[],
       patterns: [] as string[],
       entities: [] as string[]
     };
-    
+
     // 1. Keyword-based detection (basic approach)
     const keywordMatches = PARTY_KEYWORDS.filter(kw => combinedText.includes(kw));
     evidence.keywords.push(...keywordMatches);
-    
+
     // 2. Contextual pattern matching (more sophisticated)
     const patternMatches = PARTY_PATTERNS.filter(([pattern]) => pattern.test(combinedText));
     evidence.patterns.push(...patternMatches.map(([pattern]) => pattern.toString()));
-    
+
     // 3. Entity recognition for venues, times, and organizations
     Object.entries(ENTITY_PATTERNS).forEach(([entityType, patterns]) => {
       patterns.forEach(pattern => {
@@ -509,7 +515,7 @@ function transformRapidAPIEvent(event: any): Event | null {
         }
       });
     });
-    
+
     // Determine if this is a party event based on multiple evidence types
     const isPartyEvent =
       // Basic keyword matching
@@ -524,20 +530,20 @@ function transformRapidAPIEvent(event: any): Event | null {
       patternMatches.length >= 2 ||
       // Entity recognition (multiple entities)
       evidence.entities.length >= 2;
-    
+
     // Enhanced party subcategory detection using the improved function
     let partyClassification: PartyClassification | undefined = undefined;
     let partySubcategory: PartySubcategory | undefined = undefined;
-    
+
     if (isPartyEvent) {
       // Get detailed classification with primary and secondary categories
       partyClassification = detectPartySubcategory(title, description, eventTime, venue);
       partySubcategory = partyClassification.primaryCategory;
     }
-    
+
     // Process images
     const imageData = processEventImage(event, isPartyEvent, partySubcategory);
-    
+
     // Return standardized event with enhanced party information
     const enhancedEvent: EnhancedEvent = {
       id: `rapidapi_${event.event_id || Math.random().toString(36).substring(2, 10)}`,
@@ -561,7 +567,7 @@ function transformRapidAPIEvent(event: any): Event | null {
       isPartyEvent: isPartyEvent,
       partySubcategory: partySubcategory
     };
-    
+
     // Add enhanced party information if available
     if (partyClassification) {
       enhancedEvent.partySecondaryCategories = partyClassification.secondaryCategories;
@@ -573,7 +579,7 @@ function transformRapidAPIEvent(event: any): Event | null {
         ...partyClassification.evidence
       };
     }
-    
+
     return enhancedEvent;
   } catch (error) {
     logError(error, ErrorSeverity.LOW, 'EVENT_TRANSFORM');
@@ -583,42 +589,68 @@ function transformRapidAPIEvent(event: any): Event | null {
 /**
  * Search for events using RapidAPI with improved handling
  * @param params Search parameters
- * @param apiKey RapidAPI key
+ * @param apiKeyParam Optional API key (will be retrieved from apiKeyManager if not provided)
  * @returns Search results
  */
 export async function searchRapidAPIEvents(
   params: SearchParams,
-  apiKey: string
+  apiKeyParam?: string
 ): Promise<{ events: Event[], error: string | null, searchQueryUsed?: string }> {
   try {
-    // Validate API key
+    // Get API key from parameter or apiKeyManager
+    let apiKey = apiKeyParam;
+
     if (!apiKey) {
-      throw new Error('No RapidAPI key provided');
+      try {
+        // Check rate limit status first
+        const rateLimitStatus = getRateLimitStatus('rapidapi');
+        if (rateLimitStatus.limited) {
+          const resetTimeMinutes = Math.ceil(rateLimitStatus.resetInMs ? rateLimitStatus.resetInMs / 60000 : 1);
+          throw new Error(`RapidAPI rate limit exceeded. Try again in approximately ${resetTimeMinutes} minute(s).`);
+        }
+
+        // Get API key from manager
+        apiKey = await getApiKey('rapidapi');
+        if (!apiKey) {
+          throw new Error('Failed to retrieve RapidAPI key');
+        }
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        return {
+          events: [],
+          error: errorMessage,
+          searchQueryUsed: 'Error retrieving API key'
+        };
+      }
     }
-    
-    console.log('[RAPIDAPI] Starting search with parameters:', 
+
+    // Track API usage
+    trackApiUsage('rapidapi');
+
+    // Log search parameters (without sensitive info)
+    console.log('[RAPIDAPI] Starting search with parameters:',
       JSON.stringify({
         ...params,
         // Don't log possibly sensitive location info
         location: params.location ? '[LOCATION PROVIDED]' : undefined
       }));
-    
+
     // -- Build Query String --
     let queryString = '';
     let cleanKeyword = params.keyword?.trim() || '';
-    
+
     // Handle party search differently for better results
     const isPartySearch = params.categories?.includes(SPECIAL_CATEGORIES.PARTY);
-    
+
     if (isPartySearch) {
       // -- Enhanced Party Search Optimization --
       // Base party terms for all party searches
       let partyTerms = ['party', 'nightlife', 'nightclub', 'social event'];
-      
+
       // If we have a specific party subcategory, optimize terms for it
       if (cleanKeyword) {
         const keywordLower = cleanKeyword.toLowerCase();
-        
+
         // Club/nightlife specific terms
         if (keywordLower.includes('club') || keywordLower.includes('night')) {
           partyTerms = [
@@ -668,13 +700,13 @@ export async function searchRapidAPIEvents(
           ];
         }
       }
-      
+
       // Construct search query with party terms
       if (params.latitude !== undefined && params.longitude !== undefined) {
         // Validate coordinates before using them
         const lat = Number(params.latitude);
         const lng = Number(params.longitude);
-        
+
         if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
           console.warn('[RAPIDAPI] Invalid coordinates provided, using general search');
           queryString = `${partyTerms.join(' ')} events`;
@@ -687,7 +719,7 @@ export async function searchRapidAPIEvents(
       } else {
         queryString = `${partyTerms.join(' ')} events`; // Fallback
       }
-      
+
       // Add additional keyword if it's not already covered by party terms
       if (cleanKeyword && !partyTerms.some(term => cleanKeyword.toLowerCase().includes(term))) {
         // Add the keyword with proper context
@@ -699,13 +731,13 @@ export async function searchRapidAPIEvents(
           queryString += ` ${cleanKeyword}`;
         }
       }
-      
+
       // Add time context if available in the search parameters
       if (params.startDate || params.endDate) {
         // Add temporal context to improve results
         const now = new Date();
         const currentHour = now.getHours();
-        
+
         // Add time-of-day context based on current time
         if (currentHour >= 18 || currentHour < 4) {
           // Evening/night context
@@ -724,14 +756,14 @@ export async function searchRapidAPIEvents(
         // Validate coordinates
         const lat = Number(params.latitude);
         const lng = Number(params.longitude);
-        
+
         if (isNaN(lat) || isNaN(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
           console.warn('[RAPIDAPI] Invalid coordinates provided, using general search');
           queryString = 'popular events';
         } else {
           // Build query with coordinates
           queryString = `events near ${lat.toFixed(4)},${lng.toFixed(4)}`;
-          
+
           // Add category-specific keywords if available
           if (params.categories && params.categories.length > 0) {
             const validCategories = params.categories.filter(c => c !== SPECIAL_CATEGORIES.PARTY);
@@ -742,7 +774,7 @@ export async function searchRapidAPIEvents(
         }
       } else if (params.location) {
         queryString = `events in ${params.location}`;
-        
+
         // Add category-specific terms
         if (params.categories && params.categories.length > 0) {
           const validCategories = params.categories.filter(c => c !== SPECIAL_CATEGORIES.PARTY);
@@ -763,89 +795,185 @@ export async function searchRapidAPIEvents(
           queryString = `popular events`;
         }
       }
-      
+
       // Add keyword if provided
       if (cleanKeyword) {
         queryString += ` ${cleanKeyword}`;
       }
     }
-    
+
     console.log(`[RAPIDAPI] Constructed query: "${queryString}"`);
-    
+
     // -- Build API Request --
     const queryParams = new URLSearchParams();
-    
+
     // Set query parameter
     queryParams.append('query', queryString);
-    
+
     // Date Parameter - Use 'month' for a good amount of upcoming events
     queryParams.append('date', 'month');
-    
+
     // Virtual events setting - only physical events
     queryParams.append('is_virtual', 'false');
-    
+
     // Request maximum limit for post-filtering
     const apiLimit = Math.min(DEFAULT_VALUES.MAX_LIMIT, params.limit ? params.limit * 2 : DEFAULT_VALUES.LIMIT);
     queryParams.append('limit', apiLimit.toString());
     queryParams.append('start', '0');
-    
+
     // -- Make API Request --
     const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
     console.log(`[RAPIDAPI] Sending request to: ${url.substring(0, 100)}...`);
-    
-    // Setting timeout for the fetch request
+
+    // Setting timeout for the fetch request with a longer timeout for reliability
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
-    
-    try {
-      const response = await fetch(url, {
-        method: 'GET',
-        headers: {
-          'x-rapidapi-key': apiKey,
-          'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com'
-        },
-        signal: controller.signal
-      });
-      
-      // Clear the timeout since we got a response
-      clearTimeout(timeout);
-      
-      console.log(`[RAPIDAPI] Response status: ${response.status}`);
-      
-      if (!response.ok) {
-        // Handle different HTTP error codes appropriately
-        let errorMessage = `RapidAPI request failed: ${response.status}`;
-        
-        if (response.status === 401 || response.status === 403) {
-          errorMessage = 'API key is invalid or unauthorized';
-        } else if (response.status === 429) {
-          errorMessage = 'API rate limit exceeded';
-        } else if (response.status >= 500) {
-          errorMessage = 'RapidAPI server error';
+    const timeoutMs = 20000; // 20s timeout for better reliability
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+    // Implement retry logic
+    const MAX_RETRIES = 2;
+    let retryCount = 0;
+    let lastError: Error | null = null;
+
+    while (retryCount <= MAX_RETRIES) {
+      try {
+        if (retryCount > 0) {
+          console.log(`[RAPIDAPI] Retry attempt ${retryCount}/${MAX_RETRIES}`);
+          // Add exponential backoff for retries
+          await new Promise(resolve => setTimeout(resolve, 1000 * Math.pow(2, retryCount - 1)));
         }
-        
-        // Try to get more details from the error response
-        const errorText = await response.text();
-        console.error(`[RAPIDAPI] Request failed: ${response.status}`, errorText.substring(0, 200));
-        
+
+        const response = await fetch(url, {
+          method: 'GET',
+          headers: {
+            'x-rapidapi-key': apiKey,
+            'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com',
+            'Accept': 'application/json'
+          },
+          signal: controller.signal
+        });
+
+        // Clear the timeout since we got a response
+        clearTimeout(timeout);
+
+        console.log(`[RAPIDAPI] Response status: ${response.status}`);
+
+        if (!response.ok) {
+          // Handle different HTTP error codes appropriately
+          let errorMessage = `RapidAPI request failed: ${response.status}`;
+          let shouldRetry = false;
+
+          if (response.status === 401 || response.status === 403) {
+            errorMessage = 'API key is invalid or unauthorized';
+            // Don't retry auth errors
+            shouldRetry = false;
+            // Track as an error for rate limiting
+            trackApiUsage('rapidapi', true);
+          } else if (response.status === 429) {
+            errorMessage = 'API rate limit exceeded';
+            // Don't retry rate limit errors
+            shouldRetry = false;
+            // Track as an error for rate limiting
+            trackApiUsage('rapidapi', true);
+          } else if (response.status >= 500) {
+            errorMessage = 'RapidAPI server error';
+            // Retry server errors
+            shouldRetry = true;
+          } else if (response.status === 408 || response.status === 504) {
+            errorMessage = 'RapidAPI request timed out';
+            // Retry timeout errors
+            shouldRetry = true;
+          }
+
+          // Try to get more details from the error response
+          let errorText = '';
+          try {
+            errorText = await response.text();
+            console.error(`[RAPIDAPI] Request failed: ${response.status}`, errorText.substring(0, 200));
+          } catch (e) {
+            console.error(`[RAPIDAPI] Could not read error response: ${e}`);
+          }
+
+          if (shouldRetry && retryCount < MAX_RETRIES) {
+            lastError = new Error(errorMessage);
+            retryCount++;
+            continue;
+          }
+
+          return {
+            events: [],
+            error: errorMessage,
+            searchQueryUsed: queryString
+          };
+        }
+
+        // If we get here, the request was successful
+        break;
+      } catch (error) {
+        clearTimeout(timeout);
+
+        // Check if it's an abort error (timeout)
+        const isTimeoutError = error instanceof DOMException && error.name === 'AbortError';
+
+        if (isTimeoutError) {
+          console.error(`[RAPIDAPI] Request timed out after ${timeoutMs}ms`);
+          lastError = new Error('Request timed out');
+        } else {
+          console.error(`[RAPIDAPI] Request failed: ${error instanceof Error ? error.message : String(error)}`);
+          lastError = error instanceof Error ? error : new Error(String(error));
+        }
+
+        // Retry if we haven't exceeded max retries
+        if (retryCount < MAX_RETRIES) {
+          retryCount++;
+          continue;
+        }
+
+        // Track as an error for rate limiting
+        trackApiUsage('rapidapi', true);
+
         return {
           events: [],
-          error: errorMessage,
+          error: `RapidAPI request failed: ${lastError.message}`,
           searchQueryUsed: queryString
         };
       }
-      
+    }
+
+    // If we've exhausted retries and still have an error
+    if (lastError) {
+      return {
+        events: [],
+        error: `RapidAPI request failed after ${MAX_RETRIES} retries: ${lastError.message}`,
+        searchQueryUsed: queryString
+      };
+    }
+
+    // Store the response from the successful request
+    let response: Response;
+
+    try {
+      // Get the response from the last successful request
+      response = await fetch(url, {
+        method: 'GET',
+        headers: {
+          'x-rapidapi-key': apiKey,
+          'x-rapidapi-host': 'real-time-events-search.p.rapidapi.com',
+          'Accept': 'application/json'
+        }
+      });
+
       const data = await response.json();
       const rawEvents = data.data || [];
       console.log(`[RAPIDAPI] Received ${rawEvents.length} raw events.`);
-      
+
       // -- Transform Events --
       let transformedEvents = rawEvents
         .map(transformRapidAPIEvent)
         .filter((event): event is Event => event !== null);
-      
+
       console.log(`[RAPIDAPI] Transformed ${transformedEvents.length} events successfully.`);
-      
+
       // -- Filter Events by Radius --
       if (params.radius !== undefined && params.latitude !== undefined && params.longitude !== undefined) {
         const initialCount = transformedEvents.length;
@@ -858,7 +986,7 @@ export async function searchRapidAPIEvents(
             Number(params.radius) || DEFAULT_VALUES.RADIUS
           )
         );
-        
+
         // Validate coordinates
         if (isNaN(userLat) || isNaN(userLng) ||
             userLat < -90 || userLat > 90 ||
@@ -871,7 +999,7 @@ export async function searchRapidAPIEvents(
             if (!event.latitude || !event.longitude) {
               return false;
             }
-            
+
             try {
               const distance = calculateDistance(
                 userLat,
@@ -879,25 +1007,25 @@ export async function searchRapidAPIEvents(
                 Number(event.latitude),
                 Number(event.longitude)
               );
-              
+
               return distance <= radiusMiles;
             } catch (e) {
               return false; // Skip events with invalid coordinates
             }
           });
-          
+
           console.log(`[RAPIDAPI] Filtered by radius: ${initialCount} -> ${transformedEvents.length}`);
         }
       }
-      
+
       // -- Filter Past Events --
       const now = new Date();
       now.setHours(0, 0, 0, 0); // Start of today
-      
+
       const initialCountBeforeDateFilter = transformedEvents.length;
       transformedEvents = transformedEvents.filter((event: Event) => {
         if (!event.rawDate) return true; // Keep events with no date
-        
+
         try {
           const eventDate = new Date(event.rawDate);
           return !isNaN(eventDate.getTime()) && eventDate >= now;
@@ -905,15 +1033,15 @@ export async function searchRapidAPIEvents(
           return true; // Keep events with unparseable dates
         }
       });
-      
+
       console.log(`[RAPIDAPI] Filtered past events: ${initialCountBeforeDateFilter} -> ${transformedEvents.length}`);
-      
+
       // -- Apply Limit --
       if (params.limit && transformedEvents.length > params.limit) {
         transformedEvents = transformedEvents.slice(0, params.limit);
         console.log(`[RAPIDAPI] Limited to ${transformedEvents.length} events`);
       }
-      
+
       return {
         events: transformedEvents,
         error: null,
@@ -921,15 +1049,15 @@ export async function searchRapidAPIEvents(
       };
     } catch (error) {
       clearTimeout(timeout);
-      
-      const errorMessage = error instanceof Error 
+
+      const errorMessage = error instanceof Error
         ? error.message
         : error instanceof DOMException && error.name === 'AbortError'
           ? 'Request timed out'
           : String(error);
-          
+
       console.error(`[RAPIDAPI] Request failed: ${errorMessage}`);
-      
+
       return {
         events: [],
         error: `RapidAPI request failed: ${errorMessage}`,
@@ -939,7 +1067,10 @@ export async function searchRapidAPIEvents(
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error);
     console.error(`[RAPIDAPI] Error in searchRapidAPIEvents: ${errorMessage}`);
-    
+
+    // Track API error for rate limiting
+    trackApiUsage('rapidapi', true);
+
     return {
       events: [],
       error: errorMessage,

@@ -82,6 +82,25 @@ PerformanceMonitor.startMeasure('appStartup', {
 
 originalConsoleLog('[APP] Application starting...');
 
+// Initialize API key manager and secrets service
+import { initApiKeyManager } from '@/utils/apiKeyManager';
+import { initSecretsService } from '@/services/secretsService';
+
+// Initialize secrets service and API key manager
+(async () => {
+  try {
+    // Initialize secrets service first
+    await initSecretsService();
+    originalConsoleLog('[APP] Secrets service initialized');
+
+    // Then initialize API key manager
+    await initApiKeyManager();
+    originalConsoleLog('[APP] API key manager initialized');
+  } catch (error) {
+    errorReporter('[APP] Failed to initialize API keys:', error);
+  }
+})();
+
 // Create the root and render the app
 const root = createRoot(document.getElementById("root")!);
 

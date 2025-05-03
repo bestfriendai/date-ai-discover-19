@@ -1,14 +1,11 @@
 // Custom Supabase client for Edge Functions
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { getApiKey } from '@/config/env';
 
-// Default values for development
-const DEFAULT_SUPABASE_URL = 'https://akwvmljopucsnorvdwuu.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
-
-// Try to get from environment variables with fallbacks
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+// Get Supabase configuration from environment
+const SUPABASE_URL = getApiKey('supabase-url');
+const SUPABASE_ANON_KEY = getApiKey('supabase-anon-key');
 
 // Log initialization in development
 if (import.meta.env.DEV) {
@@ -16,7 +13,7 @@ if (import.meta.env.DEV) {
 }
 
 // Create a custom Supabase client with proper configuration for Edge Functions
-export const functionsClient = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY, {
+export const functionsClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANON_KEY, {
   auth: {
     persistSession: false
   },
@@ -48,8 +45,8 @@ export async function invokeFunctionWithRetry<T = any>(
       if (retries === 0) {
         console.log(`[FUNCTIONS_CLIENT] Attempting direct fetch for better debugging`);
         try {
-          // Use the same key as the client
-          const SUPABASE_ANON_KEY = SUPABASE_PUBLISHABLE_KEY;
+          // Use the anon key for authentication
+          // SUPABASE_ANON_KEY is already defined above
 
           // If the function is search-events, use the dedicated rapidapi-events function
           const actualFunctionName = functionName === 'search-events' ? 'rapidapi-events' : functionName;
@@ -59,22 +56,47 @@ export async function invokeFunctionWithRetry<T = any>(
           const projectId = SUPABASE_URL.split('//')[1].split('.')[0];
           console.log(`[FUNCTIONS_CLIENT] Using project ID: ${projectId}`);
 
-          const response = await fetch(`https://${projectId}.functions.supabase.co/${actualFunctionName}`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`
-            },
-            body: JSON.stringify(payload)
-          });
+          // Try both direct function URL and Supabase functions URL
+          const urls = [
+            `https://${projectId}.functions.supabase.co/${actualFunctionName}`,
+            `${SUPABASE_URL}/functions/v1/${actualFunctionName}`
+          ];
+
+          // Try each URL
+          let response = null;
+          let lastError = null;
+
+          for (const url of urls) {
+            try {
+              console.log(`[FUNCTIONS_CLIENT] Trying URL: ${url}`);
+              response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+                  'apikey': SUPABASE_ANON_KEY
+                },
+                body: JSON.stringify(payload)
+              });
+
+              if (response.ok) {
+                console.log(`[FUNCTIONS_CLIENT] Successful response from ${url}`);
+                break;
+              } else {
+                console.warn(`[FUNCTIONS_CLIENT] Non-OK response from ${url}: ${response.status}`);
+                lastError = new Error(`HTTP error! status: ${response.status}`);
+              }
+            } catch (error) {
+              console.warn(`[FUNCTIONS_CLIENT] Error fetching from ${url}:`, error);
+              lastError = error;
+            }
+          }
+
+          if (!response || !response.ok) {
+            throw lastError || new Error('All fetch attempts failed');
+          }
 
           console.log(`[FUNCTIONS_CLIENT] Direct fetch response status:`, response.status);
-
-          if (!response.ok) {
-            const errorText = await response.text();
-            console.error(`[FUNCTIONS_CLIENT] Direct fetch error: ${response.status}`, errorText);
-            throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-          }
 
           const data = await response.json();
           console.log(`[FUNCTIONS_CLIENT] Direct fetch successful:`, data);

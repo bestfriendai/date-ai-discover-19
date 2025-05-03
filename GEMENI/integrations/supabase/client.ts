@@ -1,20 +1,25 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
+import { getApiKey } from '@/config/env';
 
-// Default values for development
-const DEFAULT_SUPABASE_URL = 'https://akwvmljopucsnorvdwuu.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk';
+// Get Supabase configuration from environment
+const SUPABASE_URL = getApiKey('supabase-url');
+const SUPABASE_ANON_KEY = getApiKey('supabase-anon-key');
 
-// Try to get from environment variables with fallbacks
-const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const SUPABASE_PUBLISHABLE_KEY = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
+// Validate Supabase configuration
+if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
+  console.error('Supabase configuration is missing. Please check your .env file.');
+}
 
 // Log initialization in development
 if (import.meta.env.DEV) {
-  console.log('Initializing Supabase client with URL:', SUPABASE_URL);
+  console.log('Initializing Supabase client with URL:', SUPABASE_URL ? 'Set' : 'Not set');
 }
 
 // Import the supabase client like this:
 // import { supabase } from "@/integrations/supabase/client";
 
-export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+export const supabase = createClient<Database>(
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
+);

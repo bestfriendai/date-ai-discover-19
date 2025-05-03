@@ -1,6 +1,8 @@
 import { Event } from '../types';
 import { supabase } from '../integrations/supabase/client'; // Adjusted path
-import { getApiKey } from '../config/env'; // Updated import
+import { getApiKey as getEnvApiKey } from '../config/env'; // Keep for backward compatibility
+import { getApiKey, getApiKeySync, trackApiUsage, getRateLimitStatus } from '../utils/apiKeyManager'; // Import from API key manager
+import { searchRapidAPIEvents } from '../integrations/rapidapi/rapidapi-enhanced'; // Import enhanced RapidAPI integration
 
 export interface SearchEventsParams {
   keyword?: string;
@@ -71,142 +73,91 @@ function normalizeRapidApiEvent(rapidApiEvent: any): Event {
 export async function searchEvents(params: SearchEventsParams): Promise<SearchEventsResponse> {
   console.log('[EVENT_SERVICE] Searching for events with params:', params);
 
-  const apiKey = getApiKey('rapidapi-key'); // Use getApiKey
-  const endpoint = getApiKey('rapidapi-events-endpoint'); // Use getApiKey
-
-  // Add more detailed logging for debugging
-  console.log('[EVENT_SERVICE] RapidAPI key:', apiKey ? `${apiKey.substring(0, 4)}...${apiKey.substring(apiKey.length - 4)}` : 'undefined');
-  console.log('[EVENT_SERVICE] RapidAPI endpoint:', endpoint);
-
-  if (!apiKey || !endpoint) {
-    const errorMsg = 'RapidAPI key or endpoint not configured.';
-    console.error(`[EVENT_SERVICE] ${errorMsg}`);
-    return { events: [], error: errorMsg };
-  }
-
   try {
-    // Construct the correct RapidAPI request based on params
-    const queryParams = new URLSearchParams();
-    if (params.keyword) queryParams.append('query', params.keyword); // Use 'query' based on example
-    if (params.latitude && params.longitude) {
-        // Check if API supports lat/lon or needs location string
-        // Based on example, 'query' seems to handle location like "concerts in san-francisco"
-        // If lat/lon is preferred, check API docs for parameter names (e.g., 'lat', 'lon', 'geo')
-        // For now, relying on keyword/location string in 'query'
-        if (params.location) {
-             queryParams.append('query', `${params.keyword || ''} in ${params.location}`);
-        } else {
-             queryParams.append('query', params.keyword || '');
+    // Check rate limit status first
+    const rateLimitStatus = getRateLimitStatus('rapidapi');
+    if (rateLimitStatus.limited) {
+      const resetTimeMinutes = Math.ceil(rateLimitStatus.resetInMs ? rateLimitStatus.resetInMs / 60000 : 1);
+      const errorMsg = `RapidAPI rate limit exceeded. Try again in approximately ${resetTimeMinutes} minute(s).`;
+      console.error(`[EVENT_SERVICE] ${errorMsg}`);
+      return {
+        events: [],
+        error: errorMsg,
+        sourceStats: {
+          rapidapi: { count: 0, error: errorMsg }
+        },
+        meta: {
+          timestamp: new Date().toISOString(),
+          totalEvents: 0
         }
-        // If API supports radius with lat/lon, add it here
-        // if (params.radius) queryParams.append('radius', params.radius.toString());
-    } else if (params.location) {
-         queryParams.append('query', `${params.keyword || ''} in ${params.location}`);
-    } else if (params.keyword) {
-         queryParams.append('query', params.keyword);
+      };
     }
 
+    // Convert our SearchEventsParams to the format expected by searchRapidAPIEvents
+    const rapidApiParams = {
+      keyword: params.keyword,
+      location: params.location,
+      latitude: params.latitude,
+      longitude: params.longitude,
+      radius: params.radius || 25, // Default radius
+      startDate: params.startDate,
+      endDate: params.endDate,
+      categories: params.categories,
+      limit: params.limit || 100, // Default limit
+      page: params.page || 1, // Default page
+      excludeIds: params.excludeIds
+    };
 
-    // RapidAPI expects 'date' parameter to be one of: all, today, tomorrow, week, weekend, next_week, month, next_month
-    // It does not support custom date ranges in the format startDate..endDate
-    if (params.startDate && params.endDate) {
-        // Calculate the difference in days between startDate and endDate
-        const start = new Date(params.startDate);
-        const end = new Date(params.endDate);
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        
-        // Choose the appropriate date range based on the difference
-        if (diffDays <= 7) {
-            queryParams.append('date', 'week');
-        } else if (diffDays <= 14) {
-            queryParams.append('date', 'next_week');
-        } else if (diffDays <= 30) {
-            queryParams.append('date', 'month');
-        } else {
-            queryParams.append('date', 'next_month');
-        }
-    } else if (params.startDate) {
-        // If only startDate is provided, use 'today' if it's today, otherwise use 'week'
-        const today = new Date().toISOString().split('T')[0];
-        if (params.startDate === today) {
-            queryParams.append('date', 'today');
-        } else {
-            queryParams.append('date', 'week');
-        }
-    } else {
-        queryParams.append('date', 'week'); // Default to 'week' as a reasonable default
-    }
+    // Use the enhanced RapidAPI integration
+    const result = await searchRapidAPIEvents(rapidApiParams);
 
+    // Track API usage
+    trackApiUsage('rapidapi', !!result.error);
 
-    if (params.categories) {
-        // Check API category format. Example doesn't show category filtering.
-        // Need to consult RapidAPI docs.
-        // Assuming a parameter like 'categories' or 'tags' might exist.
-        // queryParams.append('categories', params.categories.join(',')); // Placeholder
-    }
-
-    if (params.limit) queryParams.append('limit', params.limit.toString()); // Check API limit parameter
-    if (params.page) queryParams.append('start', ((params.page - 1) * (params.limit || 10)).toString()); // Assuming 'start' parameter for pagination based on example
-
-    // Add other parameters as required by the RapidAPI endpoint
-
-    const url = `${endpoint}?${queryParams.toString()}`;
-
-    console.log(`[EVENT_SERVICE] Calling RapidAPI: ${url}`);
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key': apiKey,
-        'x-rapidapi-host': new URL(endpoint).host, // Extract host from endpoint
-        'Content-Type': 'application/json', // Adjust if API expects different content type
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[EVENT_SERVICE] RapidAPI search request failed: ${response.status} ${response.statusText}`, errorText);
-      return { events: [], error: `RapidAPI search request failed: ${response.status} ${response.statusText}` };
-    }
-
-    const data = await response.json();
-
-    // Process the RapidAPI response and normalize events
-    // The search response has an array of events in the 'data' field
-    const normalizedEvents: Event[] = (data.data || []).map(normalizeRapidApiEvent); // Access data.data
-
-    console.log(`[EVENT_SERVICE] Received ${normalizedEvents.length} events from RapidAPI`);
-
-    // Extract source stats if available in the RapidAPI response
+    // Extract source stats
     const sourceStats = {
       rapidapi: {
-        count: normalizedEvents.length,
-        error: null, // Set to error message if any occurred during fetch/normalization
+        count: result.events.length,
+        error: result.error
       },
-      // Initialize other sources if needed, or remove them
+      // Initialize other sources if needed
       ticketmaster: { count: 0, error: null },
-      eventbrite: { count: 0, error: null },
+      eventbrite: { count: 0, error: null }
     };
 
-    // Extract meta information if available in the RapidAPI response
+    // Extract meta information
     const meta = {
       timestamp: new Date().toISOString(),
-      totalEvents: data.total || normalizedEvents.length, // Assuming data has a 'total' field
-      hasMore: data.hasMore || false, // Assuming data has a 'hasMore' field
+      totalEvents: result.events.length,
+      hasMore: result.events.length >= (params.limit || 100), // Assume there might be more if we hit the limit
+      searchQueryUsed: result.searchQueryUsed
     };
-
 
     return {
-      events: normalizedEvents,
+      events: result.events,
       sourceStats,
       meta,
+      error: result.error || undefined
     };
-
   } catch (error) {
     console.error('[EVENT_SERVICE] Exception calling RapidAPI search:', error);
+
+    // Track API error
+    trackApiUsage('rapidapi', true);
+
     return {
       events: [],
       error: `Exception calling RapidAPI search: ${error instanceof Error ? error.message : String(error)}`,
+      sourceStats: {
+        rapidapi: {
+          count: 0,
+          error: error instanceof Error ? error.message : String(error)
+        }
+      },
+      meta: {
+        timestamp: new Date().toISOString(),
+        totalEvents: 0
+      }
     };
   }
 }
@@ -265,14 +216,35 @@ export async function getEventById(id: string): Promise<Event | null> {
 
 
   // If not in local database, fetch from RapidAPI
-  const apiKey = getApiKey('rapidapi-key'); // Use getApiKey
-  const endpoint = getApiKey('rapidapi-events-endpoint'); // Use getApiKey
+
+  // Check rate limit status first
+  const rateLimitStatus = getRateLimitStatus('rapidapi');
+  if (rateLimitStatus.limited) {
+    const resetTimeMinutes = Math.ceil(rateLimitStatus.resetInMs ? rateLimitStatus.resetInMs / 60000 : 1);
+    console.error(`[EVENT_SERVICE] RapidAPI rate limit exceeded. Try again in approximately ${resetTimeMinutes} minute(s).`);
+    return null;
+  }
+
+  // Try to get the API key
+  let apiKey;
+  try {
+    apiKey = await getApiKey('rapidapi');
+  } catch (error) {
+    console.error(`[EVENT_SERVICE] Error getting RapidAPI key: ${error instanceof Error ? error.message : String(error)}`);
+    return null;
+  }
+
+  // Get the endpoint
+  const endpoint = getEnvApiKey('rapidapi-events-endpoint');
 
   if (!apiKey || !endpoint) {
     const errorMsg = 'RapidAPI key or endpoint not configured.';
     console.error(`[EVENT_SERVICE] ${errorMsg}`);
     return null;
   }
+
+  // Track API usage
+  trackApiUsage('rapidapi');
 
   try {
     // Construct the correct RapidAPI request to get a single event by ID
@@ -294,8 +266,25 @@ export async function getEventById(id: string): Promise<Event | null> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
+      let errorText = '';
+      try {
+        errorText = await response.text();
+      } catch (e) {
+        console.error(`[EVENT_SERVICE] Could not read error response: ${e}`);
+      }
+
       console.error(`[EVENT_SERVICE] RapidAPI single event request failed: ${response.status} ${response.statusText}`, errorText);
+
+      // Track API error
+      trackApiUsage('rapidapi', true);
+
+      // Handle specific error codes
+      if (response.status === 401 || response.status === 403) {
+        console.error('[EVENT_SERVICE] API key is invalid or unauthorized');
+      } else if (response.status === 429) {
+        console.error('[EVENT_SERVICE] API rate limit exceeded');
+      }
+
       return null;
     }
 
@@ -316,6 +305,10 @@ export async function getEventById(id: string): Promise<Event | null> {
 
   } catch (error) {
     console.error('[EVENT_SERVICE] Exception calling RapidAPI for single event:', error);
+
+    // Track API error
+    trackApiUsage('rapidapi', true);
+
     return null;
   }
 }

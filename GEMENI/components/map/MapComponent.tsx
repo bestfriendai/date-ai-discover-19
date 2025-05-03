@@ -1,8 +1,11 @@
 
 // src/components/map/MapComponent.tsx
-import { useRef, useState, useCallback, useEffect } from 'react';
+import { useRef, useState, useCallback, useEffect, lazy, Suspense } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
+
+// Import the LeafletMap component
+import LeafletMap from './LeafletMap';
 import type { Event } from '../../types';
 import type { EventFilters } from './components/MapControls';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
@@ -26,7 +29,8 @@ const MAP_STYLES = {
   satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
   streets: 'mapbox://styles/mapbox/streets-v12',
   basic: 'mapbox://styles/mapbox/basic-v9',
-  custom: '/basic-style.json' // Using our custom style that uses OpenStreetMap tiles
+  // Using DateAI custom style - make sure this is the first option
+  custom: 'mapbox://styles/dateai/cls4qfvxj00b401qy0iqm1ywl'
 };
 
 interface MapComponentProps {
@@ -66,15 +70,24 @@ const MapComponent = ({
     bearing: 0
   });
 
-  // Use Mapbox dark style as default
-  const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.dark);
+  // Use Mapbox streets style as default (public style that works with any token)
+  // Streets style is the most reliable and works with most tokens
+  const [mapStyle, setMapStyle] = useState<string>(MAP_STYLES.streets);
+
+  // Fallback to basic style if streets style fails
+  const [fallbackStyleAttempted, setFallbackStyleAttempted] = useState<boolean>(false);
+
+  // State to track which map implementation to use
+  // Default to using Leaflet (OpenStreetMap) since Mapbox is having issues
+  const [useMapbox, setUseMapbox] = useState<boolean>(false);
 
   // Use Map state from the hook
   const { map, mapError, mapLoaded: isMapInitialized } = useMapInitialization(
     mapContainer,
     initialViewState,
     mapStyle,
-    onMapLoadProp // Pass the prop function
+    onMapLoadProp, // Pass the prop function
+    !useMapbox // Skip Mapbox initialization if we're not using it
   );
 
   // Force map to be considered loaded after a timeout, even if there are errors
@@ -246,6 +259,90 @@ const MapComponent = ({
     });
   }, [map, isMapInitialized]); // Effect depends on map and initialized state
 
+  // Effect to handle style errors and try fallback styles
+  useEffect(() => {
+    if (!map || !isMapInitialized) return;
+
+    // Listen for style errors
+    const handleStyleError = (e: any) => {
+      console.error('[MapComponent] Style error detected:', e);
+
+      // Only attempt fallback once to avoid infinite loops
+      if (!fallbackStyleAttempted) {
+        setFallbackStyleAttempted(true);
+
+        // Try basic style as fallback
+        console.log('[MapComponent] Attempting to use basic style as fallback');
+        try {
+          // Set the style to basic
+          setMapStyle(MAP_STYLES.basic);
+
+          toast({
+            title: "Map Style Issue",
+            description: "Using a basic map style as fallback.",
+            variant: "warning"
+          });
+        } catch (styleError) {
+          console.error('[MapComponent] Error setting fallback style:', styleError);
+
+          // If we can't even set a basic style, switch to Leaflet
+          setUseMapbox(false);
+        }
+      }
+    };
+
+    // Handle critical Mapbox errors
+    const handleCriticalError = (e: any) => {
+      console.error('[MapComponent] Critical Mapbox error detected:', e);
+
+      // Check if this is an access token error
+      if (e.error && (
+        e.error.message.includes('access token') ||
+        e.error.message.includes('401') ||
+        e.error.message.includes('403')
+      )) {
+        console.error('[MapComponent] Access token error detected, switching to Leaflet fallback');
+
+        // Switch to Leaflet
+        setUseMapbox(false);
+
+        toast({
+          title: "Mapbox Authentication Failed",
+          description: "Switching to a fallback map provider. Some features may be limited.",
+          variant: "destructive"
+        });
+      }
+    };
+
+    // Add error listeners
+    map.on('error', (e: any) => {
+      if (e.error && e.error.message.includes('style')) {
+        handleStyleError(e);
+      } else {
+        handleCriticalError(e);
+      }
+    });
+
+    return () => {
+      // Remove error listeners
+      map.off('error', handleStyleError);
+      map.off('error', handleCriticalError);
+    };
+  }, [map, isMapInitialized, fallbackStyleAttempted]); // Effect depends on map, initialized state, and fallback attempt state
+
+  // Effect to detect Mapbox initialization failures
+  useEffect(() => {
+    if (mapError) {
+      console.error('[MapComponent] Map initialization error detected:', mapError);
+
+      // If we have a map error and no map instance, switch to Leaflet
+      if (!map && useMapbox) {
+        console.log('[MapComponent] Switching to Leaflet due to initialization error');
+        setUseMapbox(false);
+      }
+    }
+  }, [mapError, map, useMapbox]);
+
 
   const toggleTerrain = useCallback(() => {
     if (!map || !isMapInitialized) return;
@@ -331,26 +428,58 @@ const MapComponent = ({
   });
 
 
+  // Use LeafletMap by default, only use Mapbox if explicitly enabled
+  if (!useMapbox) {
+    return (
+      <LeafletMap
+        events={events}
+        selectedEvent={selectedEvent}
+        onEventSelect={onEventSelect}
+        initialViewState={initialViewState}
+        filters={filters}
+        onFilterChange={onFilterChange}
+        showControls={showControls}
+      />
+    );
+  }
+
+  // Mapbox implementation (only used if explicitly enabled)
   return (
     <div className="w-full h-full relative">
-      {/* Map marker categories panel removed as requested */}
-
       {/* Map Container */}
       <div ref={mapContainer} className="absolute inset-0 rounded-xl overflow-hidden shadow-lg border border-border/50 transition-all duration-300 hover:shadow-xl" />
 
       {/* Loading Overlay */}
       {!isMapInitialized && <MapLoadingOverlay />}
 
-      {/* Map Error Display - Show as a warning instead of an error */}
+      {/* Map Error Display */}
       {mapError && (
         <div className="absolute top-20 left-1/2 -translate-x-1/2 z-20 w-full max-w-md p-4">
           <div className="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">
             <strong className="font-bold">Map Warning: </strong>
-            <span className="block sm:inline">Using OpenStreetMap tiles. Some features may be limited.</span>
-            <p className="mt-2 text-sm">The map will still function normally with basic features.</p>
+            <span className="block sm:inline">{mapError}</span>
+            <p className="mt-2 text-sm">
+              Please check your Mapbox configuration.
+              <button
+                className="ml-2 underline text-blue-700"
+                onClick={() => setUseMapbox(false)}
+              >
+                Switch to OpenStreetMap
+              </button>
+            </p>
           </div>
         </div>
       )}
+
+      {/* Map Toggle Button - Always show this for easy access */}
+      <div className="absolute top-4 right-4 z-50">
+        <button
+          className="bg-white px-3 py-1 rounded-md shadow-md text-sm font-medium text-gray-700 hover:bg-gray-100"
+          onClick={() => setUseMapbox(!useMapbox)}
+        >
+          {useMapbox ? "Switch to OpenStreetMap" : "Try Mapbox (may not work)"}
+        </button>
+      </div>
 
       {/* Debug Overlay */}
       {isMapInitialized && map && (
