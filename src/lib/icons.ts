@@ -54,6 +54,7 @@ import {
   Lock,
   Loader2,
   Plus,
+  Minus,
   Settings,
   Send,
   Bot,
@@ -86,7 +87,7 @@ export {
   Headphones, Package, Sun, Coffee, Network, Wine, Building, CalendarDays,
   Clock, Trash2, Edit, AlertCircle, PlusCircle, Moon, SlidersHorizontal,
   Star, Info, Heart, Share2, ExternalLink, Ticket, TrendingUp, User,
-  LogOut, Mail, Lock, Loader2, Plus, Settings, Send, Bot, Car, Navigation,
+  LogOut, Mail, Lock, Loader2, Plus, Minus, Settings, Send, Bot, Car, Navigation,
   DollarSign, MinusCircle, Mountain, MountainSnow, Globe, Layers, CheckCircle,
   Theater, Map, Compass, Filter, Satellite, Monitor, Locate
 };
@@ -108,6 +109,8 @@ export const ChevronDownIcon = ChevronDown;
 export const ChevronUpIcon = ChevronUp;
 export const GripVerticalIcon = GripVertical;
 export const PanelLeftIcon = PanelLeft;
+export const PlusIcon = Plus;
+export const MinusIcon = Minus;
 
 // Additional app-specific icons with Icon suffix
 export const SparklesIcon = Sparkles;
@@ -144,7 +147,6 @@ export const LogOutIcon = LogOut;
 export const MailIcon = Mail;
 export const LockIcon = Lock;
 export const Loader2Icon = Loader2;
-export const PlusIcon = Plus;
 export const SettingsIcon = Settings;
 export const SendIcon = Send;
 export const BotIcon = Bot;

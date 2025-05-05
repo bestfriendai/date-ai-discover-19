@@ -33,6 +33,18 @@ import {
   SheetTitle,
   SheetTrigger,
 } from "@/components/ui/sheet"
+import { EventFilters as BaseEventFilters } from '@/types';
+
+// Extend the base EventFilters with UI-specific properties
+export interface EventFilters extends BaseEventFilters {
+  showInViewOnly?: boolean;
+  onShowInViewOnlyChange?: (val: boolean) => void;
+  // --- ADDED FOR FILTER BAR ---
+  categories?: string[];
+  onCategoriesChange?: (categories: string[]) => void;
+  datePreset?: 'today' | 'week' | 'month';
+  onDatePresetChange?: (preset: 'today' | 'week' | 'month') => void;
+}
 
 interface MapControlsProps {
   onZoomIn: () => void;

@@ -1,3 +1,4 @@
+
 import { DateRange } from 'react-day-picker';
 
 /**
@@ -21,6 +22,9 @@ export interface Event {
   image?: string;
   url?: string;
   source?: string;
+  isSelected?: boolean; // For marker selection state
+  latitude?: number; // Additional coordinate property
+  longitude?: number; // Additional coordinate property
 
   // PredictHQ specific fields
   rank?: number;
@@ -45,6 +49,9 @@ export interface EventFilters {
   location?: string; // Location search
   limit?: number; // Maximum number of events to return
 }
+
+// Export the updated EventFilters from MapControls
+export { EventFilters as MapControlsEventFilters } from './components/map/components/MapControls';
 
 /**
  * Map style options
@@ -84,4 +91,3 @@ export interface Itinerary {
   createdAt?: string;
   updatedAt?: string;
 }
-

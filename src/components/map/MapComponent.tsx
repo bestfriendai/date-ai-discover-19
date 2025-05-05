@@ -1,10 +1,8 @@
-
 // src/components/map/MapComponent.tsx
 import { useRef, useState, useCallback, useEffect } from 'react';
 import mapboxgl from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
-import type { Event } from '../../types';
-import type { EventFilters } from './components/MapControls';
+import type { Event, EventFilters } from '@/types';
 import { MapLoadingOverlay } from './components/MapLoadingOverlay';
 import { MapDebugOverlay } from './components/MapDebugOverlay';
 import { MapMarkers } from './components/MapMarkers';

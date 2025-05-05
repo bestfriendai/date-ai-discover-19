@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { ChevronLeftIcon, ChevronRightIcon, SearchIcon, XIcon } from '@/lib/icons';
 import AdvancedSearch from '@/components/search/AdvancedSearch';
 import { LoadMoreButton } from './LoadMoreButton';
-import type { EventFilters } from './MapControls';
+import { EventFilters } from '@/types';
 
 interface MapControlsAreaProps {
   leftSidebarOpen: boolean;

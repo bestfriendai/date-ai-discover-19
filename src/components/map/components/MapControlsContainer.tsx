@@ -1,12 +1,13 @@
 
 import React, { useState } from 'react';
-import { MapControls, EventFilters } from './MapControls';
+import { MapControls } from './MapControls';
 import { MapStyleControls } from './MapStyleControls';
 import { CoordinatesDisplay } from './CoordinatesDisplay';
 import { ClockIcon, DollarSignIcon, FilterIcon, SettingsIcon } from '@/lib/icons';
 import { CollapsiblePanel } from './CollapsiblePanel';
 import { TimeSlider } from './TimeSlider';
 import { PriceRangeFilter } from './PriceRangeFilter';
+import { EventFilters } from '@/types';
 
 interface MapControlsContainerProps {
   mapLoaded: boolean;
@@ -92,14 +93,18 @@ export const MapControlsContainer: React.FC<MapControlsContainerProps> = ({
       )}
 
       {/* Main Map Controls (search, etc) */}
-      <MapControls
-        filters={filters}
-        onLocationSearch={onLocationSearch}
-        currentMapStyle={currentMapStyle}
-        onMapStyleChange={onMapStyleChange}
-        onFindMyLocation={onFindMyLocation}
-        locationRequested={locationRequested}
-      />
+      <div className="absolute bottom-0 left-0 right-0 z-20">
+        <MapControls
+          onZoomIn={() => {}}
+          onZoomOut={() => {}}
+          onResetNorth={() => {}}
+          onRecenter={() => {}}
+          onToggle3D={() => {}}
+          is3D={false}
+          onMapStyleChange={onMapStyleChange}
+          currentMapStyle={currentMapStyle}
+        />
+      </div>
     </>
   );
 };
