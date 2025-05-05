@@ -1,194 +1,199 @@
-
-import { useState, useRef, useEffect } from 'react';
-import { 
-  FilterIcon, 
-  LocateIcon, 
-  SearchIcon, 
-  XIcon, 
-  MoonIcon, 
-  SunIcon, 
-  SatelliteIcon, 
-  Loader2Icon, 
-  MapIcon, 
-  CompassIcon, 
-  MapPinIcon 
-} from '@/lib/icons';
+import React, { useState, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from "@/components/ui/input";
-import { toast } from '@/hooks/use-toast';
-import { motion } from 'framer-motion';
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
-import { cn } from '@/lib/utils';
-import { EventFilters as BaseEventFilters } from '@/types';
-
-// Extend the base EventFilters with UI-specific properties
-export interface EventFilters extends BaseEventFilters {
-  showInViewOnly?: boolean;
-  onShowInViewOnlyChange?: (val: boolean) => void;
-  // --- ADDED FOR FILTER BAR ---
-  categories?: string[];
-  onCategoriesChange?: (categories: string[]) => void;
-  datePreset?: 'today' | 'week' | 'month';
-  onDatePresetChange?: (preset: 'today' | 'week' | 'month') => void;
-}
+import {
+  SlidersHorizontalIcon,
+  LocateIcon,
+  Plus,
+  Minus,
+  LayersIcon,
+  Map as MapIcon,
+  FilterIcon,
+  SatelliteIcon,
+  Monitor,
+  NavigationIcon,
+  MountainIcon,
+  SunIcon,
+  MoonIcon,
+  GlobeIcon,
+  BuildingIcon
+} from '@/lib/icons';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet"
 
 interface MapControlsProps {
-  filters: EventFilters;
-  onLocationSearch: (location: string) => void;
+  onZoomIn: () => void;
+  onZoomOut: () => void;
+  onResetNorth: () => void;
+  onRecenter: () => void;
+  onToggle3D: () => void;
+  is3D: boolean;
+  onMapStyleChange: (style: string) => void;
   currentMapStyle: string;
-  onMapStyleChange: (styleUrl: string) => void;
-  onFindMyLocation: () => void;
-  locationRequested: boolean;
 }
 
-export const MapControls = ({
-  onLocationSearch,
-  filters,
-  currentMapStyle,
+const MAP_STYLES = {
+  streets: 'mapbox://styles/mapbox/streets-v12',
+  satellite: 'mapbox://styles/mapbox/satellite-streets-v12',
+  light: 'mapbox://styles/mapbox/light-v11',
+  dark: 'mapbox://styles/mapbox/dark-v11',
+  outdoor: 'mapbox://styles/mapbox/outdoors-v12',
+  navigation: 'mapbox://styles/mapbox/navigation-day-v1'
+};
+
+export const MapControls: React.FC<MapControlsProps> = ({
+  onZoomIn,
+  onZoomOut,
+  onResetNorth,
+  onRecenter,
+  onToggle3D,
+  is3D,
   onMapStyleChange,
-  onFindMyLocation,
-  locationRequested,
-}: MapControlsProps) => {
-  const [searchTerm, setSearchTerm] = useState('');
-  const inputRef = useRef<HTMLInputElement>(null);
+  currentMapStyle
+}) => {
+  const [open, setOpen] = useState(false)
 
-  const handleSearch = () => {
-    if (!searchTerm.trim()) {
-      toast({
-        title: "Search is empty",
-        description: "Please enter a location to search",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    onLocationSearch(searchTerm);
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      handleSearch();
-    }
-  };
-
-  const handleGetLocation = () => {
-    setSearchTerm('');
-    onFindMyLocation();
-  };
+  const handleMapStyleChange = useCallback((style: string) => {
+    onMapStyleChange(style);
+    setOpen(false); // Close the sheet after style change
+  }, [onMapStyleChange]);
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 z-20 flex flex-col items-center gap-4 pb-6">
-      {/* Main search controls */}
-      <motion.div
-        className="w-full max-w-2xl px-4 flex flex-col items-center gap-3"
-        initial={{ y: 20, opacity: 0 }}
-        animate={{ y: 0, opacity: 1 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Search box */}
-        <div className="relative w-full">
-          <div className="flex items-center gap-2 w-full">
-            <div className="relative flex-1">
-              <Input
-                ref={inputRef}
-                type="text"
-                placeholder="Enter a location..."
-                className="w-full pl-12 pr-10 h-14 bg-background/90 backdrop-blur-xl border border-primary/30 rounded-full shadow-lg text-base"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                onKeyDown={handleKeyDown}
-              />
+    <div className="absolute bottom-6 left-6 z-10 flex flex-col gap-2">
+      <TooltipProvider>
+        <div className="flex flex-col gap-2 bg-background/80 backdrop-blur p-1.5 rounded-lg shadow-lg border border-border/50">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" onClick={onZoomIn} aria-label="Zoom In">
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Zoom In</p>
+            </TooltipContent>
+          </Tooltip>
 
-              <MapPinIcon className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" onClick={onZoomOut} aria-label="Zoom Out">
+                <Minus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Zoom Out</p>
+            </TooltipContent>
+          </Tooltip>
 
-              {searchTerm && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute right-12 top-1/2 -translate-y-1/2 h-8 w-8 hover:bg-transparent"
-                  onClick={() => setSearchTerm('')}
-                >
-                  <XIcon className="h-4 w-4" />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" onClick={onResetNorth} aria-label="Reset North">
+                <LayersIcon className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Reset North</p>
+            </TooltipContent>
+          </Tooltip>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" onClick={onRecenter} aria-label="Recenter">
+                <LocateIcon className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Recenter</p>
+            </TooltipContent>
+          </Tooltip>
+        </div>
+
+        <Sheet open={open} onOpenChange={setOpen}>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <SheetTrigger asChild>
+                <Button size="icon" aria-label="Map Style">
+                  <MapIcon className="h-4 w-4" />
                 </Button>
-              )}
-
+              </SheetTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Map Style</p>
+            </TooltipContent>
+          </Tooltip>
+          <SheetContent className="sm:max-w-sm">
+            <SheetHeader>
+              <SheetTitle>Map Style</SheetTitle>
+              <SheetDescription>
+                Choose the map style that best suits your needs.
+              </SheetDescription>
+            </SheetHeader>
+            <div className="grid gap-4 py-4">
               <Button
-                variant="ghost"
-                size="icon"
-                className="absolute right-2 top-1/2 -translate-y-1/2 h-10 w-10 bg-primary/10 hover:bg-primary/20 rounded-full"
-                onClick={handleSearch}
+                variant={currentMapStyle === MAP_STYLES.streets ? "default" : "outline"}
+                onClick={() => handleMapStyleChange(MAP_STYLES.streets)}
               >
-                <SearchIcon className="h-5 w-5 text-primary" />
+                Streets
+              </Button>
+              <Button
+                variant={currentMapStyle === MAP_STYLES.light ? "default" : "outline"}
+                onClick={() => handleMapStyleChange(MAP_STYLES.light)}
+              >
+                Light
+              </Button>
+              <Button
+                variant={currentMapStyle === MAP_STYLES.dark ? "default" : "outline"}
+                onClick={() => handleMapStyleChange(MAP_STYLES.dark)}
+              >
+                Dark
+              </Button>
+              <Button
+                variant={currentMapStyle === MAP_STYLES.satellite ? "default" : "outline"}
+                onClick={() => handleMapStyleChange(MAP_STYLES.satellite)}
+              >
+                Satellite
+              </Button>
+              <Button
+                variant={currentMapStyle === MAP_STYLES.outdoor ? "default" : "outline"}
+                onClick={() => handleMapStyleChange(MAP_STYLES.outdoor)}
+              >
+                Outdoor
+              </Button>
+              <Button
+                variant={currentMapStyle === MAP_STYLES.navigation ? "default" : "outline"}
+                onClick={() => handleMapStyleChange(MAP_STYLES.navigation)}
+              >
+                Navigation
               </Button>
             </div>
+          </SheetContent>
+        </Sheet>
 
-            <Button
-              variant="secondary"
-              size="lg"
-              className="h-14 px-5 bg-indigo-500 text-white hover:bg-indigo-600 rounded-full shadow-lg flex items-center gap-2"
-              onClick={handleGetLocation}
-              disabled={locationRequested}
-            >
-              {locationRequested ? (
-                <Loader2Icon className="h-5 w-5 animate-spin" />
-              ) : (
-                <LocateIcon className="h-5 w-5" />
-              )}
-              Find My Location
-            </Button>
-          </div>
+        <div className="bg-background/80 backdrop-blur p-1.5 rounded-lg shadow-lg border border-border/50">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button size="icon" onClick={onToggle3D} aria-label="Toggle 3D">
+                <Monitor className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent side="right">
+              <p>Toggle 3D Buildings</p>
+            </TooltipContent>
+          </Tooltip>
         </div>
-
-        {/* Map style controls */}
-        <div className="flex justify-center">
-          <ToggleGroup type="single" className="bg-background/80 backdrop-blur-xl rounded-full border border-border/50 p-1 shadow-lg">
-            <ToggleGroupItem
-              value="dark"
-              onClick={() => onMapStyleChange('mapbox://styles/mapbox/dark-v11')}
-              className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
-                currentMapStyle.includes('dark-v11') && "bg-primary text-primary-foreground"
-              )}
-              aria-label="Dark mode"
-            >
-              <MoonIcon className="h-5 w-5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="light"
-              onClick={() => onMapStyleChange('mapbox://styles/mapbox/light-v11')}
-              className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
-                currentMapStyle.includes('light-v11') && "bg-primary text-primary-foreground"
-              )}
-              aria-label="Light mode"
-            >
-              <SunIcon className="h-5 w-5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="satellite"
-              onClick={() => onMapStyleChange('mapbox://styles/mapbox/satellite-streets-v12')}
-              className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
-                currentMapStyle.includes('satellite-streets-v12') && "bg-primary text-primary-foreground"
-              )}
-              aria-label="Satellite view"
-            >
-              <SatelliteIcon className="h-5 w-5" />
-            </ToggleGroupItem>
-            <ToggleGroupItem
-              value="streets"
-              onClick={() => onMapStyleChange('mapbox://styles/mapbox/streets-v12')}
-              className={cn(
-                "h-10 w-10 rounded-full data-[state=on]:bg-primary data-[state=on]:text-primary-foreground",
-                currentMapStyle.includes('streets-v12') && "bg-primary text-primary-foreground"
-              )}
-              aria-label="Streets view"
-            >
-              <MapIcon className="h-5 w-5" />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </div>
-      </motion.div>
+      </TooltipProvider>
     </div>
   );
 };

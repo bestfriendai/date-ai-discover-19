@@ -1,6 +1,6 @@
 
-// Direct named exports from lucide-react
-export {
+// Import icons directly from lucide-react
+import {
   Check,
   ChevronRight,
   MoreHorizontal,
@@ -75,7 +75,23 @@ export {
   Locate
 } from 'lucide-react';
 
-// Export icons with Icon suffix for shadcn components
+// Export all icons directly
+export {
+  Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
+  Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,
+  PanelLeft,
+  
+  // Additional app-specific exports
+  Sparkles, Music, MapPin, Palette, Trophy, Users, Utensils, PartyPopper,
+  Headphones, Package, Sun, Coffee, Network, Wine, Building, CalendarDays,
+  Clock, Trash2, Edit, AlertCircle, PlusCircle, Moon, SlidersHorizontal,
+  Star, Info, Heart, Share2, ExternalLink, Ticket, TrendingUp, User,
+  LogOut, Mail, Lock, Loader2, Plus, Settings, Send, Bot, Car, Navigation,
+  DollarSign, MinusCircle, Mountain, MountainSnow, Globe, Layers, CheckCircle,
+  Theater, Map, Compass, Filter, Satellite, Monitor, Locate
+};
+
+// Export icons with Icon suffix for compatibility with shadcn components
 export const CheckIcon = Check;
 export const ChevronRightIcon = ChevronRight;
 export const MoreHorizontalIcon = MoreHorizontal;

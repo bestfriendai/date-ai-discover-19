@@ -2,7 +2,7 @@
 import React from 'react';
 import { Event } from '@/types';
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, MapPin, Clock } from 'lucide-react';
+import { CalendarDays, MapPin, Clock } from '@/lib/icons';
 
 interface EventCardProps {
   event: Event;

@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventCard } from './EventCard';
-import { CalendarDays, MapPin, Ticket } from 'lucide-react';
+import { CalendarDays, MapPin, Ticket } from '@/lib/icons';
 import { searchEvents } from '@/services/eventService';
 import { Event } from '@/types';
 

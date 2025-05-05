@@ -1,7 +1,6 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { MapIcon, SunIcon, MoonIcon, MountainIcon, GlobeIcon, BuildingIcon, LayersIcon } from '@/lib/icons';
+import { Map as MapIcon, SunIcon, MoonIcon, MountainIcon, GlobeIcon, BuildingIcon, LayersIcon } from '@/lib/icons';
 import {
   Tooltip,
   TooltipContent,
