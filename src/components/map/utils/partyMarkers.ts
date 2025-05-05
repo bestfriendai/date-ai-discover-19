@@ -8,6 +8,7 @@ interface MarkerConfig {
   color: string;
   size?: number;
   zIndex?: number;
+  icon?: any; // For Leaflet or Google Maps icon
 }
 
 // Function to get marker configuration based on event type

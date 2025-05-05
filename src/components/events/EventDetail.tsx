@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { CalendarDays, MapPin, Ticket } from 'lucide-react';
@@ -8,7 +9,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventCard } from './EventCard';
-import { Event, SearchEventsParams } from '@/types';
+import { Event } from '@/types';
 import { searchEvents } from '@/services/eventService';
 
 interface EventDetailProps {
@@ -29,7 +30,7 @@ export function EventDetail({ eventId, onClose }: EventDetailProps) {
       setLoading(true);
       try {
         // Simulate fetching event data
-        const mockEvent = {
+        const mockEvent: Event = {
           id: eventId,
           title: 'Sample Event',
           description: 'This is a detailed description of the sample event.',
@@ -39,7 +40,7 @@ export function EventDetail({ eventId, onClose }: EventDetailProps) {
           category: 'music',
           image: 'https://source.unsplash.com/random/800x600/?music',
           price: '25',
-          coordinates: [-74.0060, 40.7128]
+          coordinates: [-74.0060, 40.7128] as [number, number]
         };
         setEvent(mockEvent);
       } catch (error) {
@@ -59,12 +60,12 @@ export function EventDetail({ eventId, onClose }: EventDetailProps) {
     try {
       setLoadingRelated(true);
       
-      const params: SearchEventsParams = {
+      const params = {
         query: event.title?.split(' ').slice(0, 2).join(' '),
         location: event.location,
         category: event.category,
         limit: 4,
-        excludeIds: [event.id] // Use excludeIds which is defined in the type
+        excludeIds: [event.id] 
       };
       
       const relatedData = await searchEvents(params);

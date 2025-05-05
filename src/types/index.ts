@@ -51,4 +51,5 @@ export interface SearchEventsParams {
   radius?: number;
   excludeIds?: string[];
   fields?: string[];
+  categories?: string[];
 }

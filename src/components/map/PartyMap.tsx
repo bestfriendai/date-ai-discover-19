@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useState } from 'react';
 import { Event } from '@/types';
 import { getPartyMarkerConfig, getEventCoordinates } from './utils/partyMarkers';
 import LeafletMap from './LeafletMap';
@@ -44,7 +44,7 @@ const PartyMap: React.FC<PartyMapProps> = ({
   };
 
   return (
-    <div className="w-full h-full">
+    <div className="w-full h-full" style={{ height }}>
       <LeafletMap
         events={events}
         selectedEvent={selectedEvent}
