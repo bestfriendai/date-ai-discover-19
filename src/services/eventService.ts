@@ -2,8 +2,25 @@
 import { Event, SearchEventsParams } from '@/types';
 import { callEdgeFunction } from './supabase';
 
+// Define the source stats interface
+interface SourceStats {
+  count: number;
+  error: string | null;
+}
+
+// Define the response interface
+interface EventsResponse {
+  events: Event[];
+  totalCount: number;
+  sourceStats?: {
+    rapidapi?: SourceStats;
+    ticketmaster?: SourceStats;
+    eventbrite?: SourceStats;
+  };
+}
+
 // Function to search events using Supabase edge function
-export async function searchEvents(params: SearchEventsParams): Promise<{ events: Event[], totalCount: number }> {
+export async function searchEvents(params: SearchEventsParams): Promise<EventsResponse> {
   try {
     console.log('Searching events with params:', params);
     
@@ -19,14 +36,17 @@ export async function searchEvents(params: SearchEventsParams): Promise<{ events
     if (response.data && Array.isArray(response.data.data)) {
       return {
         events: response.data.data.map(mapRapidApiEventToEvent),
-        totalCount: response.data.totalCount || response.data.data.length
+        totalCount: response.data.totalCount || response.data.data.length,
+        sourceStats: response.data.sourceStats || {
+          rapidapi: { count: response.data.data.length, error: null }
+        }
       };
     }
     
-    return { events: [], totalCount: 0 };
+    return { events: [], totalCount: 0, sourceStats: { rapidapi: { count: 0, error: null } } };
   } catch (error) {
     console.error('Error searching events:', error);
-    return { events: [], totalCount: 0 };
+    return { events: [], totalCount: 0, sourceStats: { rapidapi: { count: 0, error: error instanceof Error ? error.message : 'Unknown error' } } };
   }
 }
 
@@ -69,6 +89,7 @@ function mapRapidApiEventToEvent(apiEvent: any): Event {
     latitude: apiEvent.latitude || (apiEvent.coordinates ? apiEvent.coordinates[1] : 0),
     longitude: apiEvent.longitude || (apiEvent.coordinates ? apiEvent.coordinates[0] : 0),
     price: apiEvent.price_range || apiEvent.price || 'Free',
-    partySubcategory: apiEvent.subcategory || (apiEvent.category === 'party' ? 'general' : undefined)
+    partySubcategory: apiEvent.subcategory || (apiEvent.category === 'party' ? 'general' : undefined),
+    isSelected: false
   };
 }

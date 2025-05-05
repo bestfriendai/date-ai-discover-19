@@ -2,7 +2,7 @@
 import React from 'react';
 import { Event } from '@/types';
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, MapPin, Clock } from '@/lib/icons';
+import { CalendarDays, MapPin, Clock } from 'lucide-react';
 
 interface EventCardProps {
   event: Event;
@@ -47,3 +47,5 @@ export const EventCard: React.FC<EventCardProps> = ({ event, onClick }) => {
     </Card>
   );
 };
+
+export default EventCard;

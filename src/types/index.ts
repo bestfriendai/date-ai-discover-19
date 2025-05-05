@@ -13,8 +13,8 @@ export interface Event {
   image: string;
   url?: string;
   coordinates?: [number, number]; // [longitude, latitude]
-  latitude?: number; // Added for convenience
-  longitude?: number; // Added for convenience
+  latitude?: number; // Added for marker functionality
+  longitude?: number; // Added for marker functionality
   price?: string;
   rawDate?: string;
   isPartyEvent?: boolean;

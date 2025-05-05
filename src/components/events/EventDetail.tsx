@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventCard } from './EventCard';
-import { CalendarDays, MapPin, Ticket } from '@/lib/icons';
+import { CalendarDays, MapPin, Ticket } from 'lucide-react';
 import { searchEvents } from '@/services/eventService';
 import { Event } from '@/types';
 
@@ -75,8 +75,8 @@ export function EventDetail({ eventId, event: propEvent, onClose }: EventDetailP
         excludeIds: [event.id] 
       };
       
-      const relatedData = await searchEvents(params);
-      setRelatedEvents(relatedData.events || []);
+      const result = await searchEvents(params);
+      setRelatedEvents(result.events || []);
     } catch (error) {
       console.error('Error loading related events:', error);
     } finally {
@@ -200,5 +200,5 @@ export function EventDetail({ eventId, event: propEvent, onClose }: EventDetailP
   );
 }
 
-// Add default export to fix the import issues
+// Add default export to fix import issues
 export default EventDetail;
