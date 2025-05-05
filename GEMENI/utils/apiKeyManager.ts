@@ -139,6 +139,67 @@ function isRateLimited(service: string): boolean {
 }
 
 /**
+ * Get rate limit status for a service
+ * @param service - The service to check
+ * @returns Object with rate limit status
+ */
+export function getRateLimitStatus(service: string): { 
+  limited: boolean; 
+  requestsInWindow: number; 
+  maxRequests: number; 
+  resetInMs?: number;
+  usagePercentage: number;
+} {
+  const limits = RATE_LIMITS[service];
+  if (!limits) {
+    return { 
+      limited: false, 
+      requestsInWindow: 0, 
+      maxRequests: 0, 
+      usagePercentage: 0 
+    };
+  }
+
+  const usage = apiUsage[service];
+  if (!usage) {
+    return { 
+      limited: false, 
+      requestsInWindow: 0, 
+      maxRequests: limits.maxRequests, 
+      usagePercentage: 0 
+    };
+  }
+
+  const now = Date.now();
+  const windowStart = now - limits.windowMs;
+
+  // Count requests within the time window
+  const requestsInWindow = usage.requests.filter(time => time >= windowStart).length;
+  const limited = requestsInWindow >= limits.maxRequests;
+
+  // Calculate when the rate limit will reset
+  let resetInMs: number | undefined;
+  if (limited && usage.requests.length > 0) {
+    // Sort requests by timestamp (oldest first)
+    const sortedRequests = [...usage.requests].sort((a, b) => a - b);
+    // Find the oldest request that's still within the window
+    const oldestInWindow = sortedRequests.find(time => time >= windowStart);
+    if (oldestInWindow) {
+      // Calculate when this request will fall out of the window
+      resetInMs = oldestInWindow + limits.windowMs - now;
+    }
+  }
+
+  return {
+    limited,
+    requestsInWindow,
+    maxRequests: limits.maxRequests,
+    resetInMs,
+    usagePercentage: (requestsInWindow / limits.maxRequests) * 100
+  };
+}
+
+/**
  * Track API usage for rate limiting
  * @param service - The service being used
  * @param isError - Whether the request resulted in an error
@@ -399,16 +460,10 @@ export async function initApiKeyManager(): Promise<void> {
 
 /**
  * Get all available API keys
- * @returns Object containing all API keys
+ * @returns Object containing all available API keys
  */
-export function getAllApiKeys(): Record<string, string | null> {
-  const result: Record<string, string | null> = {};
-
-  for (const keyName of Object.keys(API_KEYS)) {
-    result[keyName] = keyCache[keyName] || null;
-  }
-
-  return result;
+export function getAllApiKeys(): Record<string, string> {
+  return { ...keyCache };
 }
 
 /**
@@ -418,52 +473,4 @@ export function getAllApiKeys(): Record<string, string | null> {
  */
 export function isApiKeyAvailable(keyName: string): boolean {
   return !!keyCache[keyName] && !isRateLimited(keyName);
-}
-
-/**
- * Get rate limit status for a service
- * @param service - The service to check
- * @returns Rate limit status information
- */
-export function getRateLimitStatus(service: string): {
-  limited: boolean;
-  requestsInWindow: number;
-  maxRequests: number;
-  windowMs: number;
-  resetInMs: number | null;
-} {
-  const limits = RATE_LIMITS[service];
-  const usage = apiUsage[service];
-
-  if (!limits || !usage) {
-    return {
-      limited: false,
-      requestsInWindow: 0,
-      maxRequests: 0,
-      windowMs: 0,
-      resetInMs: null
-    };
-  }
-
-  const now = Date.now();
-  const windowStart = now - limits.windowMs;
-
-  // Get requests in the current window
-  const requestTimestamps = usage.requests.filter(time => time >= windowStart);
-  const requestsInWindow = requestTimestamps.length;
-
-  // Calculate when the rate limit will reset
-  let resetInMs = null;
-  if (requestsInWindow > 0) {
-    const oldestRequest = Math.min(...requestTimestamps);
-    resetInMs = oldestRequest + limits.windowMs - now;
-  }
-
-  return {
-    limited: requestsInWindow >= limits.maxRequests,
-    requestsInWindow,
-    maxRequests: limits.maxRequests,
-    windowMs: limits.windowMs,
-    resetInMs
-  };
 }

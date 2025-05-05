@@ -3,8 +3,8 @@ import { z } from 'zod';
 // Schema for environment variables
 const envSchema = z.object({
   // Supabase Configuration
-  VITE_SUPABASE_URL: z.string().optional().default(''),
-  VITE_SUPABASE_ANON_KEY: z.string().optional().default(''),
+  VITE_SUPABASE_URL: z.string().optional().default('https://akwvmljopucsnorvdwuu.supabase.co'),
+  VITE_SUPABASE_ANON_KEY: z.string().optional().default('eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImFrd3ZtbGpvcHVjc25vcnZkd3V1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDQ3NTI1MzIsImV4cCI6MjA2MDMyODUzMn0.0cMnBX7ODkL16AlbzogsDpm-ykGjLXxJmT3ddB8_LGk'),
   VITE_ALT_SUPABASE_URL: z.string().optional().default(''),
   VITE_ALT_SUPABASE_ANON_KEY: z.string().optional().default(''),
 
@@ -14,15 +14,15 @@ const envSchema = z.object({
   VITE_VERCEL_ENV: z.string().optional().default('development'),
 
   // Feature flags
-  VITE_USE_UNIFIED_FUNCTION: z.string().optional().default('false'),
+  VITE_USE_UNIFIED_FUNCTION: z.string().optional().default('true'),
 
   // API keys
   VITE_TICKETMASTER_KEY: z.string().optional().default('mock-ticketmaster-key'),
   VITE_PREDICTHQ_API_KEY: z.string().optional().default('mock-predicthq-key'),
   VITE_RAPIDAPI_KEY: z.string().optional().default(''),
-  VITE_RAPIDAPI_EVENTS_ENDPOINT: z.string().optional().default('https://example.com/api'),
+  VITE_RAPIDAPI_EVENTS_ENDPOINT: z.string().optional().default('https://real-time-events-search.p.rapidapi.com/search-events'),
   VITE_SERPAPI_KEY: z.string().optional(),
-  VITE_MAPBOX_TOKEN: z.string().optional(),
+  VITE_MAPBOX_TOKEN: z.string().optional().default('pk.eyJ1IjoiZGF0ZWFpIiwiYSI6ImNsczRxZnZ4ajAwYjQwMXF5MGlxbTF5d2wifQ.pLNnH8rzLZkgNY_aBJZrwg'),
 });
 
 // Type for validated environment variables
@@ -79,52 +79,58 @@ export function loadEnvConfig(): EnvConfig {
   }
 }
 
+// Default values for API keys
+const DEFAULT_MAPBOX_TOKEN = 'pk.eyJ1IjoiZGF0ZWFpIiwiYSI6ImNsczRxZnZ4ajAwYjQwMXF5MGlxbTF5d2wifQ.pLNnH8rzLZkgNY_aBJZrwg';
+const DEFAULT_RAPIDAPI_ENDPOINT = 'https://real-time-events-search.p.rapidapi.com/search-events';
+
 /**
  * Gets an API key or endpoint by service name
  * @param service The service name (e.g., 'ticketmaster', 'predicthq', 'rapidapi-key', 'rapidapi-events-endpoint')
  * @returns The value for the specified service
  * @throws {Error} If the service is not found or the value is not configured
  */
-export function getApiKey(service: string): string {
+export function getApiKey(keyName: string): string {
+  // First try to get from the main project's environment variables
   const config = loadEnvConfig();
-
-  // Add debug logging in development
-  if (import.meta.env.DEV) {
-    console.log(`[ENV] Getting API key for service: ${service}`);
-  }
-
-  switch (service.toLowerCase()) {
-    case 'ticketmaster':
-      return config.VITE_TICKETMASTER_KEY;
-    case 'predicthq':
-      return config.VITE_PREDICTHQ_API_KEY;
-    case 'rapidapi-key':
-      if (import.meta.env.DEV) {
-        console.log(`[ENV] RapidAPI key found: ${config.VITE_RAPIDAPI_KEY ? 'Yes' : 'No'}`);
-      }
-      return config.VITE_RAPIDAPI_KEY;
-    case 'rapidapi-events-endpoint':
-      if (import.meta.env.DEV) {
-        console.log(`[ENV] RapidAPI endpoint found: ${config.VITE_RAPIDAPI_EVENTS_ENDPOINT ? 'Yes' : 'No'}`);
-      }
-      return config.VITE_RAPIDAPI_EVENTS_ENDPOINT;
-    case 'serpapi':
-      if (!config.VITE_SERPAPI_KEY) {
-        throw new Error('SerpAPI key is not configured');
-      }
-      return config.VITE_SERPAPI_KEY;
+  
+  switch (keyName) {
     case 'mapbox':
-      return config.VITE_MAPBOX_TOKEN || '';
+      return config.VITE_MAPBOX_TOKEN || DEFAULT_MAPBOX_TOKEN;
+    case 'rapidapi':
+      return config.VITE_RAPIDAPI_KEY || '';
+    case 'ticketmaster':
+      return config.VITE_TICKETMASTER_KEY || '';
+    case 'predicthq':
+      return config.VITE_PREDICTHQ_API_KEY || '';
+    case 'serpapi':
+      return config.VITE_SERPAPI_KEY || '';
     case 'supabase-url':
       return config.VITE_SUPABASE_URL;
     case 'supabase-anon-key':
       return config.VITE_SUPABASE_ANON_KEY;
-    case 'alt-supabase-url':
-      return config.VITE_ALT_SUPABASE_URL;
-    case 'alt-supabase-anon-key':
-      return config.VITE_ALT_SUPABASE_ANON_KEY;
     default:
-      throw new Error(`Unknown service: ${service}`);
+      console.warn(`Unknown API key requested: ${keyName}`);
+      return '';
+  }
+}
+
+/**
+ * Gets an API endpoint by endpoint name
+ * @param endpointName The endpoint name (e.g., 'rapidapi_events', 'api')
+ * @returns The value for the specified endpoint
+ * @throws {Error} If the endpoint is not found or the value is not configured
+ */
+export function getApiEndpoint(endpointName: string): string {
+  const config = loadEnvConfig();
+  
+  switch (endpointName) {
+    case 'rapidapi_events':
+      return config.VITE_RAPIDAPI_EVENTS_ENDPOINT || DEFAULT_RAPIDAPI_ENDPOINT;
+    case 'api':
+      return config.VITE_API_URL || 'http://localhost:3000';
+    default:
+      console.warn(`Unknown API endpoint requested: ${endpointName}`);
+      return '';
   }
 }
 

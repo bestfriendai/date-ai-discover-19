@@ -81,6 +81,20 @@ const MapComponent = ({
   // Default to using Leaflet (OpenStreetMap) since Mapbox is having issues
   const [useMapbox, setUseMapbox] = useState<boolean>(false);
 
+  // Use this effect to force Leaflet implementation
+  useEffect(() => {
+    console.log('[MapComponent] Forcing Leaflet implementation');
+    setUseMapbox(false);
+    
+    // Force a re-render after a short delay
+    const timer = setTimeout(() => {
+      console.log('[MapComponent] Forcing re-render');
+      setUseMapbox(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, []);
+
   // Use Map state from the hook
   const { map, mapError, mapLoaded: isMapInitialized } = useMapInitialization(
     mapContainer,
@@ -278,9 +292,9 @@ const MapComponent = ({
           setMapStyle(MAP_STYLES.basic);
 
           toast({
-            title: "Map Style Issue",
-            description: "Using a basic map style as fallback.",
-            variant: "warning"
+            title: "Map Style Error",
+            description: "There was an issue loading the map style. Using a default style instead.",
+            variant: "default"
           });
         } catch (styleError) {
           console.error('[MapComponent] Error setting fallback style:', styleError);
@@ -427,6 +441,12 @@ const MapComponent = ({
     isEnabled: isMapInitialized && events.length > 0 // Only enable keyboard nav when map is initialized and there are events
   });
 
+
+  // Define the missing props for LeafletMap
+  const [showControls] = useState<boolean>(true);
+  const onFilterChange = useCallback((newFilters: any) => {
+    console.log('[MapComponent] Filter change not implemented', newFilters);
+  }, []);
 
   // Use LeafletMap by default, only use Mapbox if explicitly enabled
   if (!useMapbox) {

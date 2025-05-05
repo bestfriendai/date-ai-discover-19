@@ -5,17 +5,20 @@ import './index.css'
 import './styles/globals.css'
 import NetworkMonitor from './utils/networkMonitor'
 import PerformanceMonitor from './utils/performanceMonitor'
-import errorReporter from './utils/errorReporter'
+import errorReporter, { ErrorContext } from './utils/errorReporter'
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 
 // Make toast globally available for error reporting
 declare global {
   interface Window {
     toast?: typeof toast;
+    supabase?: typeof supabase;
   }
 }
 if (typeof window !== 'undefined') {
   window.toast = toast;
+  window.supabase = supabase;
 }
 
 // --- ENHANCED ERROR LOGGING FOR BROWSER ---
@@ -69,7 +72,7 @@ try {
   NetworkMonitor.init();
   console.log('[APP] Network monitoring initialized');
 } catch (error) {
-  errorReporter('[APP] Failed to initialize network monitoring:', error);
+  errorReporter('[APP] Failed to initialize network monitoring:', error as ErrorContext);
 }
 
 // Log application startup
@@ -86,32 +89,56 @@ originalConsoleLog('[APP] Application starting...');
 import { initApiKeyManager } from '@/utils/apiKeyManager';
 import { initSecretsService } from '@/services/secretsService';
 
-// Initialize secrets service and API key manager
-(async () => {
-  try {
-    // Initialize secrets service first
-    await initSecretsService();
-    originalConsoleLog('[APP] Secrets service initialized');
-
-    // Then initialize API key manager
-    await initApiKeyManager();
-    originalConsoleLog('[APP] API key manager initialized');
-  } catch (error) {
-    errorReporter('[APP] Failed to initialize API keys:', error);
-  }
-})();
+// Check if the Supabase client is initialized correctly
+console.log('[APP] Checking Supabase client initialization...');
+if (supabase) {
+  console.log('[APP] Supabase client is initialized');
+} else {
+  console.error('[APP] Supabase client is not initialized!');
+}
 
 // Create the root and render the app
-const root = createRoot(document.getElementById("root")!);
+const rootElement = document.getElementById("root");
+if (!rootElement) {
+  console.error('[APP] Root element not found!');
+  document.body.innerHTML = '<div style="color: white; padding: 20px; text-align: center; font-family: sans-serif;"><h1>Error: Root element not found</h1><p>Please check the HTML structure and make sure there is an element with id "root".</p></div>';
+} else {
+  console.log('[APP] Root element found, creating React root');
+  const root = createRoot(rootElement);
 
-// Render the app
-root.render(
-  <BrowserRouter>
-    <App />
-  </BrowserRouter>
-);
+  // Initialize secrets service and API key manager before rendering
+  (async () => {
+    try {
+      // Initialize secrets service first
+      await initSecretsService();
+      originalConsoleLog('[APP] Secrets service initialized');
 
-// Complete the app startup measurement when the app is rendered
+      // Then initialize API key manager
+      await initApiKeyManager();
+      originalConsoleLog('[APP] API key manager initialized');
+
+      // Render the app
+      originalConsoleLog('[APP] Rendering application...');
+      root.render(
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      );
+      originalConsoleLog('[APP] Application rendered');
+    } catch (error) {
+      errorReporter('[APP] Failed to initialize services:', error as ErrorContext);
+      // Render the app anyway to avoid blank screen
+      originalConsoleLog('[APP] Rendering application despite initialization errors...');
+      root.render(
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      );
+    }
+  })();
+}
+
+// Complete the app startup measurement when the app is loaded
 window.addEventListener('load', () => {
   // End the app startup measurement
   PerformanceMonitor.endMeasure('appStartup', {

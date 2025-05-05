@@ -19,7 +19,8 @@ export const functionsClient = createClient<Database>(SUPABASE_URL, SUPABASE_ANO
   },
   global: {
     headers: {
-      'Content-Type': 'application/json'
+      'Content-Type': 'application/json',
+      'apikey': SUPABASE_ANON_KEY
     }
   }
 });
@@ -100,7 +101,7 @@ export async function invokeFunctionWithRetry<T = any>(
 
           const data = await response.json();
           console.log(`[FUNCTIONS_CLIENT] Direct fetch successful:`, data);
-          return data;
+          return data as T;
         } catch (directFetchError) {
           console.error(`[FUNCTIONS_CLIENT] Direct fetch failed:`, directFetchError);
           // Continue to try with the Supabase client
@@ -122,7 +123,7 @@ export async function invokeFunctionWithRetry<T = any>(
       }
 
       console.log(`[FUNCTIONS_CLIENT] Successfully invoked ${functionName}:`, data);
-      return data;
+      return data as T;
     } catch (err) {
       console.error(`[FUNCTIONS_CLIENT] Exception invoking ${functionName}:`, err);
       lastError = err;

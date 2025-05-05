@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import mapboxgl from 'mapbox-gl';
 import { toast } from '../../../hooks/use-toast';
 import PerformanceMonitor from '../../../utils/performanceMonitor';
+import { getApiKey } from '@/config/env';
+import { supabase } from '@/integrations/supabase/client';
 
 interface MapState {
   map: mapboxgl.Map | null;
@@ -55,53 +57,52 @@ export const useMapInitialization = (
           return;
         }
 
-        // Use the Mapbox token from our API key manager
-        console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
-
-        // Import the API key manager
-        const { getApiKeySync, getApiKey, setApiKey } = await import('@/utils/apiKeyManager');
-
-        // Try to get the token synchronously first (from cache)
-        let mapboxToken = getApiKeySync('mapbox');
-
-        // If not found in cache, try to get it asynchronously
-        if (!mapboxToken) {
-          console.log('[MAP_DEBUG] Mapbox token not found in cache, fetching asynchronously');
-          try {
-            mapboxToken = await getApiKey('mapbox');
-          } catch (error) {
-            console.error('[MAP_DEBUG] Error fetching Mapbox token:', error);
+        // First try to get the Mapbox token from Supabase function
+        let mapboxToken = '';
+        try {
+          console.log('[MAP_DEBUG] Attempting to fetch Mapbox token from Supabase');
+          const { data, error } = await supabase.functions.invoke('get-mapbox-token');
+          
+          if (error) {
+            console.error('[MAP_DEBUG] Error fetching Mapbox token from Supabase:', error);
+          } else if (data && data.token) {
+            mapboxToken = data.token;
+            console.log('[MAP_DEBUG] Successfully retrieved Mapbox token from Supabase function');
           }
+        } catch (supabaseError) {
+          console.error('[MAP_DEBUG] Exception when fetching Mapbox token:', supabaseError);
         }
-
-        // If still no token, try to use a fallback token
+        
+        // If Supabase function failed, fall back to environment variable
+        if (!mapboxToken) {
+          console.log('[MAP_DEBUG] Falling back to environment variable for Mapbox token');
+          mapboxToken = getApiKey('mapbox');
+        }
+        
         if (!mapboxToken) {
           console.warn('[MAP_DEBUG] No Mapbox token found, using fallback token');
           // Use a fallback token for both development and production
-          // This is a public Mapbox token that should work for basic functionality
-          mapboxToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA';
-
-          // Save this token to the cache so we don't have to fetch it again
-          setApiKey('mapbox', mapboxToken);
+          // This is the DateAI Mapbox token that should work for basic functionality
+          mapboxgl.accessToken = 'pk.eyJ1IjoiZGF0ZWFpIiwiYSI6ImNsczRxZnZ4ajAwYjQwMXF5MGlxbTF5d2wifQ.pLNnH8rzLZkgNY_aBJZrwg';
 
           // Show a warning toast to the user
           toast({
             title: "Using Default Mapbox Token",
             description: "Using a default Mapbox token. Some features may be limited.",
-            variant: "warning"
+            variant: "default"
           });
-        }
-
-        console.log('[MAP_DEBUG] Using Mapbox token:', mapboxToken);
-        console.log('[MAP_DEBUG] Token length:', mapboxToken.length);
-        console.log('[MAP_DEBUG] Token format valid:', mapboxToken.startsWith('pk.'));
-
-        // Set the token
-        try {
-          mapboxgl.accessToken = mapboxToken;
-          console.log('[MAP_DEBUG] Successfully set Mapbox token');
-        } catch (tokenError) {
-          console.error('[MAP_DEBUG] Error setting Mapbox token:', tokenError);
+        } else {
+          console.log('[MAP_DEBUG] Using Mapbox token:', mapboxToken ? 'Set' : 'Not set');
+          console.log('[MAP_DEBUG] Token length:', mapboxToken.length);
+          console.log('[MAP_DEBUG] Token format valid:', mapboxToken.startsWith('pk.'));
+          
+          // Set the token
+          try {
+            mapboxgl.accessToken = mapboxToken;
+            console.log('[MAP_DEBUG] Successfully set Mapbox token');
+          } catch (tokenError) {
+            console.error('[MAP_DEBUG] Error setting Mapbox token:', tokenError);
+          }
         }
 
         // Create map with detailed error handling
@@ -113,6 +114,7 @@ export const useMapInitialization = (
           const initialStyle = 'mapbox://styles/mapbox/streets-v12';
           console.log('[MAP_DEBUG] Using initial style:', initialStyle);
 
+          // Create the map with proper type-safe options
           newMap = new mapboxgl.Map({
             container: mapContainer.current,
             style: initialStyle, // Start with a simple style
@@ -121,169 +123,116 @@ export const useMapInitialization = (
             pitch: viewState.pitch,
             bearing: viewState.bearing,
             attributionControl: false,
-            preserveDrawingBuffer: true,
-            fadeDuration: 0,
-            maxZoom: 18,
+            antialias: true,
+            // maxPitch is not in the type definitions but is a valid option
+            // @ts-ignore
+            maxPitch: 85,
             minZoom: 2,
-            trackResize: true,
-            antialias: false
+            maxZoom: 20,
+            preserveDrawingBuffer: true
           });
 
-          console.log('[MAP_DEBUG] Successfully created Mapbox map instance');
-        } catch (mapError) {
-          console.error('[MAP_DEBUG] Critical error creating Mapbox map:', mapError);
+          // Add navigation control
+          newMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+          
+          // Add attribution control in bottom-right
+          // Use proper type casting for AttributionControl
+          newMap.addControl(new (mapboxgl as any).AttributionControl({
+            compact: true
+          }), 'bottom-right');
 
-          // Show detailed error to user
-          toast({
-            title: "Map Creation Failed",
-            description: `Error: ${mapError instanceof Error ? mapError.message : String(mapError)}`,
-            variant: "destructive"
-          });
-
-          setState(prev => ({
-            ...prev,
-            mapError: `Failed to create map: ${mapError instanceof Error ? mapError.message : String(mapError)}`
-          }));
-
-          throw mapError; // Re-throw to be caught by the outer try-catch
-        }
-
-        newMap.on('load', () => {
-          if (!isMounted) return;
-          console.log('[MAP_DEBUG] Map load event fired');
-          setState(prev => ({ ...prev, mapLoaded: true }));
-          onMapLoad();
-        });
-
-        newMap.on('error', (e: any) => {
-          console.error('[MAP_DEBUG] Mapbox specific error:', e);
-
-          // Handle Mapbox errors more specifically
-          if (e.error && e.error.message.includes('access token')) {
-            console.error('[MAP_DEBUG] Mapbox access token error:', e.error.message);
-
-            // Try to use a fallback token - this is a public Mapbox token that should work for basic functionality
-            const fallbackToken = 'pk.eyJ1IjoibWFwYm94IiwiYSI6ImNpejY4M29iazA2Z2gycXA4N2pmbDZmangifQ.-g_vE53SD2WrJ6tFX7QHmA';
-            console.warn('[MAP_DEBUG] Trying fallback Mapbox token');
-
-            // Clear any existing token from the cache
-            import('@/utils/apiKeyManager').then(({ clearApiKey, setApiKey }) => {
-              clearApiKey('mapbox');
-              // Set the new fallback token
-              setApiKey('mapbox', fallbackToken);
-            });
-
-            // Set the token directly on mapboxgl
-            mapboxgl.accessToken = fallbackToken;
-
-            // Reload the map with the new token
-            try {
-              newMap.setStyle(mapStyle);
-              console.log('[MAP_DEBUG] Successfully reloaded map style with fallback token');
-            } catch (styleError) {
-              console.error('[MAP_DEBUG] Error reloading map style:', styleError);
-              // Try a more basic style as a last resort
-              try {
-                newMap.setStyle('mapbox://styles/mapbox/streets-v12');
-              } catch (basicStyleError) {
-                console.error('[MAP_DEBUG] Failed to load basic style:', basicStyleError);
-              }
-            }
-
-            toast({
-              title: "Mapbox Token Issue",
-              description: "Using a fallback Mapbox token. Some features may be limited.",
-              variant: "warning"
-            });
-          } else if (e.error && e.error.message.includes('style')) {
-            console.error('[MAP_DEBUG] Mapbox style error:', e.error.message);
-
-            // Try to switch to a default style
-            try {
-              newMap.setStyle('mapbox://styles/mapbox/streets-v12');
-              console.log('[MAP_DEBUG] Successfully switched to streets style');
-
-              toast({
-                title: "Mapbox Style Error",
-                description: "There was an issue loading the map style. Using a default style instead.",
-                variant: "warning"
-              });
-            } catch (styleError) {
-              console.error('[MAP_DEBUG] Error switching to default style:', styleError);
-
-              // Try an even more basic style
-              try {
-                newMap.setStyle('mapbox://styles/mapbox/basic-v9');
-                console.log('[MAP_DEBUG] Successfully switched to basic style');
-              } catch (basicStyleError) {
-                console.error('[MAP_DEBUG] Failed to load basic style:', basicStyleError);
-
-                toast({
-                  title: "Mapbox Style Error",
-                  description: "Could not load any map styles. Please check your internet connection.",
-                  variant: "destructive"
-                });
-              }
-            }
-          } else {
-            // Handle other Mapbox errors
-            console.error('[MAP_DEBUG] Unhandled Mapbox error:', e.error?.message || 'Unknown error');
-
-            toast({
-              title: "Map Error",
-              description: "An error occurred with the map. Some features may not work correctly.",
-              variant: "destructive"
-            });
-          }
-        });
-
-        try {
-          newMap.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+          // Add geolocate control
           newMap.addControl(
             new mapboxgl.GeolocateControl({
-              positionOptions: { enableHighAccuracy: true },
+              positionOptions: {
+                enableHighAccuracy: true
+              },
               trackUserLocation: true,
               showUserHeading: true
             }),
-            'bottom-right'
+            'top-right'
           );
-        } catch (controlError) {
-          console.error('[MAP] Error adding map controls:', controlError);
+
+          // Set the map in state
+          if (isMounted) {
+            setState(prev => ({ ...prev, map: newMap }));
+          }
+
+          // Listen for map load event
+          newMap.on('load', () => {
+            console.log('[MAP_DEBUG] Map loaded successfully');
+            
+            // Switch to the requested style after the map loads
+            if (mapStyle !== initialStyle) {
+              console.log('[MAP_DEBUG] Switching to requested style:', mapStyle);
+              try {
+                newMap.setStyle(mapStyle);
+              } catch (styleError: any) {
+                console.error('[MAP_DEBUG] Error setting map style:', styleError);
+                // If custom style fails, fall back to a standard style
+                try {
+                  newMap.setStyle('mapbox://styles/mapbox/dark-v11');
+                } catch (fallbackError: any) {
+                  console.error('[MAP_DEBUG] Error setting fallback style:', fallbackError);
+                }
+              }
+            }
+
+            // Mark map as loaded
+            if (isMounted) {
+              setState(prev => ({ ...prev, mapLoaded: true }));
+              onMapLoad();
+            }
+
+            PerformanceMonitor.endMeasure('mapInitialization', {
+              mapLoaded: true,
+              mapError: null
+            });
+          });
+
+          // Handle map errors
+          newMap.on('error', (e) => {
+            console.error('[MAP_DEBUG] Map error:', e);
+            if (isMounted) {
+              setState(prev => ({ ...prev, mapError: `Map error: ${e.error?.message || 'Unknown error'}` }));
+            }
+          });
+
+        } catch (mapError: any) {
+          console.error('[MAP_DEBUG] Error creating Mapbox map:', mapError);
+          if (isMounted) {
+            setState(prev => ({ ...prev, mapError: `Failed to initialize map: ${mapError.message}` }));
+          }
+
+          PerformanceMonitor.endMeasure('mapInitialization', {
+            mapLoaded: false,
+            mapError: mapError.message
+          });
+        }
+      } catch (error: any) {
+        console.error('[MAP_DEBUG] Unexpected error in map initialization:', error);
+        if (isMounted) {
+          setState(prev => ({ ...prev, mapError: `Unexpected error: ${error.message}` }));
         }
 
-        setState(prev => ({ ...prev, map: newMap }));
-
-      } catch (error: any) {
-        if (!isMounted) return;
-
-        const errorMessage = error instanceof Error
-          ? `Map initialization failed: ${error.message}`
-          : "Map initialization failed. Could not load the map.";
-
-        console.error('[MAP_DEBUG] Map initialization error:', error);
-        setState(prev => ({ ...prev, mapError: errorMessage }));
-        toast({
-          title: "Map initialization failed",
-          description: errorMessage,
-          variant: "destructive"
-        });
-
         PerformanceMonitor.endMeasure('mapInitialization', {
-          success: false,
-          error: errorMessage,
-          errorType: error.name || 'Unknown Error',
-          browserInfo: navigator.userAgent
+          mapLoaded: false,
+          mapError: error.message
         });
       }
     };
 
     initializeMap();
 
+    // Cleanup function
     return () => {
       isMounted = false;
-      state.map?.remove();
+      if (state.map) {
+        console.log('[MAP_DEBUG] Removing map on unmount');
+        state.map.remove();
+      }
     };
-  }, [mapContainer, mapStyle, viewState, onMapLoad, skipInitialization]);
+  }, [mapContainer, viewState.latitude, viewState.longitude, viewState.zoom, mapStyle, onMapLoad, skipInitialization]);
 
   return state;
 };

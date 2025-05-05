@@ -13,6 +13,7 @@ import { calculateDistance } from '../../utils/processing';
 import { logError, ErrorSeverity, tryCatch } from '../../utils/errorHandling';
 import { PartySubcategory, PartyClassification, detectPartySubcategory } from '../../utils/party/partyUtils';
 import { getApiKey, trackApiUsage, getRateLimitStatus } from '../../utils/apiKeyManager';
+import { getApiKey as getConfigApiKey } from '../../config/env';
 
 // Default values for search parameters
 const DEFAULT_VALUES = {
@@ -610,10 +611,11 @@ export async function searchRapidAPIEvents(
         }
 
         // Get API key from manager
-        apiKey = await getApiKey('rapidapi');
-        if (!apiKey) {
+        const rapidApiKey = await getApiKey('rapidapi');
+        if (!rapidApiKey) {
           throw new Error('Failed to retrieve RapidAPI key');
         }
+        apiKey = rapidApiKey;
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
         return {
@@ -822,7 +824,9 @@ export async function searchRapidAPIEvents(
     queryParams.append('start', '0');
 
     // -- Make API Request --
-    const url = `https://real-time-events-search.p.rapidapi.com/search-events?${queryParams.toString()}`;
+    // Get the endpoint from environment config
+    const endpoint = getConfigApiKey('rapidapi-events-endpoint') || 'https://real-time-events-search.p.rapidapi.com';
+    const url = `${endpoint}/search-events?${queryParams.toString()}`;
     console.log(`[RAPIDAPI] Sending request to: ${url.substring(0, 100)}...`);
 
     // Setting timeout for the fetch request with a longer timeout for reliability
@@ -969,7 +973,7 @@ export async function searchRapidAPIEvents(
 
       // -- Transform Events --
       let transformedEvents = rawEvents
-        .map(transformRapidAPIEvent)
+        .map((event: any) => transformRapidAPIEvent(event))
         .filter((event): event is Event => event !== null);
 
       console.log(`[RAPIDAPI] Transformed ${transformedEvents.length} events successfully.`);
