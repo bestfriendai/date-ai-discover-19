@@ -1,7 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { CalendarDays, MapPin, Ticket } from 'lucide-react';
 import { format } from 'date-fns';
 
 import { Button } from "@/components/ui/button";
@@ -9,23 +8,31 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EventCard } from './EventCard';
-import { Event } from '@/types';
+import { CalendarDays, MapPin, Ticket } from '@/lib/icons';
 import { searchEvents } from '@/services/eventService';
+import { Event } from '@/types';
 
 interface EventDetailProps {
   eventId?: string;
+  event?: Event;
   onClose?: () => void;
 }
 
-export function EventDetail({ eventId, onClose }: EventDetailProps) {
-  const [event, setEvent] = useState<Event | null>(null);
+export function EventDetail({ eventId, event: propEvent, onClose }: EventDetailProps) {
+  const [event, setEvent] = useState<Event | null>(propEvent || null);
   const [relatedEvents, setRelatedEvents] = useState<Event[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(!propEvent);
   const [loadingRelated, setLoadingRelated] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
     const loadEvent = async () => {
+      if (propEvent) {
+        setEvent(propEvent);
+        setLoading(false);
+        return;
+      }
+      
       if (!eventId) return;
       setLoading(true);
       try {
@@ -51,7 +58,7 @@ export function EventDetail({ eventId, onClose }: EventDetailProps) {
     };
 
     loadEvent();
-  }, [eventId]);
+  }, [eventId, propEvent]);
 
   // Function to load related events
   const loadRelatedEvents = async () => {
@@ -192,3 +199,6 @@ export function EventDetail({ eventId, onClose }: EventDetailProps) {
     </Card>
   );
 }
+
+// Add default export to fix the import issues
+export default EventDetail;

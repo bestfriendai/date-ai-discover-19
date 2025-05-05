@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import ChatSidebar from './ChatSidebar';
-import EventDetail from '@/components/events/EventDetail';
+import { EventDetail } from '@/components/events/EventDetail';
 import { ChatMessage } from '@/services/perplexityService';
 import { Event } from '@/types';
 

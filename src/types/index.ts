@@ -9,7 +9,7 @@ export interface Event {
   location: string;
   venue?: string;
   category: string;
-  partySubcategory?: PartySubcategory;
+  partySubcategory?: string;
   image: string;
   url?: string;
   coordinates?: [number, number]; // [longitude, latitude]

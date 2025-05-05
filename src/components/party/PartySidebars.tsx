@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PartySidebar from './PartySidebar';
-import EventDetail from '@/components/events/EventDetail';
+import { EventDetail } from '@/components/events/EventDetail';
 import type { Event } from '@/types';
 
 interface PartySidebarsProps {

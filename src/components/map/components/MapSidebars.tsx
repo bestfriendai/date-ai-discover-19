@@ -2,7 +2,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import EventsSidebar from '@/components/events/EventsSidebar';
-import EventDetail from '@/components/events/EventDetail';
+import { EventDetail } from '@/components/events/EventDetail';
 import type { Event } from '@/types';
 
 interface MapSidebarsProps {

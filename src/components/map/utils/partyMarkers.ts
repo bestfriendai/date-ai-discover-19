@@ -1,5 +1,21 @@
 
-import { Event, PartySubcategory } from '@/types';
+import { Event } from '@/types';
+
+// Define Party Subcategory type here to match the Event type 
+export type PartySubcategory = 
+  | 'day-party' 
+  | 'social' 
+  | 'club' 
+  | 'nightclub'
+  | 'networking' 
+  | 'celebration' 
+  | 'general' 
+  | 'festival'
+  | 'day party' 
+  | 'rooftop' 
+  | 'immersive' 
+  | 'popup'
+  | 'brunch';
 
 // Define marker configuration type
 interface MarkerConfig {
