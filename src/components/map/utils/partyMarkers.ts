@@ -4,8 +4,9 @@ import { Event, PartySubcategory } from '@/types';
 // Define marker configuration type
 interface MarkerConfig {
   title: string;
-  icon: any;
-  animation?: any;
+  className?: string;
+  color: string;
+  size?: number;
   zIndex?: number;
 }
 
@@ -14,74 +15,78 @@ export function getPartyMarkerConfig(event: Event): MarkerConfig {
   // Default configuration
   const config: MarkerConfig = {
     title: event.title || 'Event',
-    icon: {
-      path: 'M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z',
-      fillColor: '#3498db',
-      fillOpacity: 0.9,
-      strokeWeight: 1,
-      strokeColor: '#FFFFFF',
-      scale: 1.2,
-      anchor: { x: 12, y: 22 }
-    },
+    color: '#3498db',
+    size: 24,
     zIndex: 1
   };
 
   // Customize based on party subcategory
-  if (event.category === 'party') {
-    // Check subcategory
-    if (event.partySubcategory === 'nightclub' || event.partySubcategory === 'club') {
-      config.icon.fillColor = '#9C27B0'; // Purple for clubs
-      config.icon.scale = 1.3;
+  if (event.category?.toLowerCase() === 'party' && event.partySubcategory) {
+    // Check subcategory using string comparison instead of type comparison
+    const subcategory = event.partySubcategory.toString().toLowerCase();
+    
+    if (subcategory === 'nightclub' || subcategory === 'club') {
+      config.color = '#9C27B0'; // Purple for clubs
+      config.size = 28;
       config.zIndex = 5;
     }
-    else if (event.partySubcategory === 'festival') {
-      config.icon.fillColor = '#FF5722'; // Orange for festivals
-      config.icon.scale = 1.4;
+    else if (subcategory === 'festival') {
+      config.color = '#FF5722'; // Orange for festivals
+      config.size = 30;
       config.zIndex = 6;
     }
-    else if (event.partySubcategory === 'social') {
-      config.icon.fillColor = '#4CAF50'; // Green for social
+    else if (subcategory === 'social') {
+      config.color = '#4CAF50'; // Green for social
     }
-    else if (event.partySubcategory === 'day-party' || event.partySubcategory === 'day party') {
-      config.icon.fillColor = '#FFC107'; // Yellow for day parties
+    else if (subcategory === 'day-party' || subcategory === 'day party') {
+      config.color = '#FFC107'; // Yellow for day parties
     }
-    else if (event.partySubcategory === 'rooftop') {
-      config.icon.fillColor = '#00BCD4'; // Cyan for rooftop
+    else if (subcategory === 'rooftop') {
+      config.color = '#00BCD4'; // Cyan for rooftop
     }
-    else if (event.partySubcategory === 'immersive') {
-      config.icon.fillColor = '#E91E63'; // Pink for immersive
+    else if (subcategory === 'immersive') {
+      config.color = '#E91E63'; // Pink for immersive
     }
-    else if (event.partySubcategory === 'popup') {
-      config.icon.fillColor = '#CDDC39'; // Lime for popup
+    else if (subcategory === 'popup') {
+      config.color = '#CDDC39'; // Lime for popup
     }
-    else if (event.partySubcategory === 'networking') {
-      config.icon.fillColor = '#2196F3'; // Blue for networking
+    else if (subcategory === 'networking') {
+      config.color = '#2196F3'; // Blue for networking
     }
-    else if (event.partySubcategory === 'celebration') {
-      config.icon.fillColor = '#FF4081'; // Pink for celebrations
+    else if (subcategory === 'celebration') {
+      config.color = '#FF4081'; // Pink for celebrations
       config.zIndex = 4;
     }
+    else if (subcategory === 'brunch') {
+      config.color = '#FF9800'; // Orange for brunch
+    }
     else {
-      config.icon.fillColor = '#3498db'; // Default blue
+      config.color = '#3498db'; // Default blue
     }
   }
   
   // If the event is selected, make it more prominent
   if (event.isSelected) {
-    config.icon.fillColor = '#FF0000'; // Red
-    config.icon.scale = 1.5;
-    config.icon.strokeWeight = 2;
+    config.color = '#FF0000'; // Red
+    config.size = 32;
     config.zIndex = 10;
-  }
-
-  // Check for coordinates to use in marker placement
-  if (event.coordinates && event.coordinates.length === 2) {
-    // Using coordinates array [longitude, latitude]
-    return config;
-  } else if (event.latitude !== undefined && event.longitude !== undefined) {
-    // Using latitude/longitude properties 
-    return config;
+    config.className = 'pulse-marker';
   }
 
   return config;
+}
+
+// Helper function to get coordinates from an event
+export function getEventCoordinates(event: Event): [number, number] | null {
+  // First try the coordinates array
+  if (event.coordinates && Array.isArray(event.coordinates) && event.coordinates.length === 2) {
+    return [event.coordinates[0], event.coordinates[1]];
+  } 
+  // Then try explicit latitude/longitude properties
+  else if (typeof event.latitude === 'number' && typeof event.longitude === 'number') {
+    return [event.longitude, event.latitude];
+  }
+  
+  // If no valid coordinates are found
+  return null;
 }

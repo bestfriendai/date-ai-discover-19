@@ -1,6 +1,15 @@
 
-// Re-export icons from lucide-react
-import {
+// Import all icons directly from lucide-react package
+import * as LucideIcons from 'lucide-react';
+
+// Export all icons from lucide-react
+export {
+  LucideIcons
+};
+
+// Named exports for commonly used icons (these match the shadcn component requirements)
+export const {
+  // Basic shadcn UI icons
   Check,
   ChevronRight,
   MoreHorizontal,
@@ -17,7 +26,7 @@ import {
   GripVertical,
   PanelLeft,
   
-  // Additional icons needed for the app
+  // Additional app-specific icons
   Sparkles,
   Music,
   MapPin,
@@ -73,96 +82,80 @@ import {
   Satellite,
   Monitor,
   Locate
-} from 'lucide-react';
-
-// Common export all icons
-export {
-  Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
-  Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,
-  PanelLeft,
-  
-  // Additional app-specific exports
-  Sparkles, Music, MapPin, Palette, Trophy, Users, Utensils, PartyPopper,
-  Headphones, Package, Sun, Coffee, Network, Wine, Building, CalendarDays,
-  Clock, Trash2, Edit, AlertCircle, PlusCircle, Moon, SlidersHorizontal,
-  Star, Info, Heart, Share2, ExternalLink, Ticket, TrendingUp, User,
-  LogOut, Mail, Lock, Loader2, Plus, Settings, Send, Bot, Car, Navigation,
-  DollarSign, MinusCircle, Mountain, MountainSnow, Globe, Layers, CheckCircle,
-  Theater, Map, Compass, Filter, Satellite, Monitor, Locate
-};
+} = LucideIcons;
 
 // Export icons with Icon suffix for shadcn components
-export {
-  Check as CheckIcon,
-  ChevronRight as ChevronRightIcon,
-  MoreHorizontal as MoreHorizontalIcon,
-  ChevronLeft as ChevronLeftIcon,
-  ArrowLeft as ArrowLeftIcon,
-  ArrowRight as ArrowRightIcon,
-  Search as SearchIcon,
-  Circle as CircleIcon,
-  Calendar as CalendarIcon,
-  X as XIcon,
-  Dot as DotIcon,
-  ChevronDown as ChevronDownIcon,
-  ChevronUp as ChevronUpIcon,
-  GripVertical as GripVerticalIcon,
-  PanelLeft as PanelLeftIcon,
+export const {
+  Check: CheckIcon,
+  ChevronRight: ChevronRightIcon,
+  MoreHorizontal: MoreHorizontalIcon,
+  ChevronLeft: ChevronLeftIcon,
+  ArrowLeft: ArrowLeftIcon,
+  ArrowRight: ArrowRightIcon,
+  Search: SearchIcon,
+  Circle: CircleIcon,
+  Calendar: CalendarIcon,
+  X: XIcon,
+  Dot: DotIcon,
+  ChevronDown: ChevronDownIcon,
+  ChevronUp: ChevronUpIcon,
+  GripVertical: GripVerticalIcon,
+  PanelLeft: PanelLeftIcon,
   
-  // Additional app-specific exports with Icon suffix
-  Sparkles as SparklesIcon,
-  Music as MusicIcon,
-  MapPin as MapPinIcon,
-  Palette as PaletteIcon,
-  Trophy as TrophyIcon,
-  Users as UsersIcon,
-  Utensils as UtensilsIcon,
-  PartyPopper as PartyPopperIcon,
-  Headphones as HeadphonesIcon,
-  Package as PackageIcon,
-  Sun as SunIcon,
-  Coffee as CoffeeIcon,
-  Network as NetworkIcon,
-  Wine as WineIcon,
-  Building as BuildingIcon,
-  CalendarDays as CalendarDaysIcon,
-  Clock as ClockIcon,
-  Trash2 as Trash2Icon,
-  Edit as EditIcon,
-  AlertCircle as AlertCircleIcon,
-  PlusCircle as PlusCircleIcon,
-  Moon as MoonIcon,
-  SlidersHorizontal as SlidersHorizontalIcon,
-  Star as StarIcon,
-  Info as InfoIcon,
-  Heart as HeartIcon,
-  Share2 as Share2Icon,
-  ExternalLink as ExternalLinkIcon,
-  Ticket as TicketIcon,
-  TrendingUp as TrendingUpIcon,
-  User as UserIcon,
-  LogOut as LogOutIcon,
-  Mail as MailIcon,
-  Lock as LockIcon,
-  Loader2 as Loader2Icon,
-  Plus as PlusIcon,
-  Settings as SettingsIcon,
-  Send as SendIcon,
-  Bot as BotIcon,
-  Car as CarIcon,
-  Navigation as NavigationIcon,
-  DollarSign as DollarSignIcon,
-  MinusCircle as MinusCircleIcon,
-  Mountain as MountainIcon,
-  MountainSnow as MountainSnowIcon,
-  Globe as GlobeIcon,
-  Layers as LayersIcon,
-  CheckCircle as CheckCircleIcon,
-  Theater as TheaterIcon,
-  Map as MapIcon,
-  Compass as CompassIcon,
-  Filter as FilterIcon,
-  Satellite as SatelliteIcon,
-  Monitor as MonitorIcon,
-  Locate as LocateIcon
-};
+  // Additional app-specific icons with Icon suffix
+  Sparkles: SparklesIcon,
+  Music: MusicIcon,
+  MapPin: MapPinIcon,
+  Palette: PaletteIcon,
+  Trophy: TrophyIcon,
+  Users: UsersIcon,
+  Utensils: UtensilsIcon,
+  PartyPopper: PartyPopperIcon,
+  Headphones: HeadphonesIcon,
+  Package: PackageIcon,
+  Sun: SunIcon,
+  Coffee: CoffeeIcon,
+  Network: NetworkIcon,
+  Wine: WineIcon,
+  Building: BuildingIcon,
+  CalendarDays: CalendarDaysIcon,
+  Clock: ClockIcon,
+  Trash2: Trash2Icon,
+  Edit: EditIcon,
+  AlertCircle: AlertCircleIcon,
+  PlusCircle: PlusCircleIcon,
+  Moon: MoonIcon,
+  SlidersHorizontal: SlidersHorizontalIcon,
+  Star: StarIcon,
+  Info: InfoIcon,
+  Heart: HeartIcon,
+  Share2: Share2Icon,
+  ExternalLink: ExternalLinkIcon,
+  Ticket: TicketIcon,
+  TrendingUp: TrendingUpIcon,
+  User: UserIcon,
+  LogOut: LogOutIcon,
+  Mail: MailIcon,
+  Lock: LockIcon,
+  Loader2: Loader2Icon,
+  Plus: PlusIcon,
+  Settings: SettingsIcon,
+  Send: SendIcon,
+  Bot: BotIcon,
+  Car: CarIcon,
+  Navigation: NavigationIcon,
+  DollarSign: DollarSignIcon,
+  MinusCircle: MinusCircleIcon,
+  Mountain: MountainIcon,
+  MountainSnow: MountainSnowIcon,
+  Globe: GlobeIcon,
+  Layers: LayersIcon,
+  CheckCircle: CheckCircleIcon,
+  Theater: TheaterIcon,
+  Map: MapIcon,
+  Compass: CompassIcon,
+  Filter: FilterIcon,
+  Satellite: SatelliteIcon,
+  Monitor: MonitorIcon,
+  Locate: LocateIcon
+} = LucideIcons;

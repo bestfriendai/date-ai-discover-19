@@ -1,6 +1,30 @@
 
-project_id = "your-project-id"
+project_id = "akwvmljopucsnorvdwuu"
 
-[functions]
+[api]
+enabled = true
+port = 54321
+types = "./types.ts"
+
+[db]
+port = 54322
+
+[realtime]
+enabled = true
+
+[studio]
+enabled = true
+port = 54323
+
+# Email auth webhook
+[auth.email.enable_signup]
+enabled = true
+
 [functions.fetch-events]
+verify_jwt = false
+
+[functions.search-events-simple]
+verify_jwt = false
+
+[functions.search-events-unified]
 verify_jwt = false

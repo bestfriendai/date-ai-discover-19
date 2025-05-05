@@ -18,6 +18,7 @@ export interface Event {
   price?: string;
   rawDate?: string;
   isPartyEvent?: boolean;
+  isSelected?: boolean; // Added for marker highlighting
   rank?: number;
   localRelevance?: number;
   attendance?: {
@@ -25,4 +26,29 @@ export interface Event {
   }
 }
 
-export type PartySubcategory = 'day-party' | 'social' | 'club' | 'networking' | 'celebration' | 'general' | 'nightclub' | 'festival' | 'day party' | 'rooftop' | 'immersive' | 'popup';
+export type PartySubcategory = 
+  | 'day-party' 
+  | 'social' 
+  | 'club' 
+  | 'nightclub'
+  | 'networking' 
+  | 'celebration' 
+  | 'general' 
+  | 'festival'
+  | 'day party' 
+  | 'rooftop' 
+  | 'immersive' 
+  | 'popup'
+  | 'brunch';
+
+export interface SearchEventsParams {
+  query?: string;
+  location?: string;
+  date?: string;
+  limit?: number;
+  category?: string;
+  coordinates?: [number, number];
+  radius?: number;
+  excludeIds?: string[];
+  fields?: string[];
+}
