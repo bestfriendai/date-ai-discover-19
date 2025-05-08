@@ -4,9 +4,6 @@ import { DateRange } from 'react-day-picker';
 /**
  * Event interface representing an event from any source
  */
-// Import PartySubcategory type from eventNormalizers
-import { PartySubcategory } from './utils/eventNormalizers';
-
 export interface Event {
   id: string;
   title: string;
@@ -71,12 +68,12 @@ export type PartySubcategory =
   | 'gala'
   | 'costume'
   | 'day-party' 
+  | 'day party' 
   | 'social' 
   | 'club' 
   | 'networking' 
   | 'celebration' 
   | 'general' 
-  | 'day party' 
   | 'rooftop' 
   | 'immersive' 
   | 'popup'

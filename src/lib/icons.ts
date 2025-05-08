@@ -1,5 +1,5 @@
 
-// Import icons using named imports syntax
+// Import individual icons from lucide-react
 import {
   Check,
   ChevronRight,
@@ -18,8 +18,6 @@ import {
   PanelLeft,
   Plus,
   Minus,
-  
-  // Additional icons needed for the app
   Sparkles,
   Music,
   MapPin,
@@ -76,7 +74,7 @@ import {
   Locate
 } from 'lucide-react';
 
-// Export all icons directly
+// Export all icons
 export {
   Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
   Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,

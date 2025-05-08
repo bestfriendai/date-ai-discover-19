@@ -16,49 +16,48 @@ export const getPartyMarkerConfig = (event: Event) => {
 
   // Get subcategory-specific colors
   if (event.partySubcategory) {
-    switch (event.partySubcategory) {
-      case 'nightclub':
-        return {
-          ...baseConfig,
-          color: '#9C27B0', // Purple
-        };
-      case 'festival':
-        return {
-          ...baseConfig,
-          color: '#FFD700', // Gold
-        };
-      case 'concert':
-        return {
-          ...baseConfig,
-          color: '#1E88E5', // Blue
-        };
-      case 'bar':
-        return {
-          ...baseConfig,
-          color: '#4CAF50', // Green
-        };
-      case 'lounge':
-        return {
-          ...baseConfig,
-          color: '#E91E63', // Pink
-        };
-      case 'mixer':
-        return {
-          ...baseConfig,
-          color: '#FF9800', // Orange
-        };
-      case 'gala':
-        return {
-          ...baseConfig,
-          color: '#673AB7', // Deep Purple
-        };
-      case 'costume':
-        return {
-          ...baseConfig,
-          color: '#F44336', // Red
-        };
-      default:
-        return baseConfig;
+    const subcategory = event.partySubcategory;
+    
+    if (subcategory === 'nightclub') {
+      return {
+        ...baseConfig,
+        color: '#9C27B0', // Purple
+      };
+    } else if (subcategory === 'festival') {
+      return {
+        ...baseConfig,
+        color: '#FFD700', // Gold
+      };
+    } else if (subcategory === 'concert') {
+      return {
+        ...baseConfig,
+        color: '#1E88E5', // Blue
+      };
+    } else if (subcategory === 'bar') {
+      return {
+        ...baseConfig,
+        color: '#4CAF50', // Green
+      };
+    } else if (subcategory === 'lounge') {
+      return {
+        ...baseConfig,
+        color: '#E91E63', // Pink
+      };
+    } else if (subcategory === 'mixer') {
+      return {
+        ...baseConfig,
+        color: '#FF9800', // Orange
+      };
+    } else if (subcategory === 'gala') {
+      return {
+        ...baseConfig,
+        color: '#673AB7', // Deep Purple
+      };
+    } else if (subcategory === 'costume') {
+      return {
+        ...baseConfig,
+        color: '#F44336', // Red
+      };
     }
   }
 
