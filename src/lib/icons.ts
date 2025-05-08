@@ -1,5 +1,5 @@
 
-// Import icons directly from lucide-react
+// Import icons using named imports syntax
 import {
   Check,
   ChevronRight,
@@ -16,6 +16,8 @@ import {
   ChevronUp,
   GripVertical,
   PanelLeft,
+  Plus,
+  Minus,
   
   // Additional icons needed for the app
   Sparkles,
@@ -53,8 +55,6 @@ import {
   Mail,
   Lock,
   Loader2,
-  Plus,
-  Minus,
   Settings,
   Send,
   Bot,
@@ -80,14 +80,14 @@ import {
 export {
   Check, ChevronRight, MoreHorizontal, ChevronLeft, ArrowLeft, ArrowRight,
   Search, Circle, Calendar, X, Dot, ChevronDown, ChevronUp, GripVertical,
-  PanelLeft,
+  PanelLeft, Plus, Minus,
   
   // Additional app-specific exports
   Sparkles, Music, MapPin, Palette, Trophy, Users, Utensils, PartyPopper,
   Headphones, Package, Sun, Coffee, Network, Wine, Building, CalendarDays,
   Clock, Trash2, Edit, AlertCircle, PlusCircle, Moon, SlidersHorizontal,
   Star, Info, Heart, Share2, ExternalLink, Ticket, TrendingUp, User,
-  LogOut, Mail, Lock, Loader2, Plus, Minus, Settings, Send, Bot, Car, Navigation,
+  LogOut, Mail, Lock, Loader2, Settings, Send, Bot, Car, Navigation,
   DollarSign, MinusCircle, Mountain, MountainSnow, Globe, Layers, CheckCircle,
   Theater, Map, Compass, Filter, Satellite, Monitor, Locate
 };

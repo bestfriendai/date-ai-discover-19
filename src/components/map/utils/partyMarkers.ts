@@ -1,6 +1,5 @@
 
-import { Event } from '@/types';
-import { PartySubcategory } from '@/utils/eventNormalizers';
+import { Event, PartySubcategory } from '@/types';
 
 // Get party marker configuration based on event type
 export const getPartyMarkerConfig = (event: Event) => {

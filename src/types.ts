@@ -57,6 +57,31 @@ export { EventFilters as MapControlsEventFilters } from './components/map/compon
  * Map style options
  */
 export type MapStyle = 'streets' | 'outdoors' | 'light' | 'dark' | 'satellite';
+
+/**
+ * Expanded PartySubcategory type to include all needed values
+ */
+export type PartySubcategory = 
+  | 'nightclub' 
+  | 'festival'
+  | 'concert'
+  | 'bar'
+  | 'lounge'
+  | 'mixer'
+  | 'gala'
+  | 'costume'
+  | 'day-party' 
+  | 'social' 
+  | 'club' 
+  | 'networking' 
+  | 'celebration' 
+  | 'general' 
+  | 'day party' 
+  | 'rooftop' 
+  | 'immersive' 
+  | 'popup'
+  | 'brunch';
+
 /**
  * Represents a single item in an itinerary (e.g., an event or activity)
  */
