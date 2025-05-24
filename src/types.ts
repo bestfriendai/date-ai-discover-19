@@ -2,7 +2,7 @@
 import { DateRange } from 'react-day-picker';
 
 /**
- * Expanded PartySubcategory type to include all needed values
+ * Consolidated PartySubcategory type - single source of truth
  */
 export type PartySubcategory = 
   | 'nightclub' 
@@ -39,13 +39,13 @@ export interface Event {
   coordinates?: [number, number]; // [longitude, latitude]
   price?: number | string;
   category?: string;
-  partySubcategory?: PartySubcategory; // Added for party events
+  partySubcategory?: PartySubcategory;
   image?: string;
   url?: string;
   source?: string;
-  isSelected?: boolean; // For marker selection state
-  latitude?: number; // Additional coordinate property
-  longitude?: number; // Additional coordinate property
+  isSelected?: boolean;
+  latitude?: number;
+  longitude?: number;
 
   // PredictHQ specific fields
   rank?: number;
@@ -63,12 +63,12 @@ export interface Event {
 export interface EventFilters {
   dateRange?: DateRange;
   categories?: string[];
-  priceRange?: [number, number]; // [min, max] in USD
-  distance?: number; // in miles
-  sortBy?: 'date' | 'distance' | 'price'; // Sort options
-  keyword?: string; // Search keyword
-  location?: string; // Location search
-  limit?: number; // Maximum number of events to return
+  priceRange?: [number, number];
+  distance?: number;
+  sortBy?: 'date' | 'distance' | 'price';
+  keyword?: string;
+  location?: string;
+  limit?: number;
 }
 
 // Export the updated EventFilters from MapControls
@@ -80,34 +80,34 @@ export { EventFilters as MapControlsEventFilters } from './components/map/compon
 export type MapStyle = 'streets' | 'outdoors' | 'light' | 'dark' | 'satellite';
 
 /**
- * Represents a single item in an itinerary (e.g., an event or activity)
+ * Represents a single item in an itinerary
  */
 export interface ItineraryItem {
   id: string;
-  eventId?: string; // Reference to Event.id
+  eventId?: string;
   title: string;
   description?: string;
   location?: string;
-  location_name?: string; // For DB compatibility
+  location_name?: string;
   coordinates?: [number, number] | unknown;
-  location_coordinates?: [number, number] | unknown; // For DB compatibility
-  startTime: string; // ISO string
-  endTime: string; // ISO string
+  location_coordinates?: [number, number] | unknown;
+  startTime: string;
+  endTime: string;
   notes?: string;
   type: 'EVENT' | 'CUSTOM';
   order: number;
-  event?: Event; // Optionally embed the event details
+  event?: Event;
 }
 
 /**
- * Represents a user's itinerary (a plan for a date or trip)
+ * Represents a user's itinerary
  */
 export interface Itinerary {
   id: string;
   name: string;
   description?: string;
   userId?: string;
-  date: string; // ISO date string
+  date: string;
   items: ItineraryItem[];
   isPublic?: boolean;
   createdAt?: string;
