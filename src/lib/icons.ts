@@ -1,5 +1,5 @@
 
-// Import individual icons from lucide-react
+// Import individual icons from lucide-react using correct names
 import {
   Check,
   ChevronRight,

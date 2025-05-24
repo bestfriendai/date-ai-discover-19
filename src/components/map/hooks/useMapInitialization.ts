@@ -45,24 +45,38 @@ export const useMapInitialization = (
           return;
         }
 
-        // Use the Mapbox token from environment variables
-        const mapboxToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
+        // Get Mapbox token from environment variables with validation
+        let mapboxToken = env.NEXT_PUBLIC_MAPBOX_TOKEN;
         
-        if (!mapboxToken) {
-          console.error('[MAP_DEBUG] No Mapbox token found in environment variables');
-          setState(prev => ({ ...prev, mapError: "Missing Mapbox access token. Please check your configuration." }));
+        console.log('[MAP_DEBUG] Token check:', {
+          tokenExists: !!mapboxToken,
+          tokenLength: mapboxToken?.length || 0,
+          tokenPrefix: mapboxToken?.substring(0, 3) || 'none'
+        });
+
+        // Validate token format
+        if (!mapboxToken || !mapboxToken.startsWith('pk.')) {
+          console.warn('[MAP_DEBUG] Invalid or missing Mapbox token');
+          setState(prev => ({ 
+            ...prev, 
+            mapError: "Invalid Mapbox token. Please check your configuration and add a valid Mapbox access token." 
+          }));
+          
+          toast({
+            title: "Map Configuration Error",
+            description: "Mapbox access token is missing or invalid. Please add a valid token to use the map.",
+            variant: "destructive"
+          });
           return;
         }
 
         console.log('[MAP_DEBUG] Setting Mapbox token and initializing map');
-        
-        // Set the Mapbox access token
         mapboxgl.accessToken = mapboxToken;
 
-        // Verify the token is set
-        if (!mapboxgl.accessToken) {
-          console.error('[MAP_DEBUG] Failed to set Mapbox token');
-          setState(prev => ({ ...prev, mapError: "Failed to set Mapbox access token." }));
+        // Verify the token is set correctly
+        if (!mapboxgl.accessToken || mapboxgl.accessToken !== mapboxToken) {
+          console.error('[MAP_DEBUG] Failed to set Mapbox token correctly');
+          setState(prev => ({ ...prev, mapError: "Failed to configure Mapbox access token." }));
           return;
         }
 
@@ -92,7 +106,22 @@ export const useMapInitialization = (
         newMap.on('error', (e: any) => {
           console.error('[MAP_DEBUG] Mapbox specific error:', e);
           const errorMessage = e.error ? e.error.message : 'Unknown map error';
-          setState(prev => ({ ...prev, mapError: `Map error: ${errorMessage}` }));
+          
+          // Check for token-related errors specifically
+          if (errorMessage.toLowerCase().includes('token') || errorMessage.toLowerCase().includes('unauthorized')) {
+            setState(prev => ({ 
+              ...prev, 
+              mapError: 'Invalid Mapbox access token. Please check your token and try again.' 
+            }));
+            
+            toast({
+              title: "Mapbox Token Error",
+              description: "The Mapbox access token is invalid or expired. Please update your token.",
+              variant: "destructive"
+            });
+          } else {
+            setState(prev => ({ ...prev, mapError: `Map error: ${errorMessage}` }));
+          }
         });
 
         try {
@@ -120,6 +149,7 @@ export const useMapInitialization = (
 
         console.error('[MAP_DEBUG] Map initialization error:', error);
         setState(prev => ({ ...prev, mapError: errorMessage }));
+        
         toast({
           title: "Map initialization failed",
           description: errorMessage,
@@ -132,7 +162,9 @@ export const useMapInitialization = (
 
     return () => {
       isMounted = false;
-      state.map?.remove();
+      if (state.map) {
+        state.map.remove();
+      }
     };
   }, [mapContainer, mapStyle, viewState, onMapLoad]);
 
